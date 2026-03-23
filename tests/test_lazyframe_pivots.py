@@ -147,6 +147,25 @@ def test_pivot_auto_detect_index(sample_df: pl.DataFrame) -> None:
     )
 
 
+def test_pivot_maintain_order(sample_df: pl.DataFrame) -> None:
+    assert_lf_eq_pl(
+        pql.LazyFrame(sample_df).pivot(
+            "department",
+            on_columns=["Engineering", "Sales"],
+            index="id",
+            values="salary",
+            maintain_order=True,
+        ),
+        sample_df.lazy().pivot(
+            "department",
+            on_columns=["Engineering", "Sales"],
+            index="id",
+            values="salary",
+            maintain_order=True,
+        ),
+    )
+
+
 def test_pivot_integer_on_columns(sample_df: pl.DataFrame) -> None:
     cols = (1, 2, 3, 4, 5)
     assert_lf_eq_pl(

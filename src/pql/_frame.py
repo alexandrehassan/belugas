@@ -86,11 +86,7 @@ class LazyFrame(sql.CoreHandler[sql.Frame]):
         )
 
     def _iter_slct(self, func: Callable[[str], sql.SqlExpr]) -> Self:
-        return (
-            self.columns.iter()
-            .map(func)
-            .into(lambda exprs: self.inner().select(*exprs).pipe(self._new))
-        )
+        return self.select(self.columns.iter().map(func))
 
     def _iter_agg(self, func: Callable[[sql.SqlExpr], sql.SqlExpr]) -> Self:
         return (

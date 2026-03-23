@@ -167,11 +167,13 @@ class OverBuilder:
         )
 
     def handle_clauses(self, **kwargs: Unpack[ClauseArgs]) -> Self:
-        match self.expr.find(exp.Window):
+        expr, clauses = _rewrite_forward_fill(self.expr, kwargs)
+
+        match expr.find(exp.Window):
             case None:
-                return self.__class__(_wrap_in_window(self.expr, kwargs))
+                return self.__class__(_wrap_in_window(expr, clauses))
             case _:
-                return self.__class__(_inject_into_existing(self.expr, kwargs))
+                return self.__class__(_inject_into_existing(expr, clauses))
 
     def build(self) -> exp.Expr:
         return self.expr
@@ -197,6 +199,49 @@ def rolling_agg(expr: exp.Expr, order_by: str, spec: BoundsValues) -> exp.Expr:
         )
         .build()
     )
+
+
+def _rewrite_forward_fill(
+    expr: exp.Expr, clauses: ClauseArgs
+) -> tuple[exp.Expr, ClauseArgs]:
+    from .._meta import Marker
+
+    def _last_value_arg(inner: exp.Expr) -> pc.Option[exp.Expr]:
+        match inner:
+            case exp.Anonymous() as fn if fn.name.lower() == "last_value":
+                return pc.Option(fn.args.get("expressions", [])).map(lambda x: x[0])  # pyright: ignore[reportAny]
+            case _:
+                return pc.NONE
+
+    def _rewritten(arg: exp.Expr) -> tuple[exp.AnyValue, ClauseArgs]:
+        return (
+            exp.AnyValue(this=arg),
+            ClauseArgs(
+                partition_by=clauses["partition_by"],
+                order=get_order(
+                    pc.Some(Marker.TEMP),
+                    descending=True,
+                    nulls_last=False,
+                ),
+                spec=make_spec(
+                    "ROWS",
+                    has_order_by=True,
+                    frame_start=pc.Some(0),
+                    frame_end=pc.NONE,
+                    exclude=pc.NONE,
+                ),
+            ),
+        )
+
+    match expr:
+        case exp.IgnoreNulls():
+            match expr.args.get("this"):
+                case exp.Expr() as val:
+                    return _last_value_arg(val).map_or((expr, clauses), _rewritten)
+                case _:
+                    return expr, clauses
+        case _:
+            return expr, clauses
 
 
 def _inject_into_existing(expr: exp.Expr, clauses: ClauseArgs) -> exp.Expr:

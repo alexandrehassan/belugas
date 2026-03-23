@@ -70,7 +70,7 @@ class Marker(StrEnum):
 
     @classmethod
     def windowed(cls, lf: sql.Frame, cols: PyoIterable[ResolvedExpr]) -> sql.Frame:
-        match cols.any(lambda p: cls.TEMP in str(p.expr)):
+        match cols.any(lambda p: p.name != cls.TEMP and cls.TEMP in str(p.expr)):
             case True:
                 return lf.select(
                     sql.row_number().over().sub(1).alias(cls.TEMP), sql.all()
