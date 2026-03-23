@@ -269,9 +269,7 @@ def make_spec(
     return (
         BoundsValues.new(bounds, has_order_by=has_order_by)
         .map(lambda b: b.into_spec(mode))
-        .inspect(
-            lambda spec: bounds["exclude"].inspect(lambda ex: spec.set("exclude", ex))
-        )
+        .inspect(lambda spec: bounds["exclude"].map(lambda ex: spec.set("exclude", ex)))
     )
 
 
