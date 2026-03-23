@@ -73,7 +73,44 @@ class DuckHandler(CoreHandler[exp.Expr]):
 
     def into_duckdb(self) -> duckdb.Expression:
         """Convert the inner expression to a DuckDB expression."""
-        return duckdb.SQLExpression(self.inner().sql(dialect="duckdb"))
+        return _glot_into_duckdb(self.inner())
+
+
+def _glot_into_duckdb(expr: exp.Expr) -> duckdb.Expression:  # noqa: C901
+    def _alias_name(value: exp.Expr | str | None) -> pc.Result[str, ValueError]:
+        match value:
+            case exp.Identifier() as ident:
+                return pc.Ok(ident.name)
+            case exp.Expr() as expr:
+                return pc.Ok(expr.sql(dialect="duckdb"))
+            case str() as name:
+                return pc.Ok(name)
+            case _:
+                msg = "Alias expression requires a non-empty alias name"
+                return pc.Err(ValueError(msg))
+
+    match expr:
+        case exp.Alias() as alias_expr:
+            return (
+                _alias_name(alias_expr.args.get("alias"))
+                .map(lambda name: _glot_into_duckdb(alias_expr.this).alias(name))  # pyright: ignore[reportAny]
+                .unwrap()
+            )
+        case exp.Ordered() as ordered_expr:
+            ordered = _glot_into_duckdb(ordered_expr.this)  # pyright: ignore[reportAny]
+            match ordered_expr.args.get("desc", None) is not None:
+                case True:
+                    ordered = ordered.desc()
+                case False:
+                    ordered = ordered.asc()
+            match ordered_expr.args.get("nulls_first", None) is not None:
+                case True:
+                    ordered = ordered.nulls_first()
+                case False:
+                    ordered = ordered.nulls_last()
+            return ordered
+        case _:
+            return duckdb.SQLExpression(expr.sql(dialect="duckdb"))
 
 
 def into_duckdb_mapping(value: Mapping[str, IntoExpr]) -> pc.Dict[str, IntoDuckExpr]:
