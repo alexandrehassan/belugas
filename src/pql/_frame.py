@@ -77,16 +77,6 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         qry = sql.from_query(expr.sql(dialect="duckdb"), **kwargs)
         return self.__class__(qry)
 
-    def _filter(
-        self, preds: Iterable[IntoExprColumn], *more_preds: IntoExprColumn
-    ) -> Self:
-        expr = (
-            try_chain(preds, more_preds)
-            .into(sql.reduce, sql.SqlExpr.and_)
-            .into_duckdb()
-        )
-        return self._new(self.inner().filter(expr))
-
     def _iter_slct(self, func: Callable[[str], sql.SqlExpr]) -> Self:
         return self.select(self.columns.iter().map(func))
 
@@ -132,20 +122,18 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         **constraints: IntoExpr,
     ) -> Self:
         """Filter rows based on predicates and equality constraints."""
-        return (
+
+        def _constraint(k: str, val: IntoExpr) -> sql.SqlExpr:
+            return sql.col(k).eq(sql.into_expr(val))
+
+        expr = (
             try_chain(predicates, more_predicates)
             .map(lambda value: sql.into_expr(value, as_col=True))
-            .chain(
-                pc.Option(constraints)
-                .map(
-                    lambda mapping: pc.Iter(mapping.items()).map_star(
-                        lambda name, value: sql.col(name).eq(sql.into_expr(value))
-                    )
-                )
-                .unwrap_or_else(pc.Iter[sql.SqlExpr].new)
-            )
-            .into(self._filter)
+            .chain(pc.Iter(constraints.items()).map_star(_constraint))
+            .into(sql.reduce, sql.SqlExpr.and_)
+            .into_duckdb()
         )
+        return self._new(self.inner().filter(expr))
 
     def group_by(
         self,
@@ -163,7 +151,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
             .collect()
         )
         grouped_frame = (
-            key_exprs.iter().map(lambda key: key.is_not_null()).into(self._filter)
+            key_exprs.iter().map(lambda key: key.is_not_null()).into(self.filter)
             if drop_null_keys
             else self
         )
@@ -298,7 +286,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
             .map(try_iter)
             .unwrap_or_else(self.columns.iter)
             .map(lambda name: sql.col(name).is_not_null())
-            .into(self._filter)
+            .into(self.filter)
         )
 
     def explode(
@@ -952,7 +940,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
             .map(try_iter)
             .unwrap_or_else(self.columns.iter)
             .map(lambda name: sql.col(name).is_nan().not_())
-            .into(self._filter)
+            .into(self.filter)
         )
 
     def fetch_all(self) -> pc.Vec[tuple[Any, ...]]:  # pyright: ignore[reportExplicitAny]
