@@ -269,7 +269,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
                 return pc.NONE
 
     def is_in(self, *args: IntoExpr) -> Self:
-        exprs = pc.Iter(args).map(into_glot).collect()
+        exprs = pc.Iter(args).map(into_glot).collect(list)
         return self._new(exp.In(this=self.inner(), expressions=exprs))
 
     def is_not_in(self, *args: IntoExpr) -> Self:
