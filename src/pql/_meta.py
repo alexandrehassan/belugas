@@ -73,16 +73,8 @@ class Marker(StrEnum):
     def windowed(
         cls, lf: DuckDBPyRelation, cols: PyoIterable[ResolvedExpr]
     ) -> DuckDBPyRelation:
-        def _uses_temp(expr: sql.SqlExpr) -> bool:
-            return pc.Iter(expr.inner().find_all(exp.Column)).any(
-                lambda col: (
-                    pc.Option.if_some(col.parts[-1])
-                    .map(lambda part: part.name == cls.TEMP)
-                    .unwrap_or(default=False)
-                )
-            )
 
-        match cols.any(lambda p: p.name != cls.TEMP and _uses_temp(p.expr)):
+        match cols.any(lambda p: p.is_windowed(cls.TEMP)):
             case True:
                 row_nb = sql.row_number().over().sub(1).alias(cls.TEMP).into_duckdb()
                 return lf.select(row_nb, sql.all().into_duckdb())
@@ -109,11 +101,11 @@ class ExprMeta(ABC):
     kind: ExprKind = ExprKind.ROW
 
     @abstractmethod
-    def resolve(
+    def into_resolved(
         self, template: sql.SqlExpr, schema: Schema, alias_override: pc.Option[str]
     ) -> pc.Iter[ResolvedExpr]: ...
 
-    def resolve_output_names(
+    def get_output_names(
         self, base_names: PyoCollection[str], forced_name: pc.Option[str]
     ) -> PyoCollection[str]:
         match forced_name:
@@ -143,12 +135,10 @@ class ExprMeta(ABC):
 @dataclass(slots=True)
 class SingleMeta(ExprMeta):
     @override
-    def resolve(
+    def into_resolved(
         self, template: sql.SqlExpr, schema: Schema, alias_override: pc.Option[str]
     ) -> pc.Iter[ResolvedExpr]:
-        output_names = self.resolve_output_names(
-            pc.Seq((self.root_name,)), alias_override
-        )
+        output_names = self.get_output_names(pc.Seq((self.root_name,)), alias_override)
         return ResolvedExpr(template, output_names.first(), self.kind).into_iter()
 
 
@@ -157,14 +147,14 @@ class MultiMeta(ExprMeta):
     resolver: ResolverFn = field(kw_only=True)
 
     @override
-    def resolve(
+    def into_resolved(
         self, template: sql.SqlExpr, schema: Schema, alias_override: pc.Option[str]
     ) -> pc.Iter[ResolvedExpr]:
         def _to_resolved(name: str, output: str) -> ResolvedExpr:
             return ResolvedExpr(Marker.replace_col(template, name), output, self.kind)
 
         base_names = self.resolver(schema)
-        output_names = self.resolve_output_names(base_names, alias_override)
+        output_names = self.get_output_names(base_names, alias_override)
         match alias_override.is_none():
             case True:
                 return base_names.iter().zip(output_names).map_star(_to_resolved)
@@ -180,6 +170,12 @@ class ResolvedExpr(NamedTuple):
     name: str
     kind: ExprKind
 
+    @classmethod
+    def from_named(cls, val: IntoExpr, alias_override: pc.Option[str]) -> Self:
+        resolved = sql.into_expr(val, as_col=True)
+        output_name = alias_override.unwrap_or(resolved.get_name())
+        return cls(resolved, output_name, kind=ExprKind.ROW)
+
     def implode_or_scalar(self) -> sql.SqlExpr:
         match self.kind:
             case ExprKind.SCALAR:
@@ -194,6 +190,18 @@ class ResolvedExpr(NamedTuple):
 
     def into_iter(self) -> pc.Iter[Self]:
         return pc.Iter.once(self)
+
+    def is_windowed(self, marker: Marker) -> bool:
+        def _check_temp(col: exp.Column) -> bool:
+            return (
+                pc.Option.if_some(col.parts[-1])
+                .map(lambda part: part.name == marker)
+                .unwrap_or(default=False)
+            )
+
+        return self.name != marker and pc.Iter(
+            self.expr.inner().find_all(exp.Column)
+        ).any(_check_temp)
 
 
 @dataclass(slots=True, init=False)
@@ -216,13 +224,9 @@ class ExprPlan:
 
             match val:
                 case Expr() as expr:
-                    return expr.meta.resolve(expr.inner(), schema, alias_override)
+                    return expr.meta.into_resolved(expr.inner(), schema, alias_override)
                 case _:
-                    resolved = sql.into_expr(val, as_col=True)
-                    output_name = alias_override.unwrap_or(resolved.get_name())
-                    return ResolvedExpr(
-                        resolved, output_name, kind=ExprKind.ROW
-                    ).into_iter()
+                    return ResolvedExpr.from_named(val, alias_override).into_iter()
 
         self.cols = schema.keys()
         expr_map = (
@@ -265,14 +269,49 @@ class ExprPlan:
         ).unwrap_or_else(Marker.empty_frame)
 
     def with_columns_context(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
-        def _resolve(lf: DuckDBPyRelation) -> DuckDBPyRelation:
+
+        def _resolve() -> pc.Iter[Expression]:
+            def _resolved(updates: pc.Dict[str, sql.SqlExpr]) -> pc.Iter[sql.SqlExpr]:
+                match updates.any(lambda name: name in self.cols):
+                    case False:
+                        return (
+                            updates.items()
+                            .iter()
+                            .map_star(lambda name, e: e.alias(name))
+                            .insert(sql.all())
+                        )
+                    case True:
+                        return (
+                            self.cols.iter()
+                            .map(
+                                lambda name: updates.get_item(name).map_or(
+                                    sql.col(name), lambda c: c.alias(name)
+                                )
+                            )
+                            .chain(
+                                updates.items()
+                                .iter()
+                                .filter_star(lambda name, _expr: name not in self.cols)
+                                .map_star(lambda name, e: e.alias(name))
+                            )
+                        )
+
+            return (
+                self.projections.iter()
+                .map(lambda r: (r.name, r.expr))
+                .collect(pc.Dict)
+                .into(_resolved)
+                .map(lambda c: c.into_duckdb())
+            )
+
+        def _get_lf(lf: DuckDBPyRelation) -> DuckDBPyRelation:
             match self.projections.any(lambda r: r.kind == ExprKind.SCALAR):
                 case True:
-                    return self.resolve().into(lf.aggregate)
+                    return _resolve().into(lf.aggregate)
                 case False:
-                    return self.resolve().into(lambda exprs: lf.select(*exprs))
+                    return _resolve().into(lambda exprs: lf.select(*exprs))
 
-        return _resolve(Marker.windowed(lf, self.projections))
+        return _get_lf(Marker.windowed(lf, self.projections))
 
     def with_fields_context(self, expr: sql.SqlExpr) -> sql.SqlExpr:
         return (
@@ -294,41 +333,6 @@ class ExprPlan:
         )
 
         return keys.iter().chain(plan).into(aggregator)
-
-    def resolve(self) -> pc.Iter[Expression]:
-
-        def _resolved(updates: pc.Dict[str, sql.SqlExpr]) -> pc.Iter[sql.SqlExpr]:
-            match updates.any(lambda name: name in self.cols):
-                case False:
-                    return (
-                        updates.items()
-                        .iter()
-                        .map_star(lambda name, e: e.alias(name))
-                        .insert(sql.all())
-                    )
-                case True:
-                    return (
-                        self.cols.iter()
-                        .map(
-                            lambda name: updates.get_item(name).map_or(
-                                sql.col(name), lambda c: c.alias(name)
-                            )
-                        )
-                        .chain(
-                            updates.items()
-                            .iter()
-                            .filter_star(lambda name, _expr: name not in self.cols)
-                            .map_star(lambda name, e: e.alias(name))
-                        )
-                    )
-
-        return (
-            self.projections.iter()
-            .map(lambda r: (r.name, r.expr))
-            .collect(pc.Dict)
-            .into(_resolved)
-            .map(lambda c: c.into_duckdb())
-        )
 
 
 class Resolver:
