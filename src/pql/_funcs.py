@@ -45,7 +45,7 @@ def _agg_expr(
         .then_some()
         .into(
             lambda cols: MultiMeta(
-                cols.map(lambda c: c.first()).unwrap_or(Marker.ALL),
+                cols.map(lambda c: c.first()).unwrap_or(Marker.EMPTY),
                 kind=ExprKind.SCALAR,
                 resolver=Resolver.agg_expr(cols),
             )
@@ -84,8 +84,8 @@ def coalesce(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
 
 def all(exclude: TryIter[IntoExprColumn] = None) -> Expr:
     """Create an expression representing all columns (equivalent to pl.all())."""
-    meta = MultiMeta(Marker.ALL, resolver=Resolver.all_fn(pc.Option(exclude)))
-    return Expr(Marker.MULTI.to_expr(), meta)
+    meta = MultiMeta(Marker.MULTI, resolver=Resolver.all_fn(pc.Option(exclude)))
+    return Expr(sql.all(exclude), meta)
 
 
 def _horizontal_fn(

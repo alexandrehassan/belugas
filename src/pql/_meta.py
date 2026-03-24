@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, NamedTuple, Self, override
 
 import narwhals as nw
 import pyochain as pc
+from _duckdb._expression import Expression
 from sqlglot import exp
 
 from . import sql
@@ -27,7 +28,6 @@ if TYPE_CHECKING:
 class Marker(StrEnum):
     """Column name markers for special expression types."""
 
-    ALL = auto()
     ELEMENT = auto()
     LIT = "literal"
     LEN = "len"
@@ -50,7 +50,9 @@ class Marker(StrEnum):
 
         def _replacer(node: exp.Expr) -> exp.Expr:
             match node:
-                case exp.Column() if node.name == cls.MULTI:
+                case exp.Column() if node.name == Marker.MULTI:
+                    return target
+                case exp.Star():
                     return target
                 case _:
                     return node
@@ -73,7 +75,6 @@ class Marker(StrEnum):
     def windowed(
         cls, lf: DuckDBPyRelation, cols: PyoIterable[ResolvedExpr]
     ) -> DuckDBPyRelation:
-
         match cols.any(lambda p: p.is_windowed(cls.TEMP)):
             case True:
                 row_nb = sql.row_number().over().sub(1).alias(cls.TEMP).into_duckdb()
@@ -150,17 +151,38 @@ class MultiMeta(ExprMeta):
     def into_resolved(
         self, template: sql.SqlExpr, schema: Schema, alias_override: pc.Option[str]
     ) -> pc.Iter[ResolvedExpr]:
-        def _to_resolved(name: str, output: str) -> ResolvedExpr:
-            return ResolvedExpr(Marker.replace_col(template, name), output, self.kind)
+        resolved_fn = partial(ResolvedExpr, kind=self.kind)
 
-        base_names = self.resolver(schema)
-        output_names = self.get_output_names(base_names, alias_override)
-        match alias_override.is_none():
-            case True:
-                return base_names.iter().zip(output_names).map_star(_to_resolved)
-            case False:
-                _res = partial(_to_resolved, output=output_names.first())
-                return base_names.iter().map(_res)
+        def _get_builder() -> NamesBuilder:
+            base_names = self.resolver(schema)
+            output_names = self.get_output_names(base_names, alias_override)
+            return NamesBuilder(base_names, output_names, template, resolved_fn)
+
+        is_star = self.alias_name.is_none() and template.inner().is_star
+        match (alias_override.is_none(), is_star):
+            case (True, True):
+                return resolved_fn(template, template.get_name()).into_iter()
+            case (True, _):
+                return _get_builder().overriden()
+            case (False, _):
+                return _get_builder().not_overriden()
+
+
+class NamesBuilder(NamedTuple):
+    base: PyoCollection[str]
+    output: PyoCollection[str]
+    template: sql.SqlExpr
+    fn: partial[ResolvedExpr]
+
+    def _to_resolved(self, name: str, output: str) -> ResolvedExpr:
+        return self.fn(Marker.replace_col(self.template, name), output)
+
+    def overriden(self) -> pc.Iter[ResolvedExpr]:
+        return self.base.iter().zip(self.output).map_star(self._to_resolved)
+
+    def not_overriden(self) -> pc.Iter[ResolvedExpr]:
+        _res = partial(self._to_resolved, output=self.output.first())
+        return self.base.iter().map(_res)
 
 
 class ResolvedExpr(NamedTuple):
@@ -179,14 +201,15 @@ class ResolvedExpr(NamedTuple):
     def implode_or_scalar(self) -> sql.SqlExpr:
         match self.kind:
             case ExprKind.SCALAR:
-                return self.expr.alias(self.name)
+                expr = self.expr
             case ExprKind.UNIQUE:
-                return self.expr.implode().list.distinct().alias(self.name)
+                expr = self.expr.implode().list.distinct()
             case _:
-                return self.expr.implode().alias(self.name)
+                expr = self.expr.implode()
+        return expr if self.expr.inner().is_star else expr.alias(self.name)
 
     def as_aliased(self) -> sql.SqlExpr:
-        return self.expr.alias(self.name)
+        return self.expr if self.expr.inner().is_star else self.expr.alias(self.name)
 
     def into_iter(self) -> pc.Iter[Self]:
         return pc.Iter.once(self)
@@ -328,9 +351,35 @@ class ExprPlan:
         keys: PyoIterable[Expression],
         aggregator: Callable[[pc.Iter[Expression]], DuckDBPyRelation],
     ) -> DuckDBPyRelation:
-        plan = self.projections.iter().map(
-            lambda p: p.implode_or_scalar().into_duckdb()
-        )
+        def _lower_projection(proj: ResolvedExpr) -> pc.Iter[Expression]:
+            def _excluded(star: exp.Star) -> pc.Set[str]:
+                return (
+                    pc.Option(star.args.get("except_"))
+                    .map(pc.Iter[exp.Expr])
+                    .unwrap_or_else(pc.Iter[exp.Expr].new)
+                    .filter_map(lambda e: sql.SqlExpr(e).root_column_name())
+                    .collect(pc.Set)
+                )
+
+            def _into_duck(name: str) -> Expression:
+                return (
+                    ResolvedExpr(sql.col(name), name, proj.kind)
+                    .implode_or_scalar()
+                    .into_duckdb()
+                )
+
+            match proj.expr.inner():
+                case exp.Star() as star:
+                    excluded = _excluded(star)
+                    return (
+                        self.cols.iter()
+                        .filter(lambda name: name not in excluded)
+                        .map(_into_duck)
+                    )
+                case _:
+                    return pc.Iter.once(proj.implode_or_scalar().into_duckdb())
+
+        plan = self.projections.iter().flat_map(_lower_projection)
 
         return keys.iter().chain(plan).into(aggregator)
 
