@@ -27,7 +27,9 @@ class LazyGroupBy:
     ) -> None:
         self._frame = frame
         self._keys = keys
-        keys_names = keys.iter().map(sql.SqlExpr.get_name).collect(pc.Set)
+        keys_names = (
+            keys.iter().filter_map(sql.SqlExpr.root_column_name).collect(pc.Set)
+        )
         self._agg_schema = (
             frame.schema.items()
             .iter()

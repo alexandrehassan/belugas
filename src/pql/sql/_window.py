@@ -84,7 +84,7 @@ def get_partition(
 
 def _ordered(
     cols: pc.Seq[IntoExprColumn], **kwargs: Unpack[DirectionArgs]
-) -> pc.Seq[exp.Ordered]:
+) -> list[exp.Ordered]:
     def _expand_clauses(*, clauses: TryIter[bool], n: int) -> pc.Iter[bool]:
         match clauses:
             case Iterable() as seq:
@@ -103,7 +103,7 @@ def _ordered(
                 this=into_glot(item), desc=desc, nulls_first=not nl
             )
         )
-        .collect()
+        .collect(list)
     )
 
 

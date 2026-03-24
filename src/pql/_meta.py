@@ -70,7 +70,16 @@ class Marker(StrEnum):
 
     @classmethod
     def windowed(cls, lf: sql.Frame, cols: PyoIterable[ResolvedExpr]) -> sql.Frame:
-        match cols.any(lambda p: p.name != cls.TEMP and cls.TEMP in str(p.expr)):
+        def _uses_temp(expr: sql.SqlExpr) -> bool:
+            return pc.Iter(expr.inner().find_all(exp.Column)).any(
+                lambda col: (
+                    pc.Option.if_some(col.parts[-1])
+                    .map(lambda part: part.name == cls.TEMP)
+                    .unwrap_or(default=False)
+                )
+            )
+
+        match cols.any(lambda p: p.name != cls.TEMP and _uses_temp(p.expr)):
             case True:
                 return lf.select(
                     sql.row_number().over().sub(1).alias(cls.TEMP), sql.all()
@@ -325,7 +334,8 @@ class Resolver:
         return exclude.map(
             lambda exc: (
                 try_iter(exc)
-                .map(lambda value: sql.into_expr(value, as_col=True).get_name())
+                .map(lambda value: sql.into_expr(value, as_col=True))
+                .filter_map(sql.SqlExpr.root_column_name)
                 .collect(pc.Set)
                 .into(Resolver.exclude)
             )
