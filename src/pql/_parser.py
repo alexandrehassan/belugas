@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Self, override
+from typing import TYPE_CHECKING, Any, Self, override
 
 import duckdb
 import pyochain as pc
@@ -74,15 +74,15 @@ class DuckDbSqlLexer(SqlLexer):
                 return (pos, tokentype, token_text)
 
 
-def _get_kwords():  # noqa: ANN202
-    from sqlparse.tokens import Keyword
+def _get_kwords() -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
+    from sqlparse.tokens import Keyword  # pyright: ignore[reportUnknownVariableType]
 
     from .sql import col, lit, when
 
     name = col("keyword_name")
 
-    return (
-        meta.keywords()
+    return (  # pyright: ignore[reportUnknownVariableType]
+        meta.keywords()  # pyright: ignore[reportUnknownMemberType]
         .select(
             when(col("keyword_category").is_in(lit("reserved"), lit("unreserved")))
             .then(name.str.upper())
@@ -91,7 +91,7 @@ def _get_kwords():  # noqa: ANN202
         .fetch_all()
         .iter()
         .flatten()
-        .map(lambda x: (x, Keyword))  # pyright: ignore[reportAny]
+        .map(lambda x: (x, Keyword))  # pyright: ignore[reportAny, reportUnknownLambdaType]
         .collect(dict)
     )
 
