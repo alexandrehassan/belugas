@@ -61,6 +61,7 @@ class ParamLens:
 class PyCols:
     sql_name: pl.Expr = field(default=pl.col("sql_name"))
     raw_name: pl.Expr = field(default=pl.col("raw_py_name"))
+    glot_name: pl.Expr = field(default=pl.col("glot_name"))
     namespace: pl.Expr = field(default=pl.col("namespace"))
     name: pl.Expr = field(default=pl.col("py_name"))
     types: pl.Expr = field(default=pl.col("py_types"))

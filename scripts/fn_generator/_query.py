@@ -9,6 +9,7 @@ from ._dtypes import DuckDbTypes, FuncTypes
 from ._format import to_func
 from ._rules import (
     CONVERTER,
+    GLOT_FUNC_NAMES,
     NAMESPACE_SPECS,
     PREFIXES,
     RENAME_RULES,
@@ -49,6 +50,9 @@ def run_qry(lf: pl.LazyFrame) -> pl.LazyFrame:
         )
         .with_columns(
             dk.function_name.alias(py.sql_name.meta.output_name()),
+            dk.function_name.replace_strict(
+                GLOT_FUNC_NAMES, default=None, return_dtype=pl.String
+            ).alias(py.glot_name.meta.output_name()),
             dk.function_name.replace_strict(
                 RENAME_RULES, default=dk.function_name, return_dtype=pl.String
             ).alias(py.raw_name.meta.output_name()),

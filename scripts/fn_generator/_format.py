@@ -1,3 +1,5 @@
+from functools import partial
+
 import polars as pl
 
 from ._schemas import DuckCols, ParamLists, PyCols
@@ -22,8 +24,7 @@ def to_func(
         args_section=_args_section(has_params, p_lists, dk, py),
         examples_section=_examples_section(dk),
         sql_name=py.sql_name,
-        dk_args=_dk_args(has_params, p_lists),
-        dk_varargs=_dk_varargs(dk),
+        expr_call=_expr_call(has_params, py, p_lists, dk),
         ignore_nulls=True,
     )
 
@@ -48,6 +49,32 @@ def _dk_args(has_params: pl.Expr, p_lists: ParamLists) -> pl.Expr:
 
 def _dk_varargs(dk: DuckCols) -> pl.Expr:
     return pl.when(dk.varargs.is_not_null()).then(pl.lit(", *args"))
+
+
+def _expr_call(
+    has_params: pl.Expr, py: PyCols, p_lists: ParamLists, dk: DuckCols
+) -> pl.Expr:
+    formatter = partial(
+        format_kwords,
+        dk_args=_dk_args(has_params, p_lists),
+        dk_varargs=_dk_varargs(dk),
+        ignore_nulls=True,
+    )
+    return (
+        pl.when(py.glot_name.is_not_null())
+        .then(
+            formatter(
+                "glot_func(exp.{glot_name}, self.inner(){dk_args}{dk_varargs})",
+                glot_name=py.glot_name,
+            )
+        )
+        .otherwise(
+            formatter(
+                'func("{sql_name}", self.inner(){dk_args}{dk_varargs})',
+                sql_name=py.sql_name,
+            )
+        )
+    )
 
 
 def _args_section(
@@ -126,5 +153,5 @@ def _txt() -> str:
         Returns:
             {self_type}
         """
-        return self._new(func("{sql_name}", self.inner(){dk_args}{dk_varargs}))
+        return self._new({expr_call})
         '''
