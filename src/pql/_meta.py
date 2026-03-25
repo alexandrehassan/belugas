@@ -34,8 +34,6 @@ class Marker(StrEnum):
     """Marker for empty `LazyFrames`.
 
     DuckDB doesn't allow empty `DuckDBPyRelation`, so we need to create an empty column that is cleaned up afterwards if we want to convert to another type of empty frame."""
-    MULTI = "__pql_multi__"
-    """Marker for expressions that resolve to multiple columns, used as a placeholder in templates."""
     TEMP = "__pql_temp__"
 
     IDX = "__pql_idx__"
@@ -94,7 +92,6 @@ class ExprKind(IntEnum):
 class ExprMeta(ABC):
     """Metadata for expressions, used for tracking properties that affect query generation."""
 
-    root_name: str
     alias_name: pc.Option[Callable[[str], str]] = field(default_factory=lambda: pc.NONE)
     kind: ExprKind = ExprKind.ROW
 
@@ -132,6 +129,8 @@ class ExprMeta(ABC):
 
 @dataclass(slots=True)
 class SingleMeta(ExprMeta):
+    root_name: str = field(kw_only=True)
+
     @override
     def into_resolved(
         self, template: sql.SqlExpr, schema: Schema, alias_override: pc.Option[str]

@@ -9,7 +9,7 @@ import pyochain as pc
 
 from . import _datatypes as dt, sql  # pyright: ignore[reportPrivateUsage]
 from ._expr import Expr
-from ._meta import Marker, MultiMeta, Resolver, ResolverFn
+from ._meta import MultiMeta, Resolver, ResolverFn
 
 if TYPE_CHECKING:
     from .sql.typing import IntoExpr
@@ -28,7 +28,7 @@ class Selector(Expr):
 
     @classmethod
     def __from_resolver__(cls, resolver: ResolverFn) -> Self:
-        return cls(sql.all(), MultiMeta(Marker.MULTI, resolver=resolver))
+        return cls(sql.all(), MultiMeta(resolver=resolver))
 
     @overload
     def union(self, other: Self) -> Self: ...

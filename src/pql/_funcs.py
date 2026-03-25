@@ -16,7 +16,7 @@ class Col:
     __slots__ = ()
 
     def __call__(self, name: str) -> Expr:
-        return Expr(sql.col(name), SingleMeta(name))
+        return Expr(sql.col(name), SingleMeta(root_name=name))
 
     def __getattr__(self, name: str) -> Expr:
         return self(name)
@@ -27,12 +27,12 @@ col: Col = Col()
 
 def lit(value: PythonLiteral) -> Expr:
     """Create a literal expression."""
-    return Expr(sql.lit(value), SingleMeta(Marker.LIT))
+    return Expr(sql.lit(value), SingleMeta(root_name=Marker.LIT))
 
 
 def len() -> Expr:
     """Return the number of rows."""
-    return Expr(sql.lit(1), SingleMeta(Marker.LEN)).count()
+    return Expr(sql.lit(1), SingleMeta(root_name=Marker.LEN)).count()
 
 
 def _agg_expr(
@@ -46,12 +46,8 @@ def _agg_expr(
         return sql.SqlExpr(expr)
 
     names = try_chain(cols, more_cols).collect().then_some()
-    root_name = names.and_then(lambda cols: cols.iter().next()).unwrap_or(Marker.EMPTY)
     meta = MultiMeta(
-        root_name,
-        kind=ExprKind.SCALAR,
-        resolver=Resolver.agg_expr(names),
-        preserve_native=True,
+        kind=ExprKind.SCALAR, resolver=Resolver.agg_expr(names), preserve_native=True
     )
     inner_expr = (
         names.map(_columns_expr)
@@ -86,16 +82,12 @@ def coalesce(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
     expr_name = (
         try_iter(exprs).next().map(sql.into_expr, as_col=True).unwrap().get_name()
     )
-    return Expr(sql.coalesce(exprs, *more_exprs), SingleMeta(expr_name))
+    return Expr(sql.coalesce(exprs, *more_exprs), SingleMeta(root_name=expr_name))
 
 
 def all(exclude: TryIter[IntoExprColumn] = None) -> Expr:
     """Create an expression representing all columns (equivalent to pl.all())."""
-    meta = MultiMeta(
-        Marker.MULTI,
-        resolver=Resolver.all_fn(pc.Option(exclude)),
-        preserve_native=True,
-    )
+    meta = MultiMeta(resolver=Resolver.all_fn(pc.Option(exclude)), preserve_native=True)
     return Expr(sql.all(exclude), meta)
 
 
@@ -108,7 +100,7 @@ def _horizontal_fn(
         try_iter(exprs)
         .next()
         .map(lambda v: sql.into_expr(v, as_col=True).get_name())
-        .map(SingleMeta)
+        .map(lambda n: SingleMeta(root_name=n))
         .unwrap()
     )
     return Expr(fn(exprs, *more_exprs), meta)
@@ -138,7 +130,7 @@ def any_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
     return _horizontal_fn(exprs, more_exprs, sql.any_horizontal)
 
 
-_ELEMENT = Expr(sql.element(), SingleMeta(Marker.ELEMENT))
+_ELEMENT = Expr(sql.element(), SingleMeta(root_name=Marker.ELEMENT))
 
 
 def element() -> Expr:
