@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Self, final, overload, override
 
 import pyochain as pc
 
-from . import _datatypes as dt  # pyright: ignore[reportPrivateUsage]
+from . import _datatypes as dt, sql  # pyright: ignore[reportPrivateUsage]
 from ._expr import Expr
 from ._meta import Marker, MultiMeta, Resolver, ResolverFn
 
@@ -28,7 +28,7 @@ class Selector(Expr):
 
     @classmethod
     def __from_resolver__(cls, resolver: ResolverFn) -> Self:
-        return cls(Marker.MULTI.to_expr(), MultiMeta(Marker.MULTI, resolver=resolver))
+        return cls(sql.all(), MultiMeta(Marker.MULTI, resolver=resolver))
 
     @overload
     def union(self, other: Self) -> Self: ...

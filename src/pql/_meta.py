@@ -49,8 +49,6 @@ class Marker(StrEnum):
 
         def _replacer(node: exp.Expr) -> exp.Expr:
             match node:
-                case exp.Column() if node.name == Marker.MULTI:
-                    return target
                 case exp.Star() | exp.Columns():
                     return target
                 case _:
@@ -145,6 +143,7 @@ class SingleMeta(ExprMeta):
 @dataclass(slots=True)
 class MultiMeta(ExprMeta):
     resolver: ResolverFn = field(kw_only=True)
+    preserve_native: bool = field(default=False, kw_only=True)
 
     @override
     def into_resolved(
@@ -157,8 +156,10 @@ class MultiMeta(ExprMeta):
             output_names = self.get_output_names(base_names, alias_override)
             return NamesBuilder(base_names, output_names, template, resolved_fn)
 
-        is_multi = self.alias_name.is_none() and (
-            isinstance(template.inner(), exp.Columns) or template.inner().is_star
+        is_multi = (
+            self.preserve_native
+            and self.alias_name.is_none()
+            and (isinstance(template.inner(), exp.Columns) or template.inner().is_star)
         )
         match (alias_override.is_none(), is_multi):
             case (True, True):

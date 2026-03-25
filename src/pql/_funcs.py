@@ -47,7 +47,12 @@ def _agg_expr(
 
     names = try_chain(cols, more_cols).collect().then_some()
     root_name = names.and_then(lambda cols: cols.iter().next()).unwrap_or(Marker.EMPTY)
-    meta = MultiMeta(root_name, kind=ExprKind.SCALAR, resolver=Resolver.agg_expr(names))
+    meta = MultiMeta(
+        root_name,
+        kind=ExprKind.SCALAR,
+        resolver=Resolver.agg_expr(names),
+        preserve_native=True,
+    )
     inner_expr = (
         names.map(_columns_expr)
         .unwrap_or_else(lambda: sql.SqlExpr(exp.Columns(this=exp.Star())))
@@ -86,7 +91,11 @@ def coalesce(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
 
 def all(exclude: TryIter[IntoExprColumn] = None) -> Expr:
     """Create an expression representing all columns (equivalent to pl.all())."""
-    meta = MultiMeta(Marker.MULTI, resolver=Resolver.all_fn(pc.Option(exclude)))
+    meta = MultiMeta(
+        Marker.MULTI,
+        resolver=Resolver.all_fn(pc.Option(exclude)),
+        preserve_native=True,
+    )
     return Expr(sql.all(exclude), meta)
 
 
