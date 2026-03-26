@@ -187,3 +187,10 @@ def test_filter() -> None:
         pql.col("list_num").list.filter(pql.element().gt(3)),
         pl.col("list_num").list.filter(pl.element().gt(3)),
     )
+
+
+def test_explode() -> None:
+    assert_eq_pl(
+        pql.col("list_num").list.explode(),
+        pl.col("list_num").list.explode(),
+    )

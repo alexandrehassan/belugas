@@ -265,6 +265,12 @@ class SqlExprDateTimeNameSpace(DateTimeFns[SqlExpr]):
 class SqlExprListNameSpace(ListFns[SqlExpr]):
     """List function namespace for SQL expressions."""
 
+    def explode(self) -> SqlExpr:
+        """Explode lists into multiple rows."""
+        from ._funcs import unnest
+
+        return unnest(self.inner())
+
     def eval(self, expr: SqlExpr) -> SqlExpr:
         """Run an expression against each array element."""
         from ._funcs import fn_once
@@ -334,6 +340,12 @@ class SqlExprListNameSpace(ListFns[SqlExpr]):
 @dataclass(slots=True)
 class SqlExprArrayNameSpace(ArrayFns[SqlExpr]):
     """Array function namespace for SQL expressions."""
+
+    def explode(self) -> SqlExpr:
+        """Explode array into multiple rows."""
+        from ._funcs import unnest
+
+        return unnest(self.inner())
 
     def eval(self, expr: SqlExpr) -> SqlExpr:
         """Run an expression against each array element."""

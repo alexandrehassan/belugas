@@ -352,6 +352,10 @@ class _VecNameSpace[T: nm.SqlExprListNameSpace | nm.SqlExprArrayNameSpace](
     def count_matches(self, element: IntoExpr) -> Expr:
         return self._new(self._vec.count_matches(element))
 
+    def explode(self) -> Expr:
+        """Explode arrays into multiple rows."""
+        return self._new(self._vec.explode())
+
 
 @dataclass(slots=True)
 class ExprArrayNameSpace(_VecNameSpace[nm.SqlExprArrayNameSpace]):
