@@ -1,16 +1,6 @@
 """PQL - Polars Query Language over DuckDB."""
 
 from . import meta, selectors, sql
-from ._creation import (
-    from_df,
-    from_dict,
-    from_dicts,
-    from_numpy,
-    from_query,
-    from_records,
-    from_table,
-    from_table_function,
-)
 from ._datatypes import (
     UUID,
     Array,
@@ -67,6 +57,16 @@ from ._funcs import (
     min_horizontal,
     sum,
     sum_horizontal,
+)
+from ._scans import (
+    from_df,
+    from_dict,
+    from_dicts,
+    from_numpy,
+    from_query,
+    from_records,
+    from_table,
+    from_table_function,
 )
 from ._schema import Schema
 from ._when import when

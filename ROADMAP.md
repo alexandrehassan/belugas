@@ -21,3 +21,4 @@ Here are notes of ideas and to-dos.
 
 - Check the interop between polars SQL interface and duckdb SQL interface, and see if we can make them work together in a way that is more seamless than the current state of affairs.
 - Same but for expressions. potentially improve the current pushdowns of polars lazy exprs with duckdb exprs.
+- See if refactoring scans in a Rust module to have native Python -> Pyarrow -> DuckDB conversions is a real performance boost, and if so, do it.
