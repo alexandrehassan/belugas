@@ -3,13 +3,13 @@ from collections.abc import Iterable
 
 import polars as pl
 import pyochain as pc
-from sqlglot import exp
 
 from .._utils import Pql, Typing
 from ._dtypes import DuckDbTypes, FuncTypes
 from ._format import to_func
 from ._rules import (
     CONVERTER,
+    GLOT_FUNC_NAMES,
     NAMESPACE_SPECS,
     PREFIXES,
     RENAME_RULES,
@@ -49,7 +49,7 @@ def run_qry(lf: pl.LazyFrame) -> pl.LazyFrame:
                 how="left",
             )
         )
-        .join(_glot_name_map(), on="function_name", how="left")
+        .join(GLOT_FUNC_NAMES, on="function_name", how="left")
         .with_columns(
             pl.when(pl.col("alias_root").is_not_null())
             .then(glot_name.drop_nulls().first().over("alias_root"))
@@ -168,17 +168,6 @@ def _alias_map(lf: pl.LazyFrame, dk: DuckCols) -> pl.LazyFrame:
             pl.col("alias_group")
             .list.set_difference(pl.concat_list(dk.function_name))
             .alias("aliases"),
-        )
-    )
-
-
-def _glot_name_map() -> pl.LazyFrame:
-    return (
-        pc.Iter(exp.FUNCTION_BY_NAME.items())
-        .map_star(lambda sql_name, fn: (sql_name.lower(), fn.__name__))
-        .into(
-            pl.LazyFrame,
-            schema={"function_name": pl.String, "glot_name": pl.String},
         )
     )
 

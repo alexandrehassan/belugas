@@ -2,6 +2,7 @@ import builtins
 import keyword
 from dataclasses import dataclass, field
 
+import polars as pl
 import pyochain as pc
 from sqlglot import exp
 
@@ -14,7 +15,10 @@ CONVERTER = pc.Iter(DuckDbTypes).map(lambda t: (t, t.into_py())).collect(dict)
 GLOT_FUNC_NAMES = (
     pc.Iter(exp.FUNCTION_BY_NAME.items())
     .map_star(lambda sql_name, fn: (sql_name.lower(), fn.__name__))
-    .collect(pc.Dict)
+    .into(
+        pl.LazyFrame,
+        schema={"function_name": pl.String, "glot_name": pl.String},
+    )
 )
 """DuckDB SQL function name -> concrete sqlglot expression class name mapping."""
 
