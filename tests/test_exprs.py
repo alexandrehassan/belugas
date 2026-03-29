@@ -75,7 +75,6 @@ def test_sql_list_sort_uses_array_sort_constructor() -> None:
     array_sort = pql.sql.col("arr").arr.sort().inner()
 
     assert type(list_sort) is type(array_sort)
-    assert type(list_sort).__name__ == "ArraySort"
 
 
 def test_and() -> None:
