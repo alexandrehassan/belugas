@@ -9,6 +9,8 @@ from sqlglot.dialects.duckdb import DuckDB
 from sqlglot.expressions.core import Expr
 from sqlglot.parsers.duckdb import DuckDBParser
 
+type FuncRegistery = dict[str, Callable[..., exp.Expr]]
+
 
 def _bind_dialect(
     builder: Callable[[list[exp.Expr], Dialect], exp.Expr],
@@ -25,7 +27,7 @@ def _extract_json_with_path(expr: type[exp.Expr]) -> partial[Expr]:
     return _bind_dialect(parser.build_extract_json_with_path(expr))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
 
 
-_PATCHED_FROM_GLOBAL = {
+_PATCHED_FROM_GLOBAL: FuncRegistery = {
     "HEX": _bind_dialect(parser.build_hex),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
     "TO_HEX": _bind_dialect(parser.build_hex),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]}
     "LOG": _bind_dialect(parser.build_logarithm),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
@@ -37,14 +39,14 @@ _PATCHED_FROM_GLOBAL = {
         )
     ),
 }
-_PATCHED_FROM_DUCKDB = {
+_PATCHED_FROM_DUCKDB: FuncRegistery = {
     "JSON_EXTRACT_PATH": _extract_json_with_path(exp.JSONExtract),
     "JSON_EXTRACT_STRING": _extract_json_with_path(exp.JSONExtractScalar),
     "LIST_CONCAT": _bind_dialect(parser.build_array_concat),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
     "REGEXP_EXTRACT": _regexp_extract(exp.RegexpExtract),
     "REGEXP_EXTRACT_ALL": _regexp_extract(exp.RegexpExtractAll),
 }
-DUCKDB_FUNCTIONS: dict[str, Callable[..., exp.Expr]] = {
+DUCKDB_FUNCTIONS: FuncRegistery = {
     **DuckDBParser.FUNCTIONS,  # pyright: ignore[reportUnknownMemberType]$
     **_PATCHED_FROM_GLOBAL,
     **_PATCHED_FROM_DUCKDB,
