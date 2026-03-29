@@ -91,7 +91,7 @@ _DATA = pql.LazyFrame(
 )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def sample_data() -> pql.LazyFrame:
     return _DATA
 
