@@ -46,6 +46,7 @@ _PATCHED_FROM_DUCKDB: FuncRegistery = {
     "REGEXP_EXTRACT": _regexp_extract(exp.RegexpExtract),
     "REGEXP_EXTRACT_ALL": _regexp_extract(exp.RegexpExtractAll),
 }
+_MISSING_FROM_GLOT = {"AGGREGATE"}
 DUCKDB_FUNCTIONS: FuncRegistery = {
     **DuckDBParser.FUNCTIONS,  # pyright: ignore[reportUnknownMemberType]$
     **_PATCHED_FROM_GLOBAL,
