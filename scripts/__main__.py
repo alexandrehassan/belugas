@@ -118,23 +118,11 @@ def analyze_funcs(path: InputPath = DATA_PATH) -> None:
 
 @app.command()
 def check_sqlglot() -> None:
-    """Check for missing functions in the sqlglot `DuckDB` parser `FUNCTIONS` mapping.
-
-    Join both the `duckdb_functions` table and the sqlglot `DuckDBParser.FUNCTIONS` mapping on the upper-cased function name.
-
-    Note that we use the `pql` monkey patched mapping of the parser, instead of the "vanilla" one from `sqlglot`.
-
-    Show the functions that are **missing** in sqlglot.
-
-    Schema:
-        - `function_name` is the name of the function extracted from the `duckdb_functions` table.
-        - `present_aliases` column contains the aliases that are present in the sqlglot `DuckDB` parser `FUNCTIONS` mapping.
-            This is what we look for for simple implementations of missing functions in sqlglot.
-        - `absent_aliases` column contains the aliases that are absent in the sqlglot `DuckDB` parser `FUNCTIONS` mapping.
-    """
+    """Check for missing functions in the sqlglot `DuckDB` parser `FUNCTIONS` mapping."""
     from ._check_missing_sqlglot import check_missing_sqlglot
 
-    check_missing_sqlglot()
+    res = check_missing_sqlglot(Path("MISSING_SQLGLOT.md"))
+    console.print(f"Done with exit code {res}!", style="bold green")
 
 
 def _check_args(*, check_only: bool) -> Iterable[str]:

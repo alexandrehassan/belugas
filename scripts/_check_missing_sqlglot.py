@@ -1,16 +1,42 @@
-import polars as pl
+from __future__ import annotations
+
+from pathlib import Path
+
 from pyochain import Dict
 
-import pql
-from pql.sql._sqlglot_patch import DUCKDB_FUNCTIONS
 
-from .fn_generator._query import (
-    DuckCols,  # pyright: ignore[reportPrivateLocalImportUsage]
-    _filters,  # pyright: ignore[reportPrivateUsage]
-)
+def check_missing_sqlglot(output: Path) -> int:
+    txt = _header(_run_qry())
+    output.touch()
+    return output.write_text(txt, encoding="utf-8")
 
 
-def check_missing_sqlglot() -> None:
+def _set_config() -> None:
+    from polars.config import Config
+
+    _ = (
+        Config()
+        .set_tbl_formatting("ASCII_MARKDOWN", rounded_corners=True)
+        .set_tbl_hide_column_data_types(True)
+        .set_tbl_hide_dataframe_shape(True)
+        .set_tbl_rows(-1)
+        .set_tbl_cols(-1)
+    )
+
+
+def _run_qry() -> str:
+    import polars as pl
+
+    import pql
+    from pql.sql._sqlglot_patch import DUCKDB_FUNCTIONS
+
+    from .fn_generator._query import (
+        DuckCols,  # pyright: ignore[reportPrivateLocalImportUsage]
+        _filters,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    _set_config()
+
     function_name = pl.col("function_name")
     alias_of = pl.col("alias_of")
     alias_root = pl.col("alias_root")
@@ -66,8 +92,29 @@ def check_missing_sqlglot() -> None:
             ),
         )
         .sort(function_name)
-        .filter(pl.col("present_aliases").list.len().gt(0))
         .explode("absent_aliases")
+        .explode("present_aliases")
+        .with_row_index("idx")
         .collect()
-        .show(None)
+        .pipe(repr)
     )
+
+
+def _header(content: str) -> str:
+    return f"""
+# Missing SQLGlot Functions
+
+The table below is the result of joining both the `duckdb_functions` table and the sqlglot `DuckDBParser.FUNCTIONS` mapping on the upper-cased function name.
+
+We use the `pql` monkey patched mapping of the parser, instead of the "vanilla" one from `sqlglot`.
+
+The result show the functions that are **missing** in sqlglot.
+
+Schema:
+    - `function_name` is the name of the function extracted from the `duckdb_functions` table.
+    - `present_aliases` column contains the aliases that are present in the sqlglot `DuckDB` parser `FUNCTIONS` mapping.
+        This is what we look for for simple implementations of missing functions in sqlglot.
+    - `absent_aliases` column contains the aliases that are absent in the sqlglot `DuckDB` parser `FUNCTIONS` mapping.
+
+{content}
+"""
