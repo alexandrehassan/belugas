@@ -6338,6 +6338,24 @@ class StringFns[T: Fns](NameSpaceHandler[T]):
         """
         return self._new(func("STARTS_WITH", self.inner(), search_string))
 
+    def strftime(self, format_arg: IntoExprColumn | date | datetime) -> T:
+        """Converts a `date` to a string according to the format string.
+
+        **SQL name**: *strftime*
+
+        Args:
+            format_arg (IntoExprColumn | date | datetime): `DATE | TIMESTAMP | TIMESTAMP_NS | VARCHAR` expression
+
+        Examples:
+            ```sql
+            strftime(date '1992-01-01', '%a, %-d %B %Y')
+            ```
+
+        Returns:
+            T
+        """
+        return self._new(func("STRFTIME", self.inner(), format_arg))
+
     def strip_accents(self) -> T:
         """Strips accents from `string`.
 
@@ -6390,6 +6408,28 @@ class StringFns[T: Fns](NameSpaceHandler[T]):
             T
         """
         return self._new(func("STRPOS", self.inner(), search_string))
+
+    def strptime(self, format_arg: IntoExprColumn | SeqLiteral[str]) -> T:
+        """Converts the `string` text to timestamp according to the format string.
+
+        Throws an error on failure.
+
+        To return `NULL` on failure, use try_strptime.
+
+        **SQL name**: *strptime*
+
+        Args:
+            format_arg (IntoExprColumn | SeqLiteral[str]): `VARCHAR | VARCHAR[]` expression
+
+        Examples:
+            ```sql
+            strptime('Wed, 1 January 1992 - 08:38:40 PM', '%a, %-d %B %Y - %I:%M:%S %p')
+            ```
+
+        Returns:
+            T
+        """
+        return self._new(func("STRPTIME", self.inner(), format_arg))
 
     def substr(
         self, start: IntoExprColumn | int, length: IntoExprColumn | int | None = None

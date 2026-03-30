@@ -89,9 +89,6 @@ SPECIAL_CASES = pc.Set(
         "log",  # Need to swap argument order to take self.inner() as value and not as base
         "date_trunc",  # Need to swap argument order to take self.inner() as timestamp and not as precision
         "datetrunc",  # alias of date_trunc, same issue
-        # misc
-        "strftime",  # Need custom "str" prefix rule, but this rule will also take "struct" funcs in string namespace, so better to just special case it
-        "strptime",  # Same as strftime
         # Need to transform the expr input in a lambda in all cases, better to handle it manually
         "array_filter",
         "list_filter",
@@ -167,6 +164,7 @@ NAMESPACE_SPECS = pc.Seq(
             prefixes=_rule("string_", "str_"),
             categories=_rule(Categories.STRING, Categories.TEXT_SIMILARITY),
             strip_prefixes=_rule("string_", "str_"),
+            explicit_names=_rule("strftime", "strptime"),
         ),
         NamespaceSpec(
             name="DateTimeFns",

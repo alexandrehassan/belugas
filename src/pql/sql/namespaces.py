@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, datetime
 from typing import TYPE_CHECKING, final
 
 from ._code_gen import (
@@ -48,36 +47,6 @@ class Lit:
 @dataclass(slots=True)
 class SqlExprStringNameSpace(StringFns[SqlExpr]):
     """String function namespace for SQL expressions."""
-
-    def strftime(self, format_arg: IntoExprColumn | date | datetime | str) -> SqlExpr:
-        """Converts a `date` to a string according to the format string.
-
-        **SQL name**: *strftime*
-
-        Args:
-            format_arg (IntoExprColumn | date | datetime | str): `DATE | TIMESTAMP | TIMESTAMP_NS | VARCHAR` expression
-
-        Returns:
-            SqlExpr
-        """
-        return self._new(func("STRFTIME", self.inner(), format_arg))
-
-    def strptime(self, format_arg: IntoExprColumn | list[str]) -> SqlExpr:
-        """Converts the `string` text to timestamp according to the format string.
-
-        Throws an error on failure.
-
-        To return `NULL` on failure, use try_strptime.
-
-        **SQL name**: *strptime*
-
-        Args:
-            format_arg (IntoExprColumn | list[str]): `VARCHAR | VARCHAR[]` expression
-
-        Returns:
-            SqlExpr
-        """
-        return self._new(func("STRPTIME", self.inner(), format_arg))
 
     def concat(self, *args: IntoExpr) -> SqlExpr:
         """Concatenates multiple strings or lists.
