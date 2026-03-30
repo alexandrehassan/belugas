@@ -205,7 +205,7 @@ class Fns(DuckHandler):
         Returns:
             Self
         """
-        return self._new(anon("arbitrary", self.inner()))
+        return self._new(func("ARBITRARY", self.inner()))
 
     def arg_max(self, val: IntoExpr, col2: IntoExprColumn | int | None = None) -> Self:
         """Finds the row with the maximum val.
@@ -501,7 +501,7 @@ class Fns(DuckHandler):
         Returns:
             Self
         """
-        return self._new(anon("bin", self.inner()))
+        return self._new(func("BIN", self.inner()))
 
     def bit_and(self) -> Self:
         """Returns the bitwise AND of all bits in a given expression.
@@ -2094,7 +2094,7 @@ class Fns(DuckHandler):
         Returns:
             Self
         """
-        return self._new(anon("mean", self.inner()))
+        return self._new(func("MEAN", self.inner()))
 
     def median(self) -> Self:
         """Returns the middle value of the set.
@@ -3596,7 +3596,7 @@ class ListFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("list_cat", self.inner(), *args))
+        return self._new(func("LIST_CAT", self.inner(), *args))
 
     def char_length(self) -> T:
         """Returns the length of the `list`.
@@ -3762,7 +3762,7 @@ class ListFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("list_distinct", self.inner()))
+        return self._new(func("LIST_DISTINCT", self.inner()))
 
     def dot_product(self, list2: IntoExprColumn | SeqLiteral[float]) -> T:
         """Computes the inner product between two same-sized lists.
@@ -4007,7 +4007,7 @@ class ListFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("list_indexof", self.inner(), element))
+        return self._new(func("LIST_INDEXOF", self.inner(), element))
 
     def inner_product(self, list2: IntoExprColumn | SeqLiteral[float]) -> T:
         """Computes the inner product between two same-sized lists.
@@ -4049,7 +4049,7 @@ class ListFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("list_intersect", self.inner(), list2))
+        return self._new(func("LIST_INTERSECT", self.inner(), list2))
 
     def kurtosis(self) -> T:
         """SQL list_kurtosis function.
@@ -4228,7 +4228,7 @@ class ListFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("list_pack", self.inner(), *args))
+        return self._new(func("LIST_PACK", self.inner(), *args))
 
     def position(self, element: IntoExpr) -> T:
         """Returns the index of the `element` if the `list` contains the `element`.
@@ -4251,7 +4251,7 @@ class ListFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("list_position", self.inner(), element))
+        return self._new(func("LIST_POSITION", self.inner(), element))
 
     def prepend(self, l_arg: IntoExpr) -> T:
         """SQL list_prepend function.
@@ -4323,7 +4323,7 @@ class ListFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(func("REDUCE", self.inner(), lambda_arg, initial_value))
+        return self._new(func("LIST_REDUCE", self.inner(), lambda_arg, initial_value))
 
     def resize(self, size: IntoExpr, value: IntoExpr | None = None) -> T:
         """Resizes the `list` to contain `size` elements.
@@ -4446,7 +4446,7 @@ class ListFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("list_slice", self.inner(), begin, end, step))
+        return self._new(func("LIST_SLICE", self.inner(), begin, end, step))
 
     def sort(
         self, col1: IntoExprColumn | None = None, col2: IntoExprColumn | None = None
@@ -5101,7 +5101,7 @@ class RegexFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("regexp_split_to_array", self.inner(), regex, options))
+        return self._new(func("REGEXP_SPLIT_TO_ARRAY", self.inner(), regex, options))
 
     def split_to_table(self, pattern: IntoExpr) -> T:
         """SQL regexp_split_to_table function.
@@ -5200,7 +5200,7 @@ class StringFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("base64", self.inner()))
+        return self._new(func("BASE64", self.inner()))
 
     def bin(self) -> T:
         """Converts the `string` to binary representation.
@@ -5218,7 +5218,7 @@ class StringFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("bin", self.inner()))
+        return self._new(func("BIN", self.inner()))
 
     def bit_length(self) -> T:
         """Number of bits in a `string`.
@@ -5509,7 +5509,7 @@ class StringFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("from_hex", self.inner()))
+        return self._new(func("FROM_HEX", self.inner()))
 
     def hamming(self, s2: IntoExprColumn) -> T:
         """The Hamming distance between to strings, i.e., the number of positions with different characters for two strings of equal length.
@@ -6055,7 +6055,7 @@ class StringFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("ord", self.inner()))
+        return self._new(func("ORD", self.inner()))
 
     def parse_dirname(self, separator: IntoExprColumn | None = None) -> T:
         """Returns the top-level directory name from the given `path`.
@@ -6182,7 +6182,7 @@ class StringFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("position", self.inner(), search_string))
+        return self._new(func("POSITION", self.inner(), search_string))
 
     def prefix(self, search_string: IntoExprColumn) -> T:
         """Returns `true` if `string` starts with `search_string`.
@@ -6641,7 +6641,7 @@ class StringFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("suffix", self.inner(), search_string))
+        return self._new(func("SUFFIX", self.inner(), search_string))
 
     def to_array(self, separator: IntoExprColumn) -> T:
         """Splits the `string` along the `separator`.
@@ -8019,7 +8019,7 @@ class ArrayFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("array_apply", self.inner(), lambda_arg))
+        return self._new(func("ARRAY_APPLY", self.inner(), lambda_arg))
 
     def cat(self, *args: IntoExpr) -> T:
         """Concatenates lists.
@@ -8325,7 +8325,7 @@ class ArrayFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("array_has_any", self.inner(), list2))
+        return self._new(func("ARRAY_HAS_ANY", self.inner(), list2))
 
     def indexof(self, element: IntoExpr) -> T:
         """Returns the index of the `element` if the `list` contains the `element`.
@@ -8348,7 +8348,7 @@ class ArrayFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("array_indexof", self.inner(), element))
+        return self._new(func("ARRAY_INDEXOF", self.inner(), element))
 
     def inner_product(self, array2: IntoExprColumn | float) -> T:
         """Computes the inner product between two arrays of the same size.
@@ -8585,7 +8585,7 @@ class ArrayFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("array_reduce", self.inner(), lambda_arg, initial_value))
+        return self._new(func("ARRAY_REDUCE", self.inner(), lambda_arg, initial_value))
 
     def resize(self, size: IntoExpr, value: IntoExpr | None = None) -> T:
         """Resizes the `list` to contain `size` elements.
@@ -8776,7 +8776,7 @@ class ArrayFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._new(anon("array_transform", self.inner(), lambda_arg))
+        return self._new(func("ARRAY_TRANSFORM", self.inner(), lambda_arg))
 
     def unique(self) -> T:
         """Counts the unique elements of a `list`.

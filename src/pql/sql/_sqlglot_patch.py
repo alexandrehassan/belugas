@@ -27,9 +27,11 @@ def _extract_json_with_path(expr: type[exp.Expr]) -> partial[Expr]:
     return _bind_dialect(parser.build_extract_json_with_path(expr))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
 
 
+_build_hex = _bind_dialect(parser.build_hex)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+
 _PATCHED_FROM_GLOBAL: FuncRegistery = {
-    "HEX": _bind_dialect(parser.build_hex),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
-    "TO_HEX": _bind_dialect(parser.build_hex),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]}
+    "HEX": _build_hex,
+    "TO_HEX": _build_hex,
     "LOG": _bind_dialect(parser.build_logarithm),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
     "CONCAT": _bind_dialect(
         lambda args, dialect: exp.Concat(
@@ -46,10 +48,35 @@ _PATCHED_FROM_DUCKDB: FuncRegistery = {
     "REGEXP_EXTRACT": _regexp_extract(exp.RegexpExtract),
     "REGEXP_EXTRACT_ALL": _regexp_extract(exp.RegexpExtractAll),
 }
-_MISSING_FROM_GLOT = {"AGGREGATE"}
+_MISSING_FROM_GLOT: FuncRegistery = {
+    "ARBITRARY": exp.First.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "ARRAY_APPLY": exp.Transform.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "ARRAY_HAS_ANY": exp.ArrayOverlaps.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "ARRAY_INDEXOF": exp.ArrayPosition.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "ARRAY_REDUCE": exp.Reduce.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "ARRAY_TRANSFORM": exp.Apply.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "BASE64": exp.ToBase64.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "BIN": exp.ToBinary.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "FROM_HEX": exp.Unhex.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "LIST_APPLY": exp.Transform.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "LIST_CAT": _bind_dialect(parser.build_array_concat),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    "LIST_DISTINCT": exp.ArrayDistinct.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "LIST_INDEXOF": exp.ArrayPosition.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "LIST_INTERSECT": lambda args: exp.ArrayIntersect(expressions=args),  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "LIST_PACK": lambda args: exp.Array(expressions=args),  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "LIST_POSITION": exp.ArrayPosition.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "LIST_REDUCE": exp.Reduce.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "LIST_SLICE": exp.ArraySlice.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "MEAN": exp.Avg.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "ORD": exp.Unicode.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "POSITION": exp.StrPosition.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "REGEXP_SPLIT_TO_ARRAY": exp.RegexpSplit.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "SUFFIX": exp.EndsWith.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+}
 DUCKDB_FUNCTIONS: FuncRegistery = {
     **DuckDBParser.FUNCTIONS,  # pyright: ignore[reportUnknownMemberType]$
     **_PATCHED_FROM_GLOBAL,
     **_PATCHED_FROM_DUCKDB,
+    **_MISSING_FROM_GLOT,
 }
 DuckDBParser.FUNCTIONS = DUCKDB_FUNCTIONS
