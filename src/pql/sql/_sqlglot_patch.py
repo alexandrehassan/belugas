@@ -54,7 +54,7 @@ _MISSING_FROM_GLOT: FuncRegistery = {
     "ARRAY_HAS_ANY": exp.ArrayOverlaps.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
     "ARRAY_INDEXOF": exp.ArrayPosition.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
     "ARRAY_REDUCE": exp.Reduce.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
-    "ARRAY_TRANSFORM": exp.Apply.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
+    "ARRAY_TRANSFORM": exp.Transform.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
     "BASE64": exp.ToBase64.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
     "BIN": exp.ToBinary.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
     "FROM_HEX": exp.Unhex.from_arg_list,  # pyright: ignore[reportUnknownMemberType]
