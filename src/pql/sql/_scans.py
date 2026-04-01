@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import operator
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from functools import partial
+from operator import itemgetter as get
 from typing import TYPE_CHECKING, Any, cast
 
 import duckdb
@@ -22,6 +22,12 @@ COL0 = "column_0"
 
 def _named(j: object) -> str:
     return f"column_{j}"
+
+
+def _into_tup[T](
+    vals: Iterable[Sequence[T]] | Iterable[Mapping[T, object]], key: T
+) -> tuple[T, ...]:
+    return pc.Iter(vals).map(get(key)).collect(tuple)
 
 
 def _to_expr(k: str, v: PythonLiteral) -> duckdb.Expression:
@@ -88,17 +94,7 @@ def from_query(query: str, **relations: IntoRel) -> duckdb.DuckDBPyRelation:
 
 
 def from_dicts(data: Sequence[Mapping[str, PythonLiteral]]) -> duckdb.DuckDBPyRelation:
-    return (
-        pc
-        .Iter(data[0])
-        .map(
-            lambda key: (
-                key,
-                pc.Iter(data).map(operator.itemgetter(key)).collect(tuple),
-            )
-        )
-        .into(from_dict)
-    )
+    return pc.Iter(data[0]).map(lambda key: (key, _into_tup(data, key))).into(from_dict)
 
 
 def from_records(
@@ -128,15 +124,7 @@ def from_records(
                     return (
                         pc
                         .Iter(range(width))
-                        .map(
-                            lambda j: (
-                                _named(j),
-                                pc
-                                .Iter(vals)
-                                .map(operator.itemgetter(j))
-                                .collect(tuple),
-                            )
-                        )
+                        .map(lambda j: (_named(j), _into_tup(vals, j)))
                         .into(from_dict)
                     )
         case exp.Expr():

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import operator
+import operator as op
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
@@ -1178,7 +1178,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
                 case bool():
                     return not reverse
                 case _:
-                    return try_iter(reverse).map(operator.not_).collect()
+                    return try_iter(reverse).map(op.not_).collect()
 
         return self.sort(by, descending=_descending()).head(k)
 
