@@ -795,4 +795,4 @@ class ExprDateTimeNameSpace(ExprNameSpaceBase):
         return self._new(self.inner().inner().dt.trunc(sql.lit(every)))
 
     def offset_by(self, by: IntoExpr) -> Expr:
-        return self._new(self.inner().inner().dt.add(by))
+        return self._new(self.inner().inner().dt.offset_by(by))

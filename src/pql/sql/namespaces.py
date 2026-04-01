@@ -20,7 +20,7 @@ from ._code_gen import (
     StringFns,
     StructFns,
 )
-from ._core import func
+from ._core import DuckHandler, func
 from ._expr import SqlExpr
 from ._funcs import coalesce, element, into_expr, lit
 from ._when import when
@@ -300,6 +300,25 @@ class SqlExprDateTimeNameSpace(DateTimeFns[SqlExpr]):
                 return self.inner().cast(dtype)
             case _:
                 return self.inner().str.strptime(format).cast(dtype)
+
+    def offset_by(self, by: IntoExpr) -> SqlExpr:
+        """Offset datetime by an interval.
+
+        An interval can be specified as a string literal (e.g. '1 day', '2 hours', etc.) or as an expression that evaluates to an interval.
+
+        Args:
+            by (IntoExpr): The interval to offset by.
+
+        Returns:
+            SqlExpr: A new expression that evaluates to the offset datetime.
+        """
+        match by:
+            case DuckHandler():
+                return self.add(exp.to_interval(by.inner()))
+            case exp.Expr() | str():
+                return self.add(exp.to_interval(by))
+            case _:
+                return self.add(exp.to_interval(str(by)))
 
 
 @dataclass(slots=True)
