@@ -37,10 +37,28 @@ def sample_df() -> pl.DataFrame:
 def test_properties(sample_df: pl.DataFrame) -> None:
     lf = pql.LazyFrame(sample_df)
     assert lf.width == sample_df.width
+    assert lf.columns.into(list) == sample_df.columns
     assert set(lf.schema.keys()) == set(sample_df.columns)
     assert lf.schema == lf.collect_schema()
     assert lf.shape == sample_df.shape
     assert isinstance(lf.lazy(), pl.LazyFrame)
+
+
+def test_schema_columns_follow_derived_frame(sample_df: pl.DataFrame) -> None:
+    renamed = pql.LazyFrame(sample_df).rename({"age": "years"})
+    expected_cols = [
+        "id",
+        "name",
+        "sex",
+        "years",
+        "salary",
+        "department",
+        "is_active",
+        "value",
+        "category",
+    ]
+    assert renamed.columns.into(list) == expected_cols
+    assert renamed.filter(pql.col("years").gt(20)).columns.into(list) == expected_cols
 
 
 def test_show(sample_df: pl.DataFrame) -> None:

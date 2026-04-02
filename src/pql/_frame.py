@@ -7,7 +7,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Self, SupportsInt
+from typing import TYPE_CHECKING, Any, Self, SupportsInt, override
 
 import pyochain as pc
 from duckdb import DuckDBPyRelation, Expression
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
         ExplainTypeLiteral,
         RenderModeLiteral,
     )
-    from pyochain.traits import PyoIterable
+    from pyochain.traits import PyoIterable, PyoKeysView
 
     from ._datatypes import DataType
     from ._expr import Expr
@@ -70,11 +70,18 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
     """LazyFrame providing Polars-like API over DuckDB relations."""
 
     _inner: DuckDBPyRelation
-    _cached_schema: pc.Option[Schema]
+    _schema: Schema
 
-    def __init__(self, data: IntoRel, orient: Orientation = "col") -> None:
-        self._cached_schema = pc.NONE
-        self._inner = sql.into_relation(data, orient)
+    def __init__(
+        self, data: IntoRel, orient: Orientation = "col", schema: Schema | None = None
+    ) -> None:
+        rel = sql.into_relation(data, orient)
+        self._inner = rel
+        self._schema = schema or Schema.from_frame(rel)
+
+    @override
+    def _new(self, value: DuckDBPyRelation) -> Self:
+        return self.__class__(value, schema=self.schema)
 
     def _from_sql_expr(self, expr: exp.Expr, **kwargs: IntoRel) -> Self:
         qry = sql.from_query(expr.sql(dialect="duckdb"), **kwargs)
@@ -84,7 +91,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         return self.select(self.columns.iter().map(func))
 
     def _iter_agg(self, func: Callable[[SqlExpr], SqlExpr]) -> Self:
-        return self._new(
+        return self.__class__(
             self.columns
             .iter()
             .map(lambda c: func(sql.col(c)).alias(c).into_duckdb())
@@ -120,7 +127,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         Returns:
             Self: A new LazyFrame with the selected columns.
         """
-        return self._new(
+        return self.__class__(
             self.schema.into(ExprPlan, exprs, more_exprs, named_exprs).select_context(
                 self.inner()
             )
@@ -139,7 +146,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         Returns:
             Self: A new LazyFrame with the added or replaced columns.
         """
-        return self._new(
+        return self.__class__(
             self.schema.into(
                 ExprPlan, exprs, more_exprs, named_exprs
             ).with_columns_context(self.inner())
@@ -234,7 +241,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         Returns:
             Self: A new LazyFrame with the aggregated rows.
         """
-        return self._new(
+        return self.__class__(
             self.schema.into(
                 ExprPlan, exprs, more_exprs, named_exprs
             ).group_by_all_context(self.inner())
@@ -385,7 +392,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
             Self: A new LazyFrame with the specified columns dropped.
         """
         expr = sql.all(exclude=try_chain(columns, more_columns)).into_duckdb()
-        return self._new(self.inner().select(expr))
+        return self.__class__(self.inner().select(expr))
 
     def drop_nulls(self, subset: TryIter[str] = None) -> Self:
         """Drop rows that contain null values.
@@ -509,7 +516,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
     def unnest(
         self, columns: TryIter[IntoExprColumn], *more_columns: IntoExprColumn
     ) -> Self:
-        return self._new(
+        return self.__class__(
             try_chain(columns, more_columns)
             .collect()
             .into(
@@ -546,7 +553,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
 
     def describe(self) -> Self:
         """Return descriptive statistics."""
-        return self._new(self.inner().describe())
+        return self.__class__(self.inner().describe())
 
     def sum(self) -> Self:
         """Aggregate the sum of each column.
@@ -706,9 +713,9 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         )
 
     @property
-    def columns(self) -> pc.Vec[str]:
+    def columns(self) -> PyoKeysView[str]:
         """Get column names."""
-        return pc.Vec.from_ref(self.inner().columns)
+        return self.schema.keys()
 
     @property
     def width(self) -> int:
@@ -717,13 +724,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
 
     @property
     def schema(self) -> Schema:
-        match self._cached_schema:
-            case pc.Some(schma):
-                return schma
-            case _:
-                schma = Schema.from_frame(self.inner())
-                self._cached_schema = pc.Some(schma)
-                return schma
+        return self._schema
 
     def collect_schema(self) -> Schema:
         """Collect the schema (same as schema property for lazy).
@@ -790,7 +791,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
                 case "semi" | "anti":
                     return pc.Iter.once("lhs.*")
 
-        return self._new(
+        return self.__class__(
             self
             .inner()
             .set_alias("lhs")
@@ -819,7 +820,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
             Self: A new LazyFrame resulting from the cross join.
         """
         builder = JoinBuilder(suffix, self.columns, other.columns)
-        return self._new(
+        return self.__class__(
             self
             .inner()
             .set_alias("lhs")
@@ -1054,7 +1055,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
 
             def _pivot() -> exp.Expr:
                 return exp.Pivot(
-                    this=exp.to_table("rel"),  # pyright: ignore[reportUnknownMemberType]
+                    this=exp.to_table("rel"),
                     expressions=try_iter(on).collect().into(_on_exprs),
                     using=val_cols.iter().map(_aliased).map(lambda c: c.inner()),
                     group=_group(),
@@ -1130,7 +1131,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
 
         def _unpivot() -> exp.Pivot:
             return exp.Pivot(
-                this=exp.to_table("rel"),  # pyright: ignore[reportUnknownMemberType]
+                this=exp.to_table("rel"),
                 expressions=unpivot_cols,
                 unpivot=True,
                 into=exp.UnpivotColumns(this=variable_name, expressions=(value_name,)),
@@ -1148,7 +1149,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
 
         return self._from_sql_expr(qry, rel=self.inner())
 
-    def with_row_index(self, name: str, *, order_by: TrySeq[str]) -> Self:
+    def with_row_index(self, name: str, *, order_by: TryIter[str]) -> Self:
         """Insert row index based on order_by.
 
         Args:
@@ -1166,7 +1167,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
             .alias(name)
             .into_duckdb()
         )
-        return self._new(self.inner().select(row_nb, sql.all().into_duckdb()))
+        return self.__class__(self.inner().select(row_nb, sql.all().into_duckdb()))
 
     def top_k(
         self, k: int, by: TryIter[IntoExpr], *, reverse: TrySeq[bool] = False
