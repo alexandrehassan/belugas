@@ -612,8 +612,6 @@ def test_arg_sort(descending: bool, nulls_last: bool) -> None:
 
 @pytest.mark.parametrize("decimals", [0, 1, 2])
 def test_truncate(decimals: int) -> None:
-    if decimals > 0:
-        pytest.xfail("Blocked by upstream sqlglot issue")
     assert_eq_pl(
         pql.col("float_vals").truncate(decimals),
         pl.col("float_vals").truncate(decimals),
