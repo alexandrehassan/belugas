@@ -117,7 +117,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
     def select(
         self, exprs: TryIter[IntoExpr], *more_exprs: IntoExpr, **named_exprs: IntoExpr
     ) -> Self:
-        """Select columns or expressions.
+        """Context method to select columns or expressions.
 
         Args:
         exprs (TryIter[IntoExpr]): Expressions to select.
