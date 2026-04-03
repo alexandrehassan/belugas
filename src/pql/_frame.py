@@ -14,6 +14,7 @@ from duckdb import DuckDBPyRelation, Expression
 from sqlglot import exp
 
 from . import sql
+from ._datatypes import DataType, Int64
 from ._funcs import col
 from ._joins import JoinBuilder, JoinKeys
 from ._meta import ExprPlan, Marker
@@ -28,9 +29,8 @@ if TYPE_CHECKING:
         ExplainTypeLiteral,
         RenderModeLiteral,
     )
-    from pyochain.traits import PyoIterable, PyoKeysView
+    from pyochain.traits import PyoIterable
 
-    from ._datatypes import DataType
     from ._expr import Expr
     from ._groupby import LazyGroupBy
     from ._parser import ParsedQuery
@@ -713,7 +713,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         )
 
     @property
-    def columns(self) -> PyoKeysView[str]:
+    def columns(self) -> pc.Vec[str]:
         """Get column names."""
         return self.schema.keys()
 
@@ -1165,7 +1165,8 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
             .alias(name)
             .into_duckdb()
         )
-        return self.__class__(self.inner().select(row_nb, sql.all().into_duckdb()))
+        self._schema.insert_at(0, name, Int64())
+        return self._new(self.inner().select(row_nb, sql.all().into_duckdb()))
 
     def top_k(
         self, k: int, by: TryIter[IntoExpr], *, reverse: TrySeq[bool] = False

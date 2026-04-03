@@ -18,7 +18,7 @@ from .sql.utils import TryIter, try_chain, try_iter
 if TYPE_CHECKING:
     from duckdb import DuckDBPyRelation, Expression
     from narwhals.typing import IntoFrameT
-    from pyochain.traits import PyoCollection, PyoIterable, PyoKeysView
+    from pyochain.traits import PyoCollection, PyoIterable
 
     from ._datatypes import DataType
     from .sql.typing import IntoExpr, IntoExprColumn
@@ -236,7 +236,7 @@ class ResolvedExpr(NamedTuple):
 
 @dataclass(slots=True, init=False)
 class ExprPlan:
-    cols: PyoKeysView[str]
+    cols: pc.Vec[str]
     projections: pc.Seq[ResolvedExpr]
 
     def __init__(
