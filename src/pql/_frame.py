@@ -391,8 +391,15 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         Returns:
             Self: A new LazyFrame with the specified columns dropped.
         """
-        expr = sql.all(exclude=try_chain(columns, more_columns)).into_duckdb()
-        return self.__class__(self.inner().select(expr))
+        to_drop = (
+            try_chain(columns, more_columns)
+            .map(lambda v: sql.into_expr(v, as_col=True))
+            .filter_map(SqlExpr.root_column_name)
+            .collect()
+        )
+        to_drop.iter().for_each(self._schema.__delitem__)
+        expr = sql.all(exclude=to_drop).into_duckdb()
+        return self._new(self.inner().select(expr))
 
     def drop_nulls(self, subset: TryIter[str] = None) -> Self:
         """Drop rows that contain null values.
