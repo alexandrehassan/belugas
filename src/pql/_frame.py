@@ -1028,7 +1028,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
                     msg = "`pivot` needs either `index` or `values` to be specified"
                     return pc.Err(ValueError(msg))
 
-        on_cols = try_iter(on).collect(dict.fromkeys)
+        on_cols = try_iter(on).collect()
         idx_cols, val_cols = _get_idx_and_vals().unwrap()
 
         multi = val_cols.length() > 1
@@ -1040,11 +1040,9 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
 
         def _pivoted() -> Self:
 
-            def _on_exprs(
-                on_iter: pc.Seq[str],
-            ) -> PyoIterable[exp.Expr] | PyoIterable[str]:
+            def _on_exprs() -> PyoIterable[exp.Expr] | PyoIterable[str]:
                 converted = pc.Iter(on_columns).map(exp.convert).collect()
-                expr = exp.In(this=on_iter.first(), expressions=converted)
+                expr = exp.In(this=on_cols.first(), expressions=converted)
                 return pc.Iter.once(expr)
 
             def _group() -> exp.Group | None:
@@ -1056,7 +1054,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
             def _pivot() -> exp.Expr:
                 return exp.Pivot(
                     this=exp.to_table("rel"),
-                    expressions=try_iter(on).collect().into(_on_exprs),
+                    expressions=_on_exprs(),
                     using=val_cols.iter().map(_aliased).map(lambda c: c.inner()),
                     group=_group(),
                 )
@@ -1078,6 +1076,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         def _handle_multi(lf: Self) -> Self:
             match multi:
                 case True:
+                    on_values = pc.Iter(on_columns).map(str).collect()
 
                     def _rename_col(val_col: str) -> pc.Iter[SqlExpr]:
                         def _swap(on_val: str) -> SqlExpr:
@@ -1087,14 +1086,13 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
 
                         return on_values.iter().map(_swap)
 
-                    on_values = pc.Iter(on_columns).map(str).collect()
-                    cols = (
+                    return (
                         idx_cols
                         .iter()
                         .map(sql.col)
                         .chain(val_cols.iter().flat_map(_rename_col))
+                        .into(lf.select)
                     )
-                    return lf.select(*cols)
                 case False:
                     return lf
 
