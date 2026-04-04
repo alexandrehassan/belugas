@@ -822,10 +822,8 @@ class Expr(sql.CoreHandler[SqlExpr]):
             pc
             .Option(order_by)
             .map(
-                lambda value: (
-                    try_iter(value)
-                    .map(lambda x: sql.into_expr(x, as_col=True))
-                    .collect()
+                lambda value: try_iter(value).map(
+                    lambda x: sql.into_expr(x, as_col=True)
                 )
             )
             .map(lambda order_exprs: expr(partition_exprs, pc.Some(order_exprs)))
