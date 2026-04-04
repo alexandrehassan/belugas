@@ -813,29 +813,23 @@ class Expr(sql.CoreHandler[SqlExpr]):
         nulls_last: bool = False,
     ) -> Self:
         expr = partial(self.inner().over, descending=descending, nulls_last=nulls_last)
-        return (
+        partition_exprs: pc.Option[TryIter[IntoExprColumn]] = pc.Some(
             try_iter(partition_by)
             .chain(more_exprs)
             .map(lambda x: sql.into_expr(x, as_col=True))
-            .into(
-                lambda partition_exprs: (
-                    pc
-                    .Option(order_by)
-                    .map(
-                        lambda value: (
-                            try_iter(value)
-                            .map(lambda x: sql.into_expr(x, as_col=True))
-                            .collect()
-                        )
-                    )
-                    .map(
-                        lambda order_exprs: expr(
-                            pc.Some(partition_exprs), pc.Some(order_exprs)
-                        )
-                    )
-                    .unwrap_or_else(lambda: expr(pc.Some(partition_exprs)))
+        )
+        return (
+            pc
+            .Option(order_by)
+            .map(
+                lambda value: (
+                    try_iter(value)
+                    .map(lambda x: sql.into_expr(x, as_col=True))
+                    .collect()
                 )
             )
+            .map(lambda order_exprs: expr(partition_exprs, pc.Some(order_exprs)))
+            .unwrap_or_else(lambda: expr(partition_exprs))
             .pipe(self._as_window)
         )
 
