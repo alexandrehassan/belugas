@@ -7,7 +7,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Self, SupportsInt, override
+from typing import TYPE_CHECKING, Any, Self, SupportsInt
 
 import pyochain as pc
 from duckdb import DuckDBPyRelation, Expression
@@ -78,10 +78,6 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         rel = sql.into_relation(data, orient)
         self._inner = rel
         self._schema = schema or Schema.from_frame(rel)
-
-    @override
-    def _new(self, value: DuckDBPyRelation) -> Self:
-        return self.__class__(value, schema=self.schema)
 
     def _from_sql_expr(self, expr: exp.Expr, **kwargs: IntoRel) -> Self:
         qry = sql.from_query(expr.sql(dialect="duckdb"), **kwargs)
@@ -179,7 +175,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
             .into(sql.reduce, SqlExpr.and_)
             .into_duckdb()
         )
-        return self._new(self.inner().filter(expr))
+        return self.__class__(self.inner().filter(expr), schema=self.schema)
 
     def group_by(
         self,
@@ -265,7 +261,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         Returns:
             Self: A new LazyFrame with the sorted rows.
         """
-        return self._new(
+        lf = (
             try_chain(by, more_by)
             .map(lambda v: sql.into_expr(v, as_col=True))
             .collect()
@@ -282,6 +278,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
             )
             .into(lambda x: self.inner().sort(*x))
         )
+        return self.__class__(lf, schema=self.schema)
 
     def limit(self, n: int) -> Self:
         """Limit the number of rows.
@@ -292,7 +289,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         Returns:
             Self: A new LazyFrame with the limited rows.
         """
-        return self._new(self.inner().limit(n))
+        return self.__class__(self.inner().limit(n), schema=self.schema)
 
     def head(self, n: int = 5) -> Self:
         """Get the first n rows.
@@ -334,7 +331,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
                     return pc.Err(ValueError(msg))
                 case (len_val, offset) if offset >= 0:
                     rel = self.inner().limit(len_val.unwrap_or(MAX_I64), offset=offset)
-                    return pc.Ok(self._new(rel))
+                    return pc.Ok(self.__class__(rel, schema=self.schema))
                 case (pc.Some(0), _):
                     return pc.Ok(self.limit(0))
                 case (pc.Some(length), offset):
@@ -399,7 +396,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         )
         to_drop.iter().for_each(self._schema.__delitem__)
         expr = sql.all(exclude=to_drop).into_duckdb()
-        return self._new(self.inner().select(expr))
+        return self.__class__(self.inner().select(expr), schema=self.schema)
 
     def drop_nulls(self, subset: TryIter[str] = None) -> Self:
         """Drop rows that contain null values.
@@ -488,7 +485,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         )
 
     def union(self, other: Self) -> Self:
-        return self._new(self.inner().union(other.inner()))
+        return self.__class__(self.inner().union(other.inner()), schema=self.schema)
 
     def rename(self, mapping: Mapping[str, str]) -> Self:
         """Rename columns.
@@ -699,7 +696,7 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
         Returns:
             Self: A new LazyFrame that is a copy of the current one.
         """
-        return self._new(self.inner())
+        return self.__class__(self.inner(), schema=self.schema.copy())
 
     def gather_every(self, n: int, offset: int = 0) -> Self:
         """Take every nth row starting from offset.
@@ -1173,7 +1170,8 @@ class LazyFrame(sql.CoreHandler[DuckDBPyRelation]):
             .into_duckdb()
         )
         self._schema.insert_at(0, name, Int64())
-        return self._new(self.inner().select(row_nb, sql.all().into_duckdb()))
+        lf = self.inner().select(row_nb, sql.all().into_duckdb())
+        return self.__class__(lf, schema=self.schema)
 
     def top_k(
         self, k: int, by: TryIter[IntoExpr], *, reverse: TrySeq[bool] = False
