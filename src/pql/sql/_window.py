@@ -123,21 +123,12 @@ class OverBuilder:
                 return self
 
     def handle_distinct(self, *, distinct: bool) -> Self:
-        match distinct:
-            case True:
-                copied = self.expr.copy()
-                match copied.find(exp.Func):
-                    case exp.Func() as fn:
-                        arg: exp.Expr | None = fn.this  # pyright: ignore[reportAny]
-                        match arg:
-                            case exp.Expr() as a:
-                                fn.set("this", exp.Distinct(expressions=[a]))
-                            case _:
-                                pass
-                    case _:
-                        pass
-                return self.__class__(copied)
-            case False:
+        match (distinct, self.expr.find(exp.Func)):
+            case (True, exp.Func(this=arg)):  # pyright: ignore[reportAny]
+                expr = self.expr.copy()
+                expr.set("this", exp.Distinct(expressions=[arg]))
+                return self.__class__(expr)
+            case _:
                 return self
 
     def handle_fn_order_by(self, **kwargs: Unpack[FnArgs]) -> Self:
