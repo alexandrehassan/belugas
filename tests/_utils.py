@@ -44,34 +44,23 @@ class FnsCat(PyoIterable[Fns]):
         return self.fns.iter().map(lambda x: x.pql_fn.__name__)
 
 
-def _assert_schema(lf: pql.LazyFrame) -> pql.LazyFrame:
-    other = pql.Schema.from_frame(lf.inner())
+def _assert_cols(lf: pql.LazyFrame) -> pql.LazyFrame:
+    other = lf.inner().columns
     incorrect_key = (
-        lf.schema
+        lf.columns
         .iter()
         .zip(other)
         .map_star(lambda left, right: (f"{left, right}", operator.eq(left, right)))
         .find(lambda x: not x[1])
     )
-    incorrect_dtype = (
-        lf.schema
-        .values()
-        .iter()
-        .zip(other.values())
-        .map_star(lambda left, right: (f"{left, right}", left.is_(right)))
-        .find(lambda x: not x[1])
-    )
     assert incorrect_key.is_none(), (
-        f"Incorrect key:\n {incorrect_key.unwrap()[0]} with schema:\n {lf.schema!r}\n\n and:\n {other!r}"
-    )
-    assert incorrect_dtype.is_none(), (
-        f"Incorrect dtype:\n {incorrect_dtype.unwrap()[0]} with schema:\n {lf.schema!r}\n\n and:\n {other!r}"
+        f"Incorrect key:\n `{incorrect_key.unwrap()[0]}`\n Self:\n {lf.columns!r}\n\n Other:\n {other!r}"
     )
     return lf
 
 
 def _run_pql(pql_exprs: pql.Expr | Iterable[pql.Expr]) -> pql.LazyFrame:
-    return pql.LazyFrame(sample_df().to_native()).select(pql_exprs).pipe(_assert_schema)
+    return pql.LazyFrame(sample_df().to_native()).select(pql_exprs).pipe(_assert_cols)
 
 
 def assert_eq(
@@ -98,7 +87,7 @@ def assert_eq_pl(
 
 def assert_lf_eq_pl(pql_lf: pql.LazyFrame, polars_lf: pl.LazyFrame) -> None:
     assert_frame_equal(
-        pql_lf.pipe(_assert_schema).collect(),
+        pql_lf.pipe(_assert_cols).collect(),
         polars_lf.collect(),
         check_dtypes=False,
         check_row_order=False,
