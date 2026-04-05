@@ -4,7 +4,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import auto
 from functools import partial
-from operator import itemgetter as get
 from typing import TYPE_CHECKING, Literal, NamedTuple, Self, TypedDict, Unpack
 
 import pyochain as pc
@@ -210,7 +209,7 @@ def _rewrite_forward_fill(
     def _last_value_arg(inner: exp.Expr) -> pc.Option[exp.Expr]:
         match inner:
             case exp.Anonymous() as fn if fn.name.lower() == "last_value":
-                return pc.Option(fn.args.get("expressions", [])).map(get(0))  # pyright: ignore[reportAny]
+                return pc.Some(fn.expressions[0])  # pyright: ignore[reportAny]
             case _:
                 return pc.NONE
 

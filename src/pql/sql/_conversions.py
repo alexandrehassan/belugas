@@ -2,7 +2,7 @@ from collections.abc import Iterable
 
 import duckdb
 import sqlglot.expressions as exp
-from pyochain import Err, Iter, Ok, Option, Result
+from pyochain import Iter, Option
 
 from .typing import IntoExpr
 
@@ -39,7 +39,6 @@ def pql_into_glot(value: IntoExpr) -> exp.Expr:
 
 
 def glot_into_duckdb(expr: exp.Expr) -> duckdb.Expression:
-
     try:
         match expr:
             case exp.Alias():
@@ -64,19 +63,6 @@ def glot_into_duckdb(expr: exp.Expr) -> duckdb.Expression:
         {expr.sql(dialect="duckdb", pretty=True)}
         """
         raise PQLConversionError(msg) from e
-
-
-def _alias_name(value: exp.Expr | str | None) -> Result[str, ValueError]:
-    match value:
-        case exp.Identifier() as ident:
-            return Ok(ident.name)
-        case exp.Expr() as expr:
-            return Ok(expr.sql(dialect="duckdb"))
-        case str() as name:
-            return Ok(name)
-        case _:
-            msg = "Alias expression requires a non-empty alias name"
-            return Err(ValueError(msg))
 
 
 def _ordered_expr(expr: exp.Ordered) -> duckdb.Expression:
@@ -110,12 +96,7 @@ def _col_expr(expr: exp.Column) -> duckdb.Expression:
 
 
 def _alias_expr(expr: exp.Alias) -> duckdb.Expression:
-
-    return (
-        _alias_name(expr.args.get("alias"))
-        .map(lambda name: glot_into_duckdb(expr.this).alias(name))  # pyright: ignore[reportAny]
-        .unwrap()
-    )
+    return glot_into_duckdb(expr.this).alias(expr.alias)  # pyright: ignore[reportAny]
 
 
 def _anon_func_expr(
