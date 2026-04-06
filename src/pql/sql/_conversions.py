@@ -45,7 +45,9 @@ def glot_into_duckdb(expr: exp.Expr) -> duckdb.Expression:
                 return _alias_expr(expr)
             case exp.Column():
                 return _col_expr(expr)
-            case exp.Anonymous() | exp.Greatest() | exp.Least():
+            case (
+                exp.Anonymous() | exp.AnonymousAggFunc() | exp.Greatest() | exp.Least()
+            ):
                 return _anon_func_expr(expr)
             case exp.Lambda():
                 return _lambda_expr(expr)
@@ -100,10 +102,10 @@ def _alias_expr(expr: exp.Alias) -> duckdb.Expression:
 
 
 def _anon_func_expr(
-    expr: exp.Anonymous | exp.Greatest | exp.Least,
+    expr: exp.Anonymous | exp.AnonymousAggFunc | exp.Greatest | exp.Least,
 ) -> duckdb.Expression:
     match expr:
-        case exp.Anonymous() as anon_expr:
+        case exp.Anonymous() | exp.AnonymousAggFunc() as anon_expr:
             name = anon_expr.name
             exprs = anon_expr.expressions
         case _ as func_expr:
