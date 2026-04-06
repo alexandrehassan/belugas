@@ -92,6 +92,20 @@ class ExprKind(IntEnum):
             case _:
                 return expr.implode()
 
+    def broadcasted_scalar(self, expr: SqlExpr) -> SqlExpr:
+        def _window_agg(node: exp.Expr) -> exp.Expr:
+            match (node, isinstance(node.parent, exp.Window)):
+                case (exp.AggFunc() | exp.List(), False):
+                    return SqlExpr(node).over().inner()
+                case _:
+                    return node
+
+        match self:
+            case self.SCALAR:
+                return SqlExpr(expr.inner().transform(_window_agg))  # pyright: ignore[reportUnknownMemberType, reportAny]
+            case _:
+                return expr
+
 
 @dataclass(slots=True)
 class ExprMeta(ABC):
@@ -209,8 +223,11 @@ class ResolvedExpr(NamedTuple):
         expr = self.kind.resolve_exploded(self.expr)
         return expr if self.is_multi() else expr.alias(self.name)
 
-    def as_aliased(self) -> SqlExpr:
-        return self.expr if self.is_multi() else self.expr.alias(self.name)
+    def as_aliased(self, *, broadcast_scalar: bool) -> SqlExpr:
+        expr = (
+            self.kind.broadcasted_scalar(self.expr) if broadcast_scalar else self.expr
+        )
+        return expr if self.is_multi() else expr.alias(self.name)
 
     def into_iter(self) -> pc.Iter[Self]:
         return pc.Iter.once(self)
@@ -267,13 +284,11 @@ class ExprPlan:
             .collect()
         )
 
-    def aliased_sql(self) -> pc.Iter[Expression]:
-        return (
-            self.projections
-            .iter()
-            .map(ResolvedExpr.as_aliased)
-            .map(lambda e: e.into_duckdb())
-        )
+    def aliased_sql(self, *, broadcast_scalar: bool) -> pc.Iter[Expression]:
+        def _into_expr(resolved: ResolvedExpr) -> Expression:
+            return resolved.as_aliased(broadcast_scalar=broadcast_scalar).into_duckdb()
+
+        return self.projections.iter().map(_into_expr)
 
     def select_context(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
         def _non_empty_slct(
@@ -281,15 +296,17 @@ class ExprPlan:
         ) -> DuckDBPyRelation:
             match projs.all(lambda r: r.kind == ExprKind.UNIQUE):
                 case True:
-                    return self.aliased_sql().into(
+                    return self.aliased_sql(broadcast_scalar=False).into(
                         lambda exprs: lf.select(*exprs).distinct()
                     )
                 case False:
                     match projs.all(lambda r: r.kind == ExprKind.SCALAR):
                         case True:
-                            return self.aliased_sql().into(lf.aggregate)
+                            return self.aliased_sql(broadcast_scalar=False).into(
+                                lf.aggregate
+                            )
                         case False:
-                            return self.aliased_sql().into(
+                            return self.aliased_sql(broadcast_scalar=True).into(
                                 lambda exprs: lf.select(*exprs)
                             )
 
@@ -300,6 +317,14 @@ class ExprPlan:
     def with_columns_context(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
 
         def _resolve() -> pc.Iter[Expression]:
+            def _into_update(proj: ResolvedExpr) -> pc.Option[tuple[str, SqlExpr]]:
+                match proj.is_multi():
+                    case True:
+                        return pc.NONE
+                    case False:
+                        expr = proj.kind.broadcasted_scalar(proj.expr)
+                        return pc.Some((proj.name, expr))
+
             def _resolved(updates: pc.Dict[str, SqlExpr]) -> pc.Iter[SqlExpr]:
                 match updates.any(lambda name: name in self.cols):
                     case False:
@@ -331,31 +356,24 @@ class ExprPlan:
             return (
                 self.projections
                 .iter()
-                .map(lambda r: (r.name, r.expr))
+                .filter_map(_into_update)
                 .collect(pc.Dict)
                 .into(_resolved)
                 .map(lambda c: c.into_duckdb())
             )
 
-        def _get_lf(lf: DuckDBPyRelation) -> DuckDBPyRelation:
-            match self.projections.any(lambda r: r.kind == ExprKind.SCALAR):
-                case True:
-                    return _resolve().into(lf.aggregate)
-                case False:
-                    return _resolve().into(lambda exprs: lf.select(*exprs))
-
-        return _get_lf(Marker.windowed(lf, self.projections))
+        return Marker.windowed(lf, self.projections).select(*_resolve())
 
     def with_fields_context(self, expr: SqlExpr) -> SqlExpr:
         return (
             self.projections
             .iter()
-            .map(ResolvedExpr.as_aliased)
+            .map(lambda proj: proj.as_aliased(broadcast_scalar=False))
             .into(lambda args: expr.struct.insert(*args))
         )
 
     def group_by_all_context(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
-        return self.aliased_sql().into(lf.aggregate, "ALL")
+        return self.aliased_sql(broadcast_scalar=False).into(lf.aggregate, "ALL")
 
     def agg_context(
         self,
