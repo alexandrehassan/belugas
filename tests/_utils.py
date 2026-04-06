@@ -70,7 +70,12 @@ def _run_pql_with_cols(pql_exprs: pql.Expr | Iterable[pql.Expr]) -> pl.DataFrame
 def _assert(
     left: pl.DataFrame | pl.LazyFrame, right: pl.DataFrame | pl.LazyFrame
 ) -> None:
-    return assert_frame_equal(left, right, check_dtypes=False, check_row_order=False)
+    return assert_frame_equal(
+        left.lazy().collect(),
+        right.lazy().collect(),
+        check_dtypes=False,
+        check_row_order=False,
+    )
 
 
 def assert_eq(
