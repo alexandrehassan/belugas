@@ -4,6 +4,8 @@ import duckdb
 import narwhals as nw
 import polars as pl
 
+import pql
+
 nan = float("nan")
 
 _DATA = {
@@ -106,7 +108,17 @@ _SCHEMA = {
 _DF = nw.from_native(
     pl.DataFrame(_DATA, schema_overrides=_SCHEMA).pipe(duckdb.from_arrow)
 )
+_DF_PQL = pql.LazyFrame(_DF.to_native())
+_LF_PL = _DF.to_native().pl(lazy=True)
 
 
 def sample_df() -> nw.LazyFrame[duckdb.DuckDBPyRelation]:
     return _DF
+
+
+def sample_lf() -> pl.LazyFrame:
+    return _LF_PL
+
+
+def sample_pql() -> pql.LazyFrame:
+    return _DF_PQL
