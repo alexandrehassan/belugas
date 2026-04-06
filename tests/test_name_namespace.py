@@ -1,4 +1,5 @@
 import polars as pl
+import pytest
 
 import pql
 
@@ -40,29 +41,30 @@ def test_name_to_uppercase_all() -> None:
     )
 
 
-def test_name_replace() -> None:
+@pytest.mark.parametrize("literal", [True, False])
+def test_name_replace(literal: bool) -> None:
     assert_eq(
-        pql.col("x").name.replace("x", "y"),
-        pl.col("x").name.replace("x", "y"),
+        pql.col("x").name.replace("x", "y", literal=literal),
+        pl.col("x").name.replace("x", "y", literal=literal),
     )
     assert_eq(
-        pql.col("s").name.replace("s", "t"),
-        pl.col("s").name.replace("s", "t"),
+        pql.col("s").name.replace("s", "t", literal=literal),
+        pl.col("s").name.replace("s", "t", literal=literal),
     )
     assert_eq(
-        pql.col("salary").name.replace("salary", "income"),
-        pl.col("salary").name.replace("salary", "income"),
+        pql.col("salary").name.replace("salary", "income", literal=literal),
+        pl.col("salary").name.replace("salary", "income", literal=literal),
     )
 
     assert_eq(
-        pql.col("salary").name.replace("a", "b", literal=True),
-        pl.col("salary").name.replace("a", "b", literal=True),
+        pql.col("salary").name.replace("a", "b", literal=literal),
+        pl.col("salary").name.replace("a", "b", literal=literal),
     )
     assert_eq(
-        pql.col("salary").name.replace("l", "L", literal=True),
-        pl.col("salary").name.replace("l", "L", literal=True),
+        pql.col("salary").name.replace("l", "L", literal=literal),
+        pl.col("salary").name.replace("l", "L", literal=literal),
     )
     assert_eq(
-        pql.col("salary").name.replace("sal", "SAL", literal=True),
-        pl.col("salary").name.replace("sal", "SAL", literal=True),
+        pql.col("salary").name.replace("sal", "SAL", literal=literal),
+        pl.col("salary").name.replace("sal", "SAL", literal=literal),
     )
