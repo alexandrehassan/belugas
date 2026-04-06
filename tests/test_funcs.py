@@ -1,15 +1,14 @@
-import narwhals as nw
 import polars as pl
 import pytest
 
 import pql
 
-from ._utils import Fns, FnsCat, assert_eq, assert_eq_pl, assert_lf_eq_pl
+from ._utils import Fns, FnsCat, assert_eq, assert_lf_eq
 
 
 def test_all_add() -> None:
     data = {"a": [1, 2], "b": [3, 4]}
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(data).select(pql.all().add(1)),
         pl.LazyFrame(data).select(pl.all().add(1)),
     )
@@ -17,7 +16,7 @@ def test_all_add() -> None:
 
 def test_all_chained() -> None:
     data = {"a": [1, 2], "b": [3, 4]}
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(data).select(pql.all().mul(2).add(1)),
         pl.LazyFrame(data).select(pl.all().mul(2).add(1)),
     )
@@ -41,24 +40,20 @@ _SIMPLE_FNS = FnsCat((pql.all, pl.all), (pql.len, pl.len))
 
 @pytest.mark.parametrize("fns", _SIMPLE_FNS, ids=_SIMPLE_FNS.into_ids())
 def test_simple_fn(fns: Fns) -> None:
-    assert_eq_pl(*fns.call())
+    assert_eq(*fns.call())
 
 
 @pytest.mark.parametrize("fns", _MULTI_FNS, ids=_MULTI_FNS.into_ids())
 def test_multi_col(fns: Fns) -> None:
-    assert_eq_pl(*fns.call("x", "n"))
+    assert_eq(*fns.call("x", "n"))
 
 
 def test_all_horizontal() -> None:
-    assert_eq(
-        pql.all_horizontal("a", "b"), nw.all_horizontal("a", "b", ignore_nulls=False)
-    )
+    assert_eq(pql.all_horizontal("a", "b"), pl.all_horizontal("a", "b"))
 
 
 def test_any_horizontal() -> None:
-    assert_eq(
-        pql.any_horizontal("a", "b"), nw.any_horizontal("a", "b", ignore_nulls=False)
-    )
+    assert_eq(pql.any_horizontal("a", "b"), pl.any_horizontal("a", "b"))
 
 
 def test_when_then_simple() -> None:
@@ -74,7 +69,7 @@ def test_when_then_simple() -> None:
         .then(pl.lit("equal_to_5"))
         .otherwise(pl.lit("not_equal_to_5"))
     )
-    assert_eq_pl(pql_expr, pl_expr)
+    assert_eq(pql_expr, pl_expr)
 
 
 def test_when_then_chained() -> None:
@@ -98,7 +93,7 @@ def test_when_then_chained() -> None:
         .then(pl.lit("equal"))
         .otherwise(pl.lit("mid"))
     )
-    assert_eq_pl(pql_expr, pl_expr)
+    assert_eq(pql_expr, pl_expr)
 
 
 def test_when_with_multiple_predicates() -> None:
@@ -114,13 +109,13 @@ def test_when_with_multiple_predicates() -> None:
         .then(pl.lit("both_true"))
         .otherwise(pl.lit("not_both_true"))
     )
-    assert_eq_pl(pql_expr, pl_expr)
+    assert_eq(pql_expr, pl_expr)
 
 
 def test_when_without_otherwise() -> None:
     pql_expr = pql.when(pql.col("x") > 10).then(pql.lit("high"))
     pl_expr = pl.when(pl.col("x") > 10).then(pl.lit("high"))
-    assert_eq_pl(pql_expr, pl_expr)
+    assert_eq(pql_expr, pl_expr)
 
 
 def test_when_nested_conditions() -> None:
@@ -146,4 +141,4 @@ def test_when_nested_conditions() -> None:
         )
         .otherwise(pl.lit("x_low"))
     )
-    assert_eq_pl(pql_expr, pl_expr)
+    assert_eq(pql_expr, pl_expr)

@@ -7,7 +7,7 @@ import pytest
 import pql
 import pql._typing as t  # noqa: PLC2701
 
-from ._utils import assert_lf_eq_pl
+from ._utils import assert_lf_eq
 
 _DF = pl.DataFrame({
     "id": [1, 2, 3, 4, 5],
@@ -35,14 +35,14 @@ def sample_df() -> pl.DataFrame:
 
 def test_unpivot() -> None:
     data = pl.DataFrame({"id": ["a", "b"], "x": [1, 3], "y": [2, 4]})
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(data).unpivot(on=["x", "y"], index="id"),
         data.lazy().unpivot(on=["x", "y"], index="id"),
     )
 
 
 def test_pivot_single_value_column(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(sample_df).pivot(
             "department",
             on_columns=["Engineering", "Sales"],
@@ -59,7 +59,7 @@ def test_pivot_single_value_column(sample_df: pl.DataFrame) -> None:
 
 
 def test_pivot_multiple_value_columns(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(sample_df).pivot(
             "department", on_columns=["Engineering", "Sales"], index="id"
         ),
@@ -77,7 +77,7 @@ def test_pivot_aggregate_fns(sample_df: pl.DataFrame, agg: t.PivotAgg) -> None:
 
     We keep both `count` and `len` as options for the `aggregate_function` parameter, but they both map to `len` in polars.
     """
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(sample_df).pivot(
             "department",
             on_columns=["Engineering", "Sales"],
@@ -97,7 +97,7 @@ def test_pivot_aggregate_fns(sample_df: pl.DataFrame, agg: t.PivotAgg) -> None:
 
 def test_pivot_aggregate_sum(sample_df: pl.DataFrame) -> None:
     """Sum in `polars` is at 0 for null values, but return null in `DuckDB`."""
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql
         .LazyFrame(sample_df)
         .pivot(
@@ -119,7 +119,7 @@ def test_pivot_aggregate_sum(sample_df: pl.DataFrame) -> None:
 
 
 def test_pivot_custom_separator(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(sample_df).pivot(
             "department",
             on_columns=["Engineering", "Sales"],
@@ -136,7 +136,7 @@ def test_pivot_custom_separator(sample_df: pl.DataFrame) -> None:
 
 
 def test_pivot_auto_detect_index(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(sample_df).pivot(
             "department", on_columns=["Engineering", "Sales"], values="salary"
         ),
@@ -147,7 +147,7 @@ def test_pivot_auto_detect_index(sample_df: pl.DataFrame) -> None:
 
 
 def test_pivot_maintain_order(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(sample_df).pivot(
             "department",
             on_columns=["Engineering", "Sales"],
@@ -167,7 +167,7 @@ def test_pivot_maintain_order(sample_df: pl.DataFrame) -> None:
 
 def test_pivot_integer_on_columns(sample_df: pl.DataFrame) -> None:
     cols = (1, 2, 3, 4, 5)
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(sample_df).pivot(
             "id",
             on_columns=cols,

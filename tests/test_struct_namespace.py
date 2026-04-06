@@ -1,17 +1,16 @@
-import narwhals as nw
 import polars as pl
 
 import pql
 
-from ._utils import assert_eq, assert_eq_pl
+from ._utils import assert_eq
 
 
 def test_field() -> None:
-    assert_eq(pql.col("structs").struct.field("a"), nw.col("structs").struct.field("a"))
+    assert_eq(pql.col("structs").struct.field("a"), pl.col("structs").struct.field("a"))
 
 
 def test_with_fields() -> None:
-    assert_eq_pl(
+    assert_eq(
         pql
         .col("structs")
         .struct.with_fields(
@@ -36,6 +35,6 @@ def test_with_fields() -> None:
 
 
 def test_json_encode() -> None:
-    assert_eq_pl(
+    assert_eq(
         pql.col("structs").struct.json_encode(), pl.col("structs").struct.json_encode()
     )

@@ -3,7 +3,6 @@ from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from typing import NamedTuple, override
 
-import narwhals as nw
 import polars as pl
 import pyochain as pc
 from polars.testing import assert_frame_equal
@@ -12,11 +11,12 @@ from rich.traceback import install
 
 import pql
 
-from ._data import sample_df, sample_lf, sample_pql
+from ._data import sample_lf, sample_pql
 
 _ = install(show_locals=True)
 type PlFn = Callable[..., pl.Expr]
 type PqlFn = Callable[..., pql.Expr]
+type Exprs[T: pl.Expr | pql.Expr] = T | Iterable[T]
 
 
 class Fns(NamedTuple):
@@ -59,11 +59,11 @@ def _assert_cols(lf: pql.LazyFrame) -> pl.DataFrame:
     return lf.collect()
 
 
-def _run_pql_select(pql_exprs: pql.Expr | Iterable[pql.Expr]) -> pl.DataFrame:
+def _run_pql_select(pql_exprs: Exprs[pql.Expr]) -> pl.DataFrame:
     return sample_pql().select(pql_exprs).pipe(_assert_cols)
 
 
-def _run_pql_with_cols(pql_exprs: pql.Expr | Iterable[pql.Expr]) -> pl.DataFrame:
+def _run_pql_with_cols(pql_exprs: Exprs[pql.Expr]) -> pl.DataFrame:
     return sample_pql().with_columns(pql_exprs).pipe(_assert_cols)
 
 
@@ -79,29 +79,16 @@ def _assert(
 
 
 def assert_eq(
-    pql_exprs: pql.Expr | Iterable[pql.Expr], polars_exprs: nw.Expr | Iterable[nw.Expr]
+    pql_exprs: Exprs[pql.Expr], polars_exprs: Exprs[pl.Expr], *, with_cols: bool = True
 ) -> None:
-    lf = sample_df().lazy()
-    _assert(_run_pql_select(pql_exprs), lf.select(polars_exprs).to_native().pl())
-    _assert(
-        _run_pql_with_cols(pql_exprs), lf.with_columns(polars_exprs).to_native().pl()
-    )
-
-
-def assert_eq_pl(
-    pql_exprs: pql.Expr | Iterable[pql.Expr],
-    polars_exprs: pl.Expr | Iterable[pl.Expr],
-    *,
-    with_cols: bool = True,
-) -> None:
-    _assert(_run_pql_select(pql_exprs), sample_lf().select(polars_exprs))
+    _assert(sample_lf().select(polars_exprs), _run_pql_select(pql_exprs))
     if with_cols:
-        _assert(_run_pql_with_cols(pql_exprs), sample_lf().with_columns(polars_exprs))
+        _assert(sample_lf().with_columns(polars_exprs), _run_pql_with_cols(pql_exprs))
 
 
-def assert_lf_eq_pl(pql_lf: pql.LazyFrame, polars_lf: pl.LazyFrame) -> None:
+def assert_lf_eq(pql_lf: pql.LazyFrame, polars_lf: pl.LazyFrame) -> None:
     _assert(pql_lf.pipe(_assert_cols), polars_lf)
 
 
 def on_simple_fn(pql_expr: object, pl_expr: object, fn_name: str) -> None:
-    assert_eq_pl(getattr(pql_expr, fn_name)(), getattr(pl_expr, fn_name)())  # pyright: ignore[reportAny]
+    assert_eq(getattr(pql_expr, fn_name)(), getattr(pl_expr, fn_name)())  # pyright: ignore[reportAny]

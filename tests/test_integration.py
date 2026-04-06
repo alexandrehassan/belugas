@@ -4,7 +4,7 @@ import polars as pl
 
 import pql
 
-from ._utils import assert_lf_eq_pl
+from ._utils import assert_lf_eq
 
 
 # TODO: We need to implement drop_nulls at the expression level to be able to compare them.
@@ -25,7 +25,7 @@ def tst_funcs() -> None:
         "internal",
     )
 
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql_lf
         .drop(unwanted)
         .filter(pql.col("function_name").str.contains(pql.lit("xor")))

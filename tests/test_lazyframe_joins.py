@@ -5,7 +5,7 @@ from polars._typing import JoinStrategy as PlJoinStrategy
 import pql
 import pql._typing as t  # noqa: PLC2701
 
-from ._utils import assert_lf_eq_pl
+from ._utils import assert_lf_eq
 
 LEFT = pl.DataFrame({"id1": [1, 2, 3], "id2": ["a", "b", "c"], "a": [10, 20, 30]})
 RIGHT = pl.DataFrame({"id1": [2, 3, 4], "id2": ["b", "c", "d"], "b": [200, 300, 400]})
@@ -18,7 +18,7 @@ def _pl_how(how: t.JoinStrategy) -> PlJoinStrategy:
 @pytest.mark.parametrize("on", [["id1", "id2"], ["id1"]])
 @pytest.mark.parametrize("how", t.JoinStrategy.__args__)
 def test_join_on(on: list[str], how: t.JoinStrategy) -> None:
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(LEFT).join(pql.LazyFrame(RIGHT), on=on, how=how),
         LEFT.lazy().join(RIGHT.lazy(), on=on, how=_pl_how(how)),
     )
@@ -27,7 +27,7 @@ def test_join_on(on: list[str], how: t.JoinStrategy) -> None:
 @pytest.mark.parametrize("on", [["id1", "id2"], ["id1"]])
 @pytest.mark.parametrize("how", t.JoinStrategy.__args__)
 def test_join_left_on_right_on(on: list[str], how: t.JoinStrategy) -> None:
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(LEFT).join(
             pql.LazyFrame(RIGHT), left_on=on, right_on=on, how=how
         ),
@@ -36,7 +36,7 @@ def test_join_left_on_right_on(on: list[str], how: t.JoinStrategy) -> None:
 
 
 def test_join_cross() -> None:
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(LEFT).join_cross(pql.LazyFrame(RIGHT)),
         LEFT.lazy().join(RIGHT.lazy(), how="cross"),
     )
@@ -46,7 +46,7 @@ def test_join_cross() -> None:
 def test_join_asof_strat(strategy: t.AsofJoinStrategy) -> None:
     left = pl.DataFrame({"t": [1, 4, 9], "g": ["x", "x", "y"], "a": [1, 2, 3]})
     right = pl.DataFrame({"u": [0, 3, 8], "g2": ["x", "x", "y"], "b": [100, 200, 300]})
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(left).join_asof(
             pql.LazyFrame(right),
             left_on="t",
@@ -132,7 +132,7 @@ def test_join_left_on_right_on_length_mismatch() -> None:
 def test_join_asof_with_by() -> None:
     left = pl.DataFrame({"t": [1, 4, 9], "g": ["x", "x", "y"], "a": [1, 2, 3]})
     right = pl.DataFrame({"t": [0, 3, 8], "g": ["x", "x", "y"], "b": [100, 200, 300]})
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(left).join_asof(
             pql.LazyFrame(right),
             on="t",
@@ -151,7 +151,7 @@ def test_join_asof_with_by() -> None:
 def test_join_asof_overlap_column_suffix() -> None:
     left = pl.DataFrame({"t": [1, 4, 9], "a": [1, 2, 3]})
     right = pl.DataFrame({"t": [0, 3, 8], "a": [100, 200, 300]})
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(left).join_asof(
             pql.LazyFrame(right), on="t", strategy="backward"
         ),
@@ -182,7 +182,7 @@ def test_join_on_and_left_right_on_error() -> None:
 def test_join_asof_on_without_by() -> None:
     left = pl.DataFrame({"t": [1, 4, 9], "a": [1, 2, 3]})
     right = pl.DataFrame({"t": [0, 3, 8], "b": [100, 200, 300]})
-    assert_lf_eq_pl(
+    assert_lf_eq(
         pql.LazyFrame(left).join_asof(
             pql.LazyFrame(right), on="t", strategy="backward"
         ),

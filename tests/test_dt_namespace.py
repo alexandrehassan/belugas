@@ -6,7 +6,7 @@ import pql
 import pql.sql.typing as t
 from pql._namespaces import ExprDateTimeNameSpace as PqlExprDateTimeNameSpace
 
-from ._utils import assert_eq_pl, on_simple_fn
+from ._utils import assert_eq, on_simple_fn
 
 
 def _pql_dt() -> PqlExprDateTimeNameSpace:
@@ -48,18 +48,18 @@ def test_simple_fns(fn: str) -> None:
 
 @pytest.mark.parametrize("unit", t.EpochTimeUnit.__args__)
 def test_epoch(unit: t.EpochTimeUnit) -> None:
-    assert_eq_pl(_pql_dt().epoch(unit), _pl_dt().epoch(unit))
+    assert_eq(_pql_dt().epoch(unit), _pl_dt().epoch(unit))
 
 
 @pytest.mark.parametrize("unit", t.TimeUnit.__args__)
 def test_timestamp(unit: t.TimeUnit) -> None:
-    assert_eq_pl(_pql_dt().timestamp(unit), _pl_dt().timestamp(unit))
+    assert_eq(_pql_dt().timestamp(unit), _pl_dt().timestamp(unit))
 
 
 def test_date_time_boundaries() -> None:
     str_fmt = "%Y-%m-%d"
     strf_fmt = "%H:%M"
-    assert_eq_pl(
+    assert_eq(
         (
             _pql_dt().to_string(pql.lit(str_fmt)).alias("to_string"),
             _pql_dt().strftime(pql.lit(strf_fmt)).alias("strftime"),
@@ -72,12 +72,12 @@ def test_date_time_boundaries() -> None:
 
 
 def test_truncate() -> None:
-    assert_eq_pl(_pql_dt().truncate("month"), _pl_dt().truncate("1mo"))
+    assert_eq(_pql_dt().truncate("month"), _pl_dt().truncate("1mo"))
 
 
 def test_round() -> None:
-    assert_eq_pl(_pql_dt().round("month"), _pl_dt().round("1mo"))
+    assert_eq(_pql_dt().round("month"), _pl_dt().round("1mo"))
 
 
 def test_offset_by() -> None:
-    assert_eq_pl(_pql_dt().offset_by(pql.lit("1 day")), _pl_dt().offset_by("1d"))
+    assert_eq(_pql_dt().offset_by(pql.lit("1 day")), _pl_dt().offset_by("1d"))
