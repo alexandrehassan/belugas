@@ -138,8 +138,7 @@ class OverBuilder:
                 nulls_last=kwargs["fn_nulls_last"],
             )
             return exp.WithinGroup(
-                this=self.expr,
-                expression=exp.Order(expressions=exp.Order(expressions=exprs)),
+                this=self.expr, expression=exp.Order(expressions=exprs)
             )
 
         return (
