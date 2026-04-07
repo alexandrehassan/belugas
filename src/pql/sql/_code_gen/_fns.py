@@ -1,3 +1,5 @@
+# ruff: noqa: PLR0917
+
 """DuckDB SQL function wrappers with type hints.
 
 Functions are extracted from DuckDB duckdb_functions() introspection.
@@ -2407,7 +2409,7 @@ class Fns(DuckHandler):
         Returns:
             Self
         """
-        return self._cls(anon("product", self.inner()))
+        return self._cls(func("PRODUCT", self.inner()))
 
     def quantile_cont(self, pos: IntoExprColumn | SeqLiteral[float] | float) -> Self:
         """Returns the interpolated quantile number between 0 and 1 .
@@ -7454,7 +7456,7 @@ class DateTimeFns[T: Fns](NameSpaceHandler[T]):
         """
         return self._cls(anon("make_timestamp_ns", self.inner()))
 
-    def make_timestamptz(  # noqa: PLR0917
+    def make_timestamptz(
         self,
         col1: IntoExprColumn | int | None = None,
         col2: IntoExprColumn | int | None = None,
@@ -9612,7 +9614,7 @@ class GeoSpatialFns[T: Fns](NameSpaceHandler[T]):
     __slots__: ClassVar[Iterable[str]] = ()
     """Mixin providing auto-generated DuckDB geospatial functions as methods."""
 
-    def affine(  # noqa: PLR0917
+    def affine(
         self,
         a: IntoExprColumn | float,
         b: IntoExprColumn | float,

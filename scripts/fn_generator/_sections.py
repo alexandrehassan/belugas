@@ -58,7 +58,8 @@ class {name}{params}({base}):
 
 
 def _header(path: Path) -> str:
-    return f'''
+    return f'''# ruff: noqa: PLR0917
+
 """DuckDB SQL function wrappers with type hints.
 
 Functions are extracted from DuckDB duckdb_functions() introspection.

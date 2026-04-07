@@ -81,6 +81,7 @@ _MISSING_FROM_GLOT: FuncRegistery = {
     "MEAN": exp.Avg.from_arg_list,
     "ORD": exp.Unicode.from_arg_list,
     "POSITION": exp.StrPosition.from_arg_list,
+    "PRODUCT": _named_agg("PRODUCT"),
     "REGEXP_SPLIT_TO_ARRAY": exp.RegexpSplit.from_arg_list,
     "SUFFIX": exp.EndsWith.from_arg_list,
 }
