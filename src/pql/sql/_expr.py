@@ -6,13 +6,14 @@ from functools import cache
 from typing import TYPE_CHECKING, ClassVar, Self, override
 
 import pyochain as pc
-from sqlglot import exp
+from duckdb import Expression
+from sqlglot import exp, parse_one
 
 from pql.sql.typing import IntoExprColumn
 
 from ._code_gen import Fns
 from ._conversions import args_into_glot, pql_into_glot
-from ._core import func
+from ._core import DuckHandler, func
 from ._window import FrameBound, OverBuilder, get_order, get_partition, make_spec
 
 if TYPE_CHECKING:
@@ -53,6 +54,33 @@ class SqlExpr(Fns):  # noqa: PLW1641
     """A wrapper around sqlglot.exp.Expr that provides operator overloading and SQL function methods."""
 
     __slots__: ClassVar[Iterable[str]] = ()
+
+    @classmethod
+    def new(cls, value: IntoExpr, *, as_col: bool = False) -> Self:
+        """Convert a value to a `SqlExpr`.
+
+        Args:
+            value (IntoExpr): The value to convert.
+            as_col (bool): Whether to treat `str` values as column names (default: `False`).
+
+        Returns:
+            SqlExpr
+        """
+        from .._expr import Expr
+
+        match value:
+            case DuckHandler():
+                return cls(value.inner())
+            case Expr():
+                return cls(value.inner().inner())
+            case str() if as_col:
+                return cls(exp.column(value))
+            case exp.Expr():
+                return cls(value)
+            case Expression():
+                return cls(parse_one(str(value), dialect="duckdb"))
+            case _:
+                return cls(exp.convert(value))
 
     def _build_op[T: exp.Binary](
         self, op: type[T], left: exp.Expr, right: exp.Expr
@@ -194,9 +222,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         return self.__rfloordiv__(other)
 
     def __rmod__(self, other: IntoExpr) -> Self:
-        from ._funcs import into_expr
-
-        return self._new(into_expr(other).fmod(self.inner()).inner())
+        return self.new(other).fmod(self.inner())
 
     def rmod(self, other: IntoExpr) -> Self:
         return self.__rmod__(other)
@@ -549,9 +575,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             Self: A list expression with repeated values.
         """
-        from ._funcs import into_expr
-
-        expr = into_expr(by, as_col=True).list.range().list.eval(self).inner()
+        expr = self.new(by, as_col=True).list.range().list.eval(self).inner()
         return self._new(expr)
 
     def replace(self, old: IntoExpr, new: IntoExpr) -> Self:
@@ -577,10 +601,10 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             Self: A boolean expression indicating whether the values are close.
         """
-        from ._funcs import into_expr, lit
+        from ._funcs import lit
         from ._when import when
 
-        other_expr = into_expr(other)
+        other_expr = self.new(other)
         threshold = lit(abs_tol).add(lit(rel_tol).mul(other_expr.abs()))
         close = self.sub(other_expr).abs().le(threshold)
         match nans_equal:

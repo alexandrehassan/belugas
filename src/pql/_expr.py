@@ -307,7 +307,7 @@ class Expr(sql.CoreHandler[SqlExpr]):
         return self._as_scalar(self.inner().bit_xor())
 
     def xor(self, other: IntoExpr) -> Self:
-        return self._new(self.inner().xor(sql.into_expr(other)))
+        return self._new(self.inner().xor(SqlExpr.new(other)))
 
     def alias(self, name: str) -> Self:
         """Rename the expression.
@@ -816,15 +816,13 @@ class Expr(sql.CoreHandler[SqlExpr]):
         partition_exprs: pc.Option[TryIter[IntoExprColumn]] = pc.Some(
             try_iter(partition_by)
             .chain(more_exprs)
-            .map(lambda x: sql.into_expr(x, as_col=True))
+            .map(lambda x: SqlExpr.new(x, as_col=True))
         )
         return (
             pc
             .Option(order_by)
             .map(
-                lambda value: try_iter(value).map(
-                    lambda x: sql.into_expr(x, as_col=True)
-                )
+                lambda value: try_iter(value).map(lambda x: SqlExpr.new(x, as_col=True))
             )
             .map(lambda order_exprs: expr(partition_exprs, pc.Some(order_exprs)))
             .unwrap_or_else(lambda: expr(partition_exprs))

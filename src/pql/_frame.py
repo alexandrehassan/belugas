@@ -164,12 +164,12 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         """
 
         def _constraint(k: str, val: IntoExpr) -> SqlExpr:
-            return sql.col(k).eq(sql.into_expr(val))
+            return sql.col(k).eq(SqlExpr.new(val))
 
         expr = (
             try_iter(predicates)
             .chain(more_predicates)
-            .map(lambda value: sql.into_expr(value, as_col=True))
+            .map(lambda value: SqlExpr.new(value, as_col=True))
             .chain(pc.Iter(constraints.items()).map_star(_constraint))
             .into(sql.reduce, SqlExpr.and_)
             .into_duckdb()
@@ -199,7 +199,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         key_exprs = (
             try_iter(keys)
             .chain(more_keys)
-            .map(lambda key: sql.into_expr(key, as_col=True))
+            .map(lambda key: SqlExpr.new(key, as_col=True))
             .collect()
         )
         grouped_frame = (
@@ -264,7 +264,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         lf = (
             try_iter(by)
             .chain(more_by)
-            .map(lambda v: sql.into_expr(v, as_col=True))
+            .map(lambda v: SqlExpr.new(v, as_col=True))
             .collect()
             .into(
                 lambda sort_exprs: sort_exprs.iter().zip(
@@ -394,7 +394,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         expr = (
             try_iter(columns)
             .chain(more_columns)
-            .map(lambda v: sql.into_expr(v, as_col=True))
+            .map(lambda v: SqlExpr.new(v, as_col=True))
             .filter_map(SqlExpr.root_column_name)
             .into(sql.all)
             .into_duckdb()

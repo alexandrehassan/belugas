@@ -2,12 +2,9 @@ from collections.abc import Callable, Iterable
 from typing import final
 
 import pyochain as pc
-import sqlglot
-from duckdb import Expression
 from sqlglot import exp
 
 from ._conversions import args_into_glot, pql_into_glot
-from ._core import DuckHandler
 from ._expr import SqlExpr
 from .typing import IntoExpr, IntoExprColumn, PythonLiteral
 from .utils import TryIter, try_iter
@@ -28,7 +25,10 @@ def reduce(
         SqlExpr: The result of reducing the expressions with the given function.
     """
     return (
-        pc.Iter(exprs).map(lambda value: into_expr(value, as_col=True)).reduce(function)
+        pc
+        .Iter(exprs)
+        .map(lambda value: SqlExpr.new(value, as_col=True))
+        .reduce(function)
     )
 
 
@@ -158,10 +158,10 @@ def _horizontal_fn(
             lambda all_exprs: (
                 all_exprs
                 .next()
-                .map(lambda value: into_expr(value, as_col=True))
+                .map(lambda value: SqlExpr.new(value, as_col=True))
                 .map(
                     lambda x: fn(
-                        x, *all_exprs.map(lambda value: into_expr(value, as_col=True))
+                        x, *all_exprs.map(lambda value: SqlExpr.new(value, as_col=True))
                     )
                 )
             ).expect(_HORIZONTAL_ERR)
@@ -198,7 +198,7 @@ def mean_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
     return (
         try_iter(exprs)
         .chain(more_exprs)
-        .map(lambda value: into_expr(value, as_col=True))
+        .map(lambda value: SqlExpr.new(value, as_col=True))
         .collect()
         .then(
             lambda vals: (
@@ -216,32 +216,3 @@ def mean_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
         )
         .expect(_HORIZONTAL_ERR)
     )
-
-
-def into_expr(value: IntoExpr, *, as_col: bool = False) -> SqlExpr:  # noqa: PLR0911
-    """Convert a value to a `SqlExpr`.
-
-    Args:
-        value (IntoExpr): The value to convert.
-        as_col (bool): Whether to treat `str` values as column names (default: `False`).
-
-    Returns:
-        SqlExpr
-    """
-    from .._expr import Expr
-
-    match value:
-        case SqlExpr():
-            return value
-        case DuckHandler():
-            return SqlExpr(value.inner())
-        case Expr():
-            return value.inner()
-        case str() if as_col:
-            return col(value)
-        case exp.Expr():
-            return SqlExpr(value)
-        case Expression():
-            return SqlExpr(sqlglot.parse_one(str(value), dialect="duckdb"))
-        case _:
-            return lit(value)

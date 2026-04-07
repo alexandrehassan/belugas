@@ -22,7 +22,7 @@ from ._code_gen import (
 )
 from ._core import DuckHandler, func
 from ._expr import SqlExpr
-from ._funcs import coalesce, element, into_expr, lit
+from ._funcs import coalesce, element, lit
 from ._when import when
 
 if TYPE_CHECKING:
@@ -148,7 +148,7 @@ class SqlExprStringNameSpace(StringFns[SqlExpr]):
         Returns:
             SqlExpr: A new expression that evaluates to the number of matches.
         """
-        pattern_expr = into_expr(pattern)
+        pattern_expr = self.inner().new(pattern)
         match literal:
             case False:
                 return self.inner().re.extract_all(pattern_expr).list.len()
@@ -176,7 +176,9 @@ class SqlExprStringNameSpace(StringFns[SqlExpr]):
                 )
             case _:
                 return (
-                    into_expr(prefix)
+                    self
+                    .inner()
+                    .new(prefix)
                     .pipe(
                         lambda prefix: when(
                             self.inner().str.starts_with(prefix),
@@ -200,11 +202,18 @@ class SqlExprStringNameSpace(StringFns[SqlExpr]):
                     lit(f"{re.escape(suffix_str)}$"), Lit.EMPTY_STR
                 )
             case _:
-                return into_expr(suffix).pipe(
-                    lambda expr: (
-                        when(self.inner().str.ends_with(expr))
-                        .then(self.substring(1, self.length().sub(expr.str.length())))
-                        .otherwise(self.inner())
+                return (
+                    self
+                    .inner()
+                    .new(suffix)
+                    .pipe(
+                        lambda expr: (
+                            when(self.inner().str.ends_with(expr))
+                            .then(
+                                self.substring(1, self.length().sub(expr.str.length()))
+                            )
+                            .otherwise(self.inner())
+                        )
                     )
                 )
 

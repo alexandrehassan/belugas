@@ -212,7 +212,7 @@ class ResolvedExpr(NamedTuple):
 
     @classmethod
     def from_named(cls, val: IntoExpr, alias_override: pc.Option[str]) -> Self:
-        resolved = sql.into_expr(val, as_col=True)
+        resolved = SqlExpr.new(val, as_col=True)
         output_name = alias_override.unwrap_or(resolved.get_name())
         return cls(resolved, output_name, kind=ExprKind.ROW)
 
@@ -459,7 +459,7 @@ class Resolver:
         return exclude.map(
             lambda exc: (
                 try_iter(exc)
-                .map(lambda value: sql.into_expr(value, as_col=True))
+                .map(lambda value: SqlExpr.new(value, as_col=True))
                 .filter_map(SqlExpr.root_column_name)
                 .collect(pc.Set)
                 .into(cls.exclude)
