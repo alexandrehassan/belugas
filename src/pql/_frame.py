@@ -903,22 +903,19 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             .map_star(builder.equals)
             .chain(builder.lhs(on_keys.left).pipe(_get_strategy).pipe(pc.Iter.once))
             .reduce(SqlExpr.and_)
+            .inner()
         )
-        selected = (
+        return (
             builder.left
             .iter()
             .map(builder.lhs)
             .chain(other.columns.iter().filter_map(builder.for_inner_left))
             .map(lambda c: c.inner())
-        )
-        qry = (
-            exp
-            .select(*selected)
+            .into(lambda exprs: exp.select(*exprs))
             .from_("lhs")
-            .join("rhs", on=by_cond.inner(), join_type="asof left")
+            .join("rhs", on=by_cond, join_type="asof left")
+            .pipe(self._from_sql_expr, lhs=self.inner(), rhs=other)
         )
-
-        return self._from_sql_expr(qry, lhs=self.inner(), rhs=other)
 
     def unique(
         self,
@@ -1065,26 +1062,30 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                 return group.unwrap() if group.is_some() else None
 
             def _pivot() -> exp.Expr:
-                return exp.Pivot(
-                    this=exp.to_table("rel"),
-                    expressions=_on_exprs(),
-                    using=val_cols.iter().map(_aliased).map(lambda c: c.inner()),
-                    group=_group(),
+                return exp.to_table("rel").pipe(
+                    lambda e: exp.Pivot(
+                        this=e,
+                        expressions=_on_exprs(),
+                        using=val_cols.iter().map(_aliased).map(lambda c: c.inner()),
+                        group=_group(),
+                    )
                 )
 
             def _select_ordered(cols: Iterable[str]) -> exp.Expr:
                 return (
-                    exp.select("*").from_(exp.Subquery(this=_pivot())).order_by(*cols)
+                    exp
+                    .select("*")
+                    .from_(_pivot().pipe(lambda e: exp.Subquery(this=e)))
+                    .order_by(*cols)
                 )
 
-            qry = (
+            return (
                 try_iter(idx_cols if maintain_order else None)
                 .collect()
                 .then(_select_ordered)
                 .unwrap_or_else(_pivot)
+                .pipe(self._from_sql_expr, rel=self.inner())
             )
-
-            return self._from_sql_expr(qry, rel=self.inner())
 
         def _handle_multi(lf: Self) -> Self:
             match multi:
@@ -1140,25 +1141,29 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             )
         )
 
-        def _unpivot() -> exp.Pivot:
-            return exp.Pivot(
-                this=exp.to_table("rel"),
-                expressions=unpivot_cols,
-                unpivot=True,
-                into=exp.UnpivotColumns(this=variable_name, expressions=(value_name,)),
+        def _select() -> exp.Select:
+            return exp.select(*index_cols, variable_name, value_name).from_(
+                exp
+                .to_table("rel")
+                .pipe(
+                    lambda e: exp.Pivot(
+                        this=e,
+                        expressions=unpivot_cols,
+                        unpivot=True,
+                        into=exp.UnpivotColumns(
+                            this=variable_name, expressions=(value_name,)
+                        ),
+                    )
+                )
+                .pipe(lambda e: exp.Subquery(this=e))
             )
 
-        def _select() -> exp.Select:
-            sub_qry = exp.Subquery(this=_unpivot())
-            return exp.select(*index_cols, variable_name, value_name).from_(sub_qry)
-
-        qry = (
+        return (
             try_iter(order_by)
             .then(lambda cols: _select().order_by(*cols))
             .unwrap_or_else(_select)
+            .pipe(self._from_sql_expr, rel=self.inner())
         )
-
-        return self._from_sql_expr(qry, rel=self.inner())
 
     def with_row_index(self, name: str, *, order_by: TryIter[str]) -> Self:
         """Insert row index based on order_by.

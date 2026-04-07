@@ -1,9 +1,7 @@
 from collections.abc import Callable
 
 from sqlglot import Dialect, exp, parser
-from sqlglot.dialects.dialect import (
-    build_regexp_extract,  # pyright: ignore[reportUnknownVariableType]
-)
+from sqlglot.dialects.dialect import build_regexp_extract
 from sqlglot.dialects.duckdb import DuckDB
 from sqlglot.parsers.duckdb import DuckDBParser
 
@@ -23,19 +21,18 @@ def _bind_dialect(
 
 
 def _regexp_extract(expr: type[exp.Expr]) -> BindedFn:
-    return _bind_dialect(build_regexp_extract(expr))  # pyright: ignore[reportUnknownArgumentType]
+    return _bind_dialect(build_regexp_extract(expr))
 
 
 def _extract_json_with_path(expr: type[exp.Expr]) -> BindedFn:
-    return _bind_dialect(parser.build_extract_json_with_path(expr))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    return _bind_dialect(parser.build_extract_json_with_path(expr))
 
 
-_build_hex = _bind_dialect(parser.build_hex)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
-
+_build_hex = _bind_dialect(parser.build_hex)
 _PATCHED_FROM_GLOBAL: FuncRegistery = {
     "HEX": _build_hex,
     "TO_HEX": _build_hex,
-    "LOG": _bind_dialect(parser.build_logarithm),  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+    "LOG": _bind_dialect(parser.build_logarithm),
     "CONCAT": _bind_dialect(
         lambda args, dialect: exp.Concat(
             expressions=args,
@@ -47,7 +44,7 @@ _PATCHED_FROM_GLOBAL: FuncRegistery = {
 _PATCHED_FROM_DUCKDB: FuncRegistery = {
     "JSON_EXTRACT_PATH": _extract_json_with_path(exp.JSONExtract),
     "JSON_EXTRACT_STRING": _extract_json_with_path(exp.JSONExtractScalar),
-    "LIST_CONCAT": _bind_dialect(parser.build_array_concat),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    "LIST_CONCAT": _bind_dialect(parser.build_array_concat),
     "REGEXP_EXTRACT": _regexp_extract(exp.RegexpExtract),
     "REGEXP_EXTRACT_ALL": _regexp_extract(exp.RegexpExtractAll),
 }
@@ -62,7 +59,7 @@ _MISSING_FROM_GLOT: FuncRegistery = {
     "BIN": exp.ToBinary.from_arg_list,
     "FROM_HEX": exp.Unhex.from_arg_list,
     "LIST_APPLY": exp.Transform.from_arg_list,
-    "LIST_CAT": _bind_dialect(parser.build_array_concat),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    "LIST_CAT": _bind_dialect(parser.build_array_concat),
     "LIST_DISTINCT": exp.ArrayDistinct.from_arg_list,
     "LIST_INDEXOF": exp.ArrayPosition.from_arg_list,
     "LIST_INTERSECT": lambda args: exp.ArrayIntersect(expressions=args),  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
