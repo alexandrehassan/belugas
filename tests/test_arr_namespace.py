@@ -11,7 +11,10 @@ def test_len() -> None:
 
 
 def test_unique() -> None:
-    assert_eq(pql.col("arr_num").arr.unique(), pl.col("arr_num").arr.unique())
+    assert_eq(
+        pql.col("arr_num").arr.unique().arr.sort(),
+        pl.col("arr_num").arr.unique().list.sort(),
+    )
 
 
 def test_n_unique() -> None:
