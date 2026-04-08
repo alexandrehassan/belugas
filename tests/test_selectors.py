@@ -9,19 +9,16 @@ import pytest
 import pql
 import pql.selectors as cs
 
-from ._data import sample_df
+from ._data import sample_lf, sample_pql
 from ._utils import assert_eq, assert_lf_eq
-
-_SAMPLE_DF = sample_df().to_native().pl(lazy=True)
-_PQL_LF = pql.LazyFrame(_SAMPLE_DF)
 
 skipped = pytest.mark.skip(reason="Temp deletion of selectors by dtype")
 
 
 def test_with_columns() -> None:
     assert_lf_eq(
-        _SAMPLE_DF.select("s").with_columns(cs_pl.contains("x")),
-        _PQL_LF.select("s").with_columns(cs.contains("x")),
+        sample_lf().select("s").with_columns(cs_pl.contains("x")),
+        sample_pql().select("s").with_columns(cs.contains("x")),
     )
 
 
@@ -139,13 +136,12 @@ def test_selector_into_expr(pql_expr: pql.Expr, pl_expr: pl.Expr) -> None:
 def test_selector_in_group_by_agg() -> None:
     """We need to filter null values to avoid errors on `sum`."""
     assert_lf_eq(
-        _SAMPLE_DF
+        sample_lf()
         .filter(pl.col("a").is_not_null())
         .group_by("a")
         .agg(cs_pl.contains("_vals"))
         .sort("a"),
-        pql
-        .LazyFrame(_SAMPLE_DF)
+        sample_pql()
         .filter(pql.col("a").is_not_null())
         .group_by("a")
         .agg(cs.contains("_vals"))
@@ -156,8 +152,8 @@ def test_selector_in_group_by_agg() -> None:
 @pytest.mark.parametrize(
     "lf",
     [
-        _PQL_LF.select(pql.col("a"), total=cs.contains("vals")),
-        _PQL_LF.group_by("a").agg(total=cs.contains("vals")),
+        sample_pql().select(pql.col("a"), total=cs.contains("vals")),
+        sample_pql().group_by("a").agg(total=cs.contains("vals")),
     ],
 )
 def test_named_selector(lf: pql.LazyFrame) -> None:
@@ -174,8 +170,8 @@ def test_named_selector(lf: pql.LazyFrame) -> None:
 
 def test_empty_selector() -> None:
     assert_lf_eq(
-        _SAMPLE_DF.select(pl.col("a")).select(cs_pl.contains("x")),
-        _PQL_LF.select(pql.col("a")).select(cs.contains("x")),
+        sample_lf().select(pl.col("a")).select(cs_pl.contains("x")),
+        sample_pql().select(pql.col("a")).select(cs.contains("x")),
     )
 
 
@@ -220,7 +216,7 @@ def test_duration_selector() -> None:
 @skipped
 def test_enum() -> None:
     cats = ["foo", "bar", "baz"]
-    lf = pql.LazyFrame(_SAMPLE_DF)
+    lf = pql.LazyFrame(sample_lf())
     assert_lf_eq(
         lf
         .lazy()
@@ -344,13 +340,13 @@ def test_complex_selector() -> None:
         cs_pl.ends_with("_vals").__and__(cs_pl.contains("str").__invert__())
     )
     assert_lf_eq(
-        _SAMPLE_DF
+        sample_lf()
         .filter(pl.col("a").is_not_null())
         .group_by("a")
         .agg(pl_slctor)
         .sort("a"),
         pql
-        .LazyFrame(_SAMPLE_DF)
+        .LazyFrame(sample_lf())
         .filter(pql.col("a").is_not_null())
         .group_by("a")
         .agg(pql_slctor)

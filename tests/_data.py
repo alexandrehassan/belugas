@@ -1,7 +1,6 @@
 from datetime import date, datetime, time
 
 import duckdb
-import narwhals as nw
 import polars as pl
 
 import pql
@@ -105,15 +104,9 @@ _SCHEMA = {
     "arr_str_vals": pl.Array(pl.String, shape=3),
     "arr_num": pl.Array(pl.UInt16, shape=4),
 }
-_DF = nw.from_native(
-    pl.DataFrame(_DATA, schema_overrides=_SCHEMA).pipe(duckdb.from_arrow)
-)
-_DF_PQL = pql.LazyFrame(_DF.to_native())
-_LF_PL = _DF.to_native().pl(lazy=True)
-
-
-def sample_df() -> nw.LazyFrame[duckdb.DuckDBPyRelation]:
-    return _DF
+_DF = pl.DataFrame(_DATA, schema_overrides=_SCHEMA).pipe(duckdb.from_arrow)
+_DF_PQL = pql.LazyFrame(_DF)
+_LF_PL = _DF.pl(lazy=True)
 
 
 def sample_lf() -> pl.LazyFrame:

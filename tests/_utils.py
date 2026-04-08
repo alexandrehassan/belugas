@@ -1,4 +1,3 @@
-import operator
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from typing import NamedTuple, override
@@ -44,29 +43,6 @@ class FnsCat(PyoIterable[Fns]):
         return self.fns.iter().map(lambda x: x.pql_fn.__name__)
 
 
-def _assert_cols(lf: pql.LazyFrame) -> pl.DataFrame:
-    other = lf.inner().columns
-    incorrect_key = (
-        lf.columns
-        .iter()
-        .zip(other)
-        .map_star(lambda left, right: (f"{left, right}", operator.eq(left, right)))
-        .find(lambda x: not x[1])
-    )
-    assert incorrect_key.is_none(), (
-        f"Incorrect key:\n `{incorrect_key.unwrap()[0]}`\n Self:\n {lf.columns!r}\n\n Other:\n {other!r}"
-    )
-    return lf.collect()
-
-
-def _run_pql_select(pql_exprs: Exprs[pql.Expr]) -> pl.DataFrame:
-    return sample_pql().select(pql_exprs).pipe(_assert_cols)
-
-
-def _run_pql_with_cols(pql_exprs: Exprs[pql.Expr]) -> pl.DataFrame:
-    return sample_pql().with_columns(pql_exprs).pipe(_assert_cols)
-
-
 def _assert(
     left: pl.DataFrame | pl.LazyFrame, right: pl.DataFrame | pl.LazyFrame
 ) -> None:
@@ -81,13 +57,16 @@ def _assert(
 def assert_eq(
     pql_exprs: Exprs[pql.Expr], polars_exprs: Exprs[pl.Expr], *, with_cols: bool = True
 ) -> None:
-    _assert(sample_lf().select(polars_exprs), _run_pql_select(pql_exprs))
+    _assert(sample_lf().select(polars_exprs), sample_pql().select(pql_exprs).collect())
     if with_cols:
-        _assert(sample_lf().with_columns(polars_exprs), _run_pql_with_cols(pql_exprs))
+        _assert(
+            sample_lf().with_columns(polars_exprs),
+            sample_pql().with_columns(pql_exprs).collect(),
+        )
 
 
 def assert_lf_eq(polars_lf: pl.LazyFrame, pql_lf: pql.LazyFrame) -> None:
-    _assert(polars_lf, pql_lf.pipe(_assert_cols))
+    _assert(polars_lf, pql_lf.collect())
 
 
 def on_simple_fn(pql_expr: object, pl_expr: object, fn_name: str) -> None:
