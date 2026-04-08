@@ -27,6 +27,7 @@ df_polars = lf_pql.collect()  # equivalent to DuckDBPyRelation.pl(lazy=False)
   - The internal implementation is simpler and cleaner if we don't have to handle the cross join as a special case of the regular join
   - The public API is clearer, as *on*, *left_on* and *right_on* parameters don't make sense for a cross join, and it is better to not have them in the signature of the method, rather than throwing runtime errors if they are used with a cross join strategy.
 - `Categorical` datatypes are not supported (this is not representable in duckdb).
+- `Expr.{and_, or_}` methods align on `SQL` semantics, and are not bitwise operations on `Integers` like in polars.
 
 ### Additions from polars
 

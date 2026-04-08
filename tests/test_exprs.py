@@ -65,15 +65,20 @@ def test_sql_list_sort_uses_array_sort_constructor() -> None:
 
 
 def test_and() -> None:
-    assert_eq((pql.col("a") & pql.col("b")), (pl.col("a") & pl.col("b")))
+    assert_eq(pql.col("a").__and__(pql.col("b")), pl.col("a").__and__(pl.col("b")))
+    with pytest.raises(AssertionError, match="DataFrames are different"):
+        assert_eq(pql.col("x").and_(1), pl.col("x").and_(1))
 
 
 def test_or() -> None:
-    assert_eq((pql.col("a") | pql.col("b")), (pl.col("a") | pl.col("b")))
+    assert_eq(pql.col("a").__or__(pql.col("b")), pl.col("a").__or__(pl.col("b")))
+    with pytest.raises(AssertionError, match="DataFrames are different"):
+        assert_eq(pql.col("x").or_(1), pl.col("x").or_(1))
 
 
 def test_not() -> None:
-    assert_eq((~pql.col("a")), (~pl.col("a")))
+    assert_eq(pql.col("a").__invert__(), pl.col("a").__invert__())
+    assert_eq(pql.col("a").not_(), pl.col("a").not_())
 
 
 def test_radd() -> None:
