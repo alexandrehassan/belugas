@@ -86,8 +86,8 @@ def assert_eq(
         _assert(sample_lf().with_columns(polars_exprs), _run_pql_with_cols(pql_exprs))
 
 
-def assert_lf_eq(pql_lf: pql.LazyFrame, polars_lf: pl.LazyFrame) -> None:
-    _assert(pql_lf.pipe(_assert_cols), polars_lf)
+def assert_lf_eq(polars_lf: pl.LazyFrame, pql_lf: pql.LazyFrame) -> None:
+    _assert(polars_lf, pql_lf.pipe(_assert_cols))
 
 
 def on_simple_fn(pql_expr: object, pl_expr: object, fn_name: str) -> None:

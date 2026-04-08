@@ -67,14 +67,14 @@ def test_show(sample_df: pl.DataFrame) -> None:
 
 
 def test_empty_frame(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq(pql.LazyFrame(sample_df).select([]), sample_df.lazy().select([]))
+    assert_lf_eq(sample_df.lazy().select([]), pql.LazyFrame(sample_df).select([]))
     assert_lf_eq(
-        pql.LazyFrame(sample_df).with_columns(pql.col("age").sum()).select([]),
         sample_df.lazy().with_columns(pl.col("age").sum()).select(),
+        pql.LazyFrame(sample_df).with_columns(pql.col("age").sum()).select([]),
     )
     assert_lf_eq(
-        pql.LazyFrame(sample_df).drop("age").select([]),
         sample_df.lazy().drop("age").select(),
+        pql.LazyFrame(sample_df).drop("age").select([]),
     )
 
 
@@ -86,7 +86,7 @@ def test_repr(sample_df: pl.DataFrame) -> None:
 def test_clone(sample_df: pl.DataFrame) -> None:
     lf = pql.LazyFrame(sample_df)
     cloned = lf.clone()
-    assert_lf_eq(lf, cloned.lazy())
+    assert_lf_eq(cloned.lazy(), lf)
     cloned_modified = cloned.filter(pql.col("age").gt(25)).collect()
     assert lf.collect().height != cloned_modified.height
 
@@ -122,29 +122,29 @@ def test_explain(sample_df: pl.DataFrame) -> None:
 
 def test_select_single_column(sample_df: pl.DataFrame) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).select("name"), sample_df.lazy().select("name")
+        sample_df.lazy().select("name"), pql.LazyFrame(sample_df).select("name")
     )
     assert_lf_eq(
-        pql.LazyFrame(sample_df).select(pql.col("name")),
         sample_df.lazy().select(pl.col("name")),
+        pql.LazyFrame(sample_df).select(pql.col("name")),
     )
 
     assert_lf_eq(
-        pql.LazyFrame(sample_df).select("name", "age", "salary", "id"),
         sample_df.lazy().select("name", "age", "salary", "id"),
+        pql.LazyFrame(sample_df).select("name", "age", "salary", "id"),
     )
 
     assert_lf_eq(
-        pql.LazyFrame(sample_df).select(
-            pql.col("name"),
-            pql.col("salary").mul(1.1).alias("salary_increase"),
-            vals=pql.col("id"),
-            other_vals=42,
-        ),
         sample_df.lazy().select(
             pl.col("name"),
             pl.col("salary").mul(1.1).alias("salary_increase"),
             vals=pl.col("id"),
+            other_vals=42,
+        ),
+        pql.LazyFrame(sample_df).select(
+            pql.col("name"),
+            pql.col("salary").mul(1.1).alias("salary_increase"),
+            vals=pql.col("id"),
             other_vals=42,
         ),
     )
@@ -152,47 +152,62 @@ def test_select_single_column(sample_df: pl.DataFrame) -> None:
 
 def test_with_columns_name_prefix(sample_df: pl.DataFrame) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).with_columns(pql.col("name").name.prefix("new_")),
         sample_df.lazy().with_columns(pl.col("name").name.prefix("new_")),
+        pql.LazyFrame(sample_df).with_columns(pql.col("name").name.prefix("new_")),
     )
 
 
 def test_select_unique_name_prefix(sample_df: pl.DataFrame) -> None:
     assert_lf_eq(
+        sample_df.lazy().select(pl.col("department").unique().name.prefix("u_")),
         pql.LazyFrame(sample_df).select(
             pql.col("department").unique().name.prefix("u_")
         ),
-        sample_df.lazy().select(pl.col("department").unique().name.prefix("u_")),
     )
 
 
-def test_sort(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq(pql.LazyFrame(sample_df).sort("age"), sample_df.lazy().sort("age"))
+@pytest.mark.parametrize("cols", ["age", "salary"])
+@pytest.mark.parametrize("descending", [True, False])
+def test_sort_single_col(sample_df: pl.DataFrame, col: str, descending: bool) -> None:
+    assert_lf_eq(sample_df.lazy().sort(col), pql.LazyFrame(sample_df).sort(col))
     assert_lf_eq(
-        pql.LazyFrame(sample_df).sort("salary", descending=True),
-        sample_df.lazy().sort("salary", descending=True),
+        sample_df.lazy().sort(col, descending=descending),
+        pql.LazyFrame(sample_df).sort(col, descending=descending),
     )
     assert_lf_eq(
+        sample_df.lazy().sort(pl.col("department"), "age", descending=[False, True]),
         pql.LazyFrame(sample_df).sort(
             pql.col("department"), "age", descending=[False, True]
         ),
-        sample_df.lazy().sort(pl.col("department"), "age", descending=[False, True]),
-    )
-    assert_lf_eq(
-        pql.LazyFrame(sample_df).sort(
-            "department", "age", descending=True, nulls_last=True
-        ),
-        sample_df.lazy().sort("department", "age", descending=True, nulls_last=True),
-    )
-    assert_lf_eq(
-        pql.LazyFrame(sample_df).sort("age", nulls_last=True),
-        sample_df.lazy().sort("age", nulls_last=True),
     )
 
+
+@pytest.mark.parametrize(
+    "cols", [["age", "salary"], ["department", "age"], ["salary", "department"]]
+)
+@pytest.mark.parametrize(
+    "descending",
+    [True, False, [True, False], [False, True], [False, False], [True, True]],
+)
+@pytest.mark.parametrize(
+    "nulls_last",
+    [True, False, [True, False], [False, True], [False, False], [True, True]],
+)
+def test_sort_multiple_cols(
+    sample_df: pl.DataFrame,
+    cols: list[str],
+    descending: bool | list[bool],
+    nulls_last: bool | list[bool],
+) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).sort("age", "department", nulls_last=[True, False]),
-        sample_df.lazy().sort("age", "department", nulls_last=[True, False]),
+        sample_df.lazy().sort(cols, descending=descending, nulls_last=nulls_last),
+        pql.LazyFrame(sample_df).sort(
+            cols, descending=descending, nulls_last=nulls_last
+        ),
     )
+
+
+def test_sort_errors(sample_df: pl.DataFrame) -> None:
     with pytest.raises(ValueError, match="length of `descending`"):
         _ = pql.LazyFrame(sample_df).sort("age", "salary", descending=[True])
 
@@ -204,25 +219,30 @@ def test_sort(sample_df: pl.DataFrame) -> None:
 
 def test_limit(sample_df: pl.DataFrame) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).sort("id").limit(3),
         sample_df.lazy().sort("id").limit(3),
+        pql.LazyFrame(sample_df).sort("id").limit(3),
     )
 
 
-def test_slice(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq(pql.LazyFrame(sample_df).slice(1, 3), sample_df.lazy().slice(1, 3))
-    assert_lf_eq(pql.LazyFrame(sample_df).slice(-2), sample_df.lazy().slice(-2))
-    assert_lf_eq(pql.LazyFrame(sample_df).slice(-4, 2), sample_df.lazy().slice(-4, 2))
-    assert_lf_eq(pql.LazyFrame(sample_df).slice(-2, 0), sample_df.lazy().slice(-2, 0))
+@pytest.mark.parametrize("offset", [1, -2, -4])
+@pytest.mark.parametrize("length", [2, None, 4, 0])
+def test_slice(sample_df: pl.DataFrame, offset: int, length: int | None) -> None:
+    assert_lf_eq(
+        sample_df.lazy().slice(offset, length),
+        pql.LazyFrame(sample_df).slice(offset, length),
+    )
+
+
+def test_slice_errors(sample_df: pl.DataFrame) -> None:
     with pytest.raises(ValueError, match="negative slice lengths"):
         _ = pql.LazyFrame(sample_df).slice(0, -1)
     with pytest.raises(ValueError, match="negative slice lengths"):
         _ = sample_df.lazy().slice(0, -1)
 
 
-def test_tail(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq(pql.LazyFrame(sample_df).tail(2), sample_df.lazy().tail(2))
-    assert_lf_eq(pql.LazyFrame(sample_df).tail(0), sample_df.lazy().tail(0))
+@pytest.mark.parametrize("n", [0, 2, 5])
+def test_tail(sample_df: pl.DataFrame, n: int) -> None:
+    assert_lf_eq(sample_df.lazy().tail(n), pql.LazyFrame(sample_df).tail(n))
     with pytest.raises(ValueError, match="`n` must be greater than or equal to 0"):
         _ = pql.LazyFrame(sample_df).tail(-1)
     with pytest.raises(OverflowError, match="can't convert negative int to unsigned"):
@@ -230,102 +250,82 @@ def test_tail(sample_df: pl.DataFrame) -> None:
 
 
 def test_last(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq(pql.LazyFrame(sample_df).last(), sample_df.lazy().last())
+    assert_lf_eq(sample_df.lazy().last(), pql.LazyFrame(sample_df).last())
 
 
 def test_filter(sample_df: pl.DataFrame) -> None:
+    salary_pql = pql.col("salary").mul(12).gt(600000)
+    salary_pl = pl.col("salary").mul(12).gt(600000)
+    age_pql = pql.col("age").lt(50)
+    age_pl = pl.col("age").lt(50)
     assert_lf_eq(
-        pql.LazyFrame(sample_df).filter(pql.col("salary").mul(12).gt(600000)),
-        sample_df.lazy().filter(pl.col("salary").mul(12).gt(600000)),
+        sample_df.lazy().filter(salary_pl), pql.LazyFrame(sample_df).filter(salary_pql)
     )
     assert_lf_eq(
-        pql.LazyFrame(sample_df).filter(
-            pql.col("salary").mul(12).gt(600000), pql.col("age").lt(50)
-        ),
-        sample_df.lazy().filter(
-            pl.col("salary").mul(12).gt(600000), pl.col("age").lt(50)
-        ),
+        sample_df.lazy().filter(salary_pl, age_pl),
+        pql.LazyFrame(sample_df).filter(salary_pql, age_pql),
     )
     assert_lf_eq(
-        pql.LazyFrame(sample_df).filter([
-            pql.col("salary").mul(12).gt(600000),
-            pql.col("age").lt(50),
-        ]),
-        sample_df.lazy().filter([
-            pl.col("salary").mul(12).gt(600000),
-            pl.col("age").lt(50),
-        ]),
+        sample_df.lazy().filter([salary_pl, age_pl]),
+        pql.LazyFrame(sample_df).filter([salary_pql, age_pql]),
     )
     assert_lf_eq(
-        pql.LazyFrame(sample_df).filter(
-            pql.col("age").gt(20), is_active=True, department="Sales"
-        ),
-        sample_df.lazy().filter(
-            pl.col("age").gt(20), is_active=True, department="Sales"
-        ),
+        sample_df.lazy().filter(age_pl, is_active=True, department="Sales"),
+        pql.LazyFrame(sample_df).filter(age_pql, is_active=True, department="Sales"),
     )
 
 
 def test_first(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq(pql.LazyFrame(sample_df).first(), sample_df.lazy().first())
+    assert_lf_eq(sample_df.lazy().first(), pql.LazyFrame(sample_df).first())
 
 
 def test_count(sample_df: pl.DataFrame) -> None:
     result = pql.LazyFrame(sample_df).select(pql.col("id")).count()
     expected = sample_df.lazy().select(pl.col("id")).count()
-    assert_lf_eq(result, expected)
+    assert_lf_eq(expected, result)
 
 
 def test_sum(sample_df: pl.DataFrame) -> None:
     result = pql.LazyFrame(sample_df).select(pql.col("age"), pql.col("salary")).sum()
     expected = sample_df.lazy().select(pl.col("age"), pl.col("salary")).sum()
-    assert_lf_eq(result, expected)
+    assert_lf_eq(expected, result)
 
 
 def test_mean(sample_df: pl.DataFrame) -> None:
     result = pql.LazyFrame(sample_df).select(pql.col("age")).mean()
     expected = sample_df.lazy().select(pl.col("age")).mean()
-    assert_lf_eq(result, expected)
+    assert_lf_eq(expected, result)
 
 
 def test_median(sample_df: pl.DataFrame) -> None:
     result = pql.LazyFrame(sample_df).select(pql.col("salary")).median()
     expected = sample_df.lazy().select(pl.col("salary")).median()
-    assert_lf_eq(result, expected)
+    assert_lf_eq(expected, result)
 
 
 def test_min(sample_df: pl.DataFrame) -> None:
     result = pql.LazyFrame(sample_df).select(pql.col("age")).min()
     expected = sample_df.lazy().select(pl.col("age")).min()
-    assert_lf_eq(result, expected)
+    assert_lf_eq(expected, result)
 
 
 def test_max(sample_df: pl.DataFrame) -> None:
     result = pql.LazyFrame(sample_df).select(pql.col("age")).max()
     expected = sample_df.lazy().select(pl.col("age")).max()
-    assert_lf_eq(result, expected)
+    assert_lf_eq(expected, result)
 
 
 def test_null_count(sample_df: pl.DataFrame) -> None:
     result = pql.LazyFrame(sample_df).select(pql.col("value")).null_count()
     expected = sample_df.lazy().select(pl.col("value")).null_count()
-    assert_lf_eq(result, expected)
+    assert_lf_eq(expected, result)
 
 
-def test_top_k(sample_df: pl.DataFrame) -> None:
-    result = pql.LazyFrame(sample_df).top_k(3, by="age")
-    expected = sample_df.lazy().top_k(3, by="age")
-    assert_lf_eq(result, expected)
-
-
-def test_bottom_k(sample_df: pl.DataFrame) -> None:
+@pytest.mark.parametrize("by", ["age", ["age", "salary"]])
+@pytest.mark.parametrize("k", [1, 3, 5])
+def test_bottom_k(sample_df: pl.DataFrame, by: list[str] | str, k: int) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).bottom_k(3, by="age"),
-        sample_df.lazy().bottom_k(3, by="age"),
-    )
-    assert_lf_eq(
-        pql.LazyFrame(sample_df).bottom_k(3, by=["age", "salary"]),
-        sample_df.lazy().bottom_k(3, by=["age", "salary"]),
+        sample_df.lazy().bottom_k(k, by=by), pql.LazyFrame(sample_df).bottom_k(k, by=by)
     )
 
 
@@ -354,14 +354,14 @@ def test_cast(sample_df: pl.DataFrame) -> None:
 
 def test_pipe(sample_df: pl.DataFrame) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).pipe(lambda lf: lf),
         sample_df.lazy().pipe(lambda df: df),
+        pql.LazyFrame(sample_df).pipe(lambda lf: lf),
     )
 
 
 @pytest.mark.parametrize("cols", [["age"], ["age", "salary"]])
 def test_drop_single_column(sample_df: pl.DataFrame, cols: list[str]) -> None:
-    assert_lf_eq(pql.LazyFrame(sample_df).drop(*cols), sample_df.lazy().drop(*cols))
+    assert_lf_eq(sample_df.lazy().drop(*cols), pql.LazyFrame(sample_df).drop(*cols))
 
 
 @pytest.mark.parametrize(
@@ -370,7 +370,7 @@ def test_drop_single_column(sample_df: pl.DataFrame, cols: list[str]) -> None:
 def test_rename(sample_df: pl.DataFrame, mapping: dict[str, str]) -> None:
     result = pql.LazyFrame(sample_df).rename(mapping)
     expected = sample_df.lazy().rename(mapping)
-    assert_lf_eq(result, expected)
+    assert_lf_eq(expected, result)
 
 
 def test_with_columns_add_only_uses_star(sample_df: pl.DataFrame) -> None:
@@ -399,57 +399,35 @@ def test_with_columns_override_enumerates_columns(sample_df: pl.DataFrame) -> No
 
 def test_with_columns_single_expr(sample_df: pl.DataFrame) -> None:
     assert_lf_eq(
-        (
-            pql.LazyFrame(sample_df).with_columns(
-                pql.col("age").mul(2).alias("age_doubled"), x=42
-            )
-        ),
-        (
-            sample_df.lazy().with_columns(
-                pl.col("age").mul(2).alias("age_doubled"), x=42
-            )
+        sample_df.lazy().with_columns(pl.col("age").mul(2).alias("age_doubled"), x=42),
+        pql.LazyFrame(sample_df).with_columns(
+            pql.col("age").mul(2).alias("age_doubled"), x=42
         ),
     )
 
     assert_lf_eq(
-        (
-            pql.LazyFrame(sample_df).with_columns(
-                pql.col("age").mul(2).alias("age_doubled"),
-                pql.col("salary").truediv(12).alias("monthly_salary"),
-            )
+        sample_df.lazy().with_columns(
+            pl.col("age").mul(2).alias("age_doubled"),
+            pl.col("salary").truediv(12).alias("monthly_salary"),
         ),
-        (
-            sample_df.lazy().with_columns(
-                (pl.col("age") * 2).alias("age_doubled"),
-                (pl.col("salary") / 12).alias("monthly_salary"),
-            )
+        pql.LazyFrame(sample_df).with_columns(
+            pql.col("age").mul(2).alias("age_doubled"),
+            pql.col("salary").truediv(12).alias("monthly_salary"),
         ),
     )
-
-
-def test_std_default(sample_df: pl.DataFrame) -> None:
-    result = pql.LazyFrame(sample_df).select("age").std()
-    expected = sample_df.lazy().select("age").std()
-    assert_lf_eq(result, expected)
-
-
-def test_var_default(sample_df: pl.DataFrame) -> None:
-    result = pql.LazyFrame(sample_df).select("age").var()
-    expected = sample_df.lazy().select("age").var()
-    assert_lf_eq(result, expected)
 
 
 def test_fill_nan_with_value() -> None:
     df = pl.DataFrame({"a": [1.0, float("nan"), 3.0, float("nan"), 5.0]})
     result = pql.LazyFrame(df).fill_nan(0.0)
     expected = df.lazy().fill_nan(0.0)
-    assert_lf_eq(result, expected)
+    assert_lf_eq(expected, result)
 
 
 def test_fill_null_with_value(sample_df: pl.DataFrame) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).select("value", "age").fill_null(0),
         sample_df.lazy().select("value", "age").fill_null(0),
+        pql.LazyFrame(sample_df).select("value", "age").fill_null(0),
     )
 
 
@@ -457,8 +435,8 @@ def test_fill_null_with_value(sample_df: pl.DataFrame) -> None:
 def test_fill_null_with_strategy(strategy: pql.sql.typing.FillNullStrategy) -> None:
     df = pl.DataFrame({"a": [1.0, None, None, 4.0, None]})
     assert_lf_eq(
-        pql.LazyFrame(df).fill_null(strategy=strategy),
         df.lazy().fill_null(strategy=strategy),
+        pql.LazyFrame(df).fill_null(strategy=strategy),
     )
 
 
@@ -471,8 +449,8 @@ def test_fill_null_with_strategy_limit(
 ) -> None:
     df = pl.DataFrame({"a": [1, None, None, 4, None]})
     assert_lf_eq(
-        pql.LazyFrame(df).fill_null(strategy=strategy, limit=1),
         df.lazy().fill_null(strategy=strategy, limit=1),
+        pql.LazyFrame(df).fill_null(strategy=strategy, limit=1),
     )
 
 
@@ -501,63 +479,45 @@ def test_fill_null_with_negative_limit_error() -> None:
         _ = df.lazy().fill_null(strategy="forward", limit=-1)
 
 
-def test_shift() -> None:
-    df = pl.DataFrame({"a": [1, 2, 3, 4, 5]})
-    assert_lf_eq(pql.LazyFrame(df).shift(2), df.lazy().shift(2))
-    assert_lf_eq(pql.LazyFrame(df).shift(-2), df.lazy().shift(-2))
-
-    assert_lf_eq(
-        pql.LazyFrame(df).shift(2, fill_value=0),
-        df.lazy().shift(2, fill_value=0),
-    )
-    assert_lf_eq(
-        pql.LazyFrame(df).shift(1, fill_value=999),
-        df.lazy().shift(1, fill_value=999),
-    )
-
-
-def test_std_var_ddof() -> None:
+@pytest.mark.parametrize("n", [-2, -1, 0, 1, 2])
+@pytest.mark.parametrize("fill_value", [None, 0, 999])
+def test_shift(n: int, fill_value: int | None) -> None:
     df = pl.DataFrame({"a": [1, 2, 3, 4, 5]})
     assert_lf_eq(
-        pql.LazyFrame(df).select("a").std(ddof=0),
-        df.lazy().select("a").std(ddof=0),
+        df.lazy().shift(n, fill_value=fill_value),
+        pql.LazyFrame(df).shift(n, fill_value=fill_value),
+    )
+
+
+@pytest.mark.parametrize("ddof", [0, 1])
+def test_std_var(ddof: int) -> None:
+    df = pl.DataFrame({"a": [1, 2, 3, 4, 5]})
+    assert_lf_eq(
+        df.lazy().select("a").std(ddof=ddof),
+        pql.LazyFrame(df).select("a").std(ddof=ddof),
     )
     assert_lf_eq(
-        pql.LazyFrame(df).select("a").var(ddof=0),
-        df.lazy().select("a").var(ddof=0),
+        df.lazy().select("a").var(ddof=ddof),
+        pql.LazyFrame(df).select("a").var(ddof=ddof),
     )
 
 
-def test_top_k_with_multiple_cols(sample_df: pl.DataFrame) -> None:
+@pytest.mark.parametrize("by", ["age", ["age", "salary"]])
+@pytest.mark.parametrize(
+    "reverse", [True, False, [True, False], [False, True], [False, False], [True, True]]
+)
+@pytest.mark.parametrize("k", [1, 3, 5])
+def test_top_bottom_k(
+    sample_df: pl.DataFrame, k: int, by: list[str] | str, reverse: bool | list[bool]
+) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).top_k(3, by=["department", "age"]),
-        sample_df.lazy().top_k(3, by=["department", "age"]),
+        sample_df.lazy().top_k(k, by=by, reverse=reverse),
+        pql.LazyFrame(sample_df).top_k(k, by=by, reverse=reverse),
     )
     assert_lf_eq(
-        pql.LazyFrame(sample_df).top_k(2, by="age", reverse=True),
-        sample_df.lazy().top_k(2, by="age", reverse=True),
+        sample_df.lazy().bottom_k(k, by=by, reverse=reverse),
+        pql.LazyFrame(sample_df).bottom_k(k, by=by, reverse=reverse),
     )
-    assert_lf_eq(
-        (
-            pql.LazyFrame(sample_df).top_k(
-                3, by=["department", "age"], reverse=[False, True]
-            )
-        ),
-        (sample_df.lazy().top_k(3, by=["department", "age"], reverse=[False, True])),
-    )
-
-
-def test_bottom_k_with_multiple_cols(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq(
-        pql.LazyFrame(sample_df).bottom_k(3, by=["department", "age"]),
-        sample_df.lazy().bottom_k(3, by=["department", "age"]),
-    )
-
-
-def test_bottom_k_with_reverse(sample_df: pl.DataFrame) -> None:
-    result = pql.LazyFrame(sample_df).bottom_k(2, by="age", reverse=True)
-    expected = sample_df.lazy().bottom_k(2, by="age", reverse=True)
-    assert_lf_eq(result, expected)
 
 
 def test_hash_seed0() -> None:
@@ -588,15 +548,15 @@ def test_hash_seed42() -> None:
 @pytest.mark.parametrize("subset", [None, "value"])
 def test_drop_nulls(sample_df: pl.DataFrame, subset: list[str]) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).drop_nulls(subset), sample_df.lazy().drop_nulls(subset)
+        sample_df.lazy().drop_nulls(subset), pql.LazyFrame(sample_df).drop_nulls(subset)
     )
 
 
 def test_explode() -> None:
     data = pl.DataFrame({"id": [1, 2, 3], "vals": [[10, 11], None, []]})
     assert_lf_eq(
-        pql.LazyFrame(data).explode("vals"),
         data.lazy().explode("vals"),
+        pql.LazyFrame(data).explode("vals"),
     )
     data = pl.DataFrame({
         "id": [1, 2, 3, 4],
@@ -604,22 +564,22 @@ def test_explode() -> None:
         "vals2": [[100, 110], [], None, [700]],
     })
     assert_lf_eq(
-        pql.LazyFrame(data).explode("vals1", "vals2"),
         data.lazy().explode("vals1", "vals2"),
+        pql.LazyFrame(data).explode("vals1", "vals2"),
     )
 
 
 def test_gather_every(sample_df: pl.DataFrame) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).gather_every(2, offset=1),
         sample_df.lazy().gather_every(2, offset=1),
+        pql.LazyFrame(sample_df).gather_every(2, offset=1),
     )
 
 
 def test_with_row_index(sample_df: pl.DataFrame) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).with_row_index("row_num", order_by="sex"),
         sample_df.lazy().sort("sex").with_row_index("row_num"),
+        pql.LazyFrame(sample_df).with_row_index("row_num", order_by="sex"),
     )
 
 
@@ -634,19 +594,16 @@ def test_unnest() -> None:
         "id": [1, 2],
         "nested": [{"a": 10, "b": 100}, {"a": 20, "b": 200}],
     })
-    assert_lf_eq(
-        pql.LazyFrame(df).unnest("nested"),
-        df.lazy().unnest("nested"),
-    )
+    assert_lf_eq(df.lazy().unnest("nested"), pql.LazyFrame(df).unnest("nested"))
 
 
 @pytest.mark.parametrize("strategy", t.UniqueKeepStrategy.__args__)
 def test_unique(sample_df: pl.DataFrame, strategy: t.UniqueKeepStrategy) -> None:
     assert_lf_eq(
+        sample_df.lazy().unique(subset=["department"], keep=strategy).sort("id"),
         pql.LazyFrame(sample_df).unique(
             subset=["department"], keep=strategy, order_by="id"
         ),
-        sample_df.lazy().unique(subset=["department"], keep=strategy).sort("id"),
     )
 
 
@@ -667,18 +624,18 @@ def test_select_with_named_expr() -> None:
     df = pl.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
     result = pql.LazyFrame(df).select(pql.col("a"), doubled=pql.col("b").mul(2))
     expected = df.lazy().select(pl.col("a"), doubled=pl.col("b").mul(2))
-    assert_lf_eq(result, expected)
+    assert_lf_eq(expected, result)
 
 
 def test_quantile(sample_df: pl.DataFrame) -> None:
     assert_lf_eq(
-        pql.LazyFrame(sample_df).select("age", "salary").quantile(0.5),
         sample_df.lazy().select("age", "salary").quantile(0.5),
+        pql.LazyFrame(sample_df).select("age", "salary").quantile(0.5),
     )
 
 
 def test_reverse(sample_df: pl.DataFrame) -> None:
-    assert_lf_eq(pql.LazyFrame(sample_df).reverse(), sample_df.lazy().reverse())
+    assert_lf_eq(sample_df.lazy().reverse(), pql.LazyFrame(sample_df).reverse())
 
 
 @pytest.mark.parametrize("subset", [["a"], ["b"], ["a", "b"]])
@@ -688,5 +645,5 @@ def test_drop_nans(subset: list[str]) -> None:
         "b": [float("nan"), 2.0, 3.0, 4.0],
     })
     assert_lf_eq(
-        pql.LazyFrame(df).drop_nans(subset=subset), df.lazy().drop_nans(subset=subset)
+        df.lazy().drop_nans(subset=subset), pql.LazyFrame(df).drop_nans(subset=subset)
     )

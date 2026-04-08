@@ -9,16 +9,16 @@ from ._utils import Fns, FnsCat, assert_eq, assert_lf_eq
 def test_all_add() -> None:
     data = {"a": [1, 2], "b": [3, 4]}
     assert_lf_eq(
-        pql.LazyFrame(data).select(pql.all().add(1)),
         pl.LazyFrame(data).select(pl.all().add(1)),
+        pql.LazyFrame(data).select(pql.all().add(1)),
     )
 
 
 def test_all_chained() -> None:
     data = {"a": [1, 2], "b": [3, 4]}
     assert_lf_eq(
-        pql.LazyFrame(data).select(pql.all().mul(2).add(1)),
         pl.LazyFrame(data).select(pl.all().mul(2).add(1)),
+        pql.LazyFrame(data).select(pql.all().mul(2).add(1)),
     )
 
 
