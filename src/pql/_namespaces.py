@@ -50,8 +50,8 @@ class Sec(IntEnum):
 @dataclass(slots=True)
 class ExprNameSpaceBase(sql.CoreHandler[Expr]):
     @override
-    def _cls(self, expr: SqlExpr) -> Expr:  # pyright: ignore[reportIncompatibleMethodOverride]
-        return self.inner()._cls(expr)  # pyright: ignore[reportPrivateUsage]
+    def _cls(self, value: SqlExpr) -> Expr:  # pyright: ignore[reportIncompatibleMethodOverride]
+        return self.inner()._cls(value)  # pyright: ignore[reportPrivateUsage]
 
 
 @dataclass(slots=True)

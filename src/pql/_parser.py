@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Any, Self, override
+from typing import TYPE_CHECKING, Any, Self
 
 import duckdb
 import pyochain as pc
 import sqlparse
 from pygments import token
-from pygments.lexers.sql import SqlLexer  # pyright: ignore[reportMissingTypeStubs]
+from pygments.lexers.sql import (  # pyright: ignore[reportMissingImports]
+    SqlLexer,  # pyright: ignore[reportUnknownVariableType]
+)
 from rich.console import Console
 from rich.syntax import Syntax
 from sqlparse.lexer import Lexer
@@ -42,13 +44,10 @@ def _get_names(lf: LazyFrame, col_name: str) -> pc.Set[str]:
 type ProcessedToken = tuple[int, TokenType, str]
 
 
-class DuckDbSqlLexer(SqlLexer):
-    @override
-    def get_tokens_unprocessed(  # pyright: ignore[reportIncompatibleMethodOverride]
-        self, text: str
-    ) -> pc.Iter[ProcessedToken]:
+class DuckDbSqlLexer(SqlLexer):  # pyright: ignore[reportUntypedBaseClass]
+    def get_tokens_unprocessed(self, text: str) -> pc.Iter[ProcessedToken]:
         process = partial(self._process, pc.Dict(duckdb.tokenize(text)))
-        return pc.Iter(super().get_tokens_unprocessed(text)).map_star(process)
+        return pc.Iter(super().get_tokens_unprocessed()).map_star(process)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
 
     def _process(  # noqa: PLR6301
         self,
