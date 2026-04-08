@@ -102,27 +102,23 @@ def test_selector_in_group_by_agg() -> None:
     )
 
 
-'''Tests we have to comment out for now.
+@pytest.mark.parametrize(
+    "lf",
+    [
+        _PQL_LF.select(pql.col("a"), total=cs.contains("vals")),
+        _PQL_LF.group_by("a").agg(total=cs.contains("vals")),
+    ],
+)
+def test_named_selector(lf: pql.LazyFrame) -> None:
+    """Currently bugged on lazy case.
 
-_selectors_lfs = [
-    _PQL_LF.select(pql.col("a"), total=cs.numeric()),
-    _PQL_LF.group_by("a").agg(total=cs.numeric()),
-]
-
-@pytest.mark.parametrize("lf", _selectors_lfs())
-def test_named_selector_collect(lf: pql.LazyFrame) -> None:
-    assert_lf_eq(lf, lf.collect().lazy())
-    assert lf.schema.keys().into(list) == ["a", "total"]
-
-
-@pytest.mark.parametrize("lf", _selectors_lfs())
-def test_named_selector_lazy(lf: pql.LazyFrame) -> None:
-    """Seems like when go `DuckDBPyRelation -> pl.LazyFrame`, it crashes with `pl.exceptions.ComputeError`, but not with `DuckDBPyRelation -> pl.DataFrame`."""
+    Seems like when go `DuckDBPyRelation -> pl.LazyFrame`, it crashes with `pl.exceptions.ComputeError`, but not with `DuckDBPyRelation -> pl.DataFrame`.
+    """
+    assert_lf_eq(lf.collect().lazy(), lf)
     msg = "column appears more than once"
     with pytest.raises(pl.exceptions.ComputeError, match=msg):
         _ = lf.lazy().collect()
     assert lf.schema.keys().into(list) == ["a", "total"]
-'''
 
 
 def test_empty_selector() -> None:
