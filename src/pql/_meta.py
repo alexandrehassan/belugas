@@ -207,33 +207,31 @@ class ResolvedExpr(Pipeable):
 
     def __init__(self, expr: SqlExpr, name: str) -> None:
         self.name = name
-        self.has_projection_distinct = (
-            expr.inner().pipe(_find_all, exp.Distinct).any(_is_projection_distinct)
+        inner = expr.inner()
+        self.has_projection_distinct = inner.pipe(_find_all, exp.Distinct).any(
+            _is_projection_distinct
         )
 
+        search = partial(_find_all, inner)
+        self.is_pure_reducer = search(exp.AggFunc, exp.List).any(
+            lambda node: not _has_window_ancestor(node)
+        ) and not search(exp.Column).any(_is_projection_distinct)
+        self.is_multi = isinstance(inner, exp.Columns) or inner.is_star
         match self.has_projection_distinct:
             case True:
 
                 def _strip(node: exp.Expr) -> exp.Expr:
                     match node:
-                        case exp.Distinct(expressions=[exp.Expr() as inner]) if (
+                        case exp.Distinct(expressions=[exp.Expr() as expr]) if (
                             _is_projection_distinct(node)
                         ):
-                            return inner
+                            return expr
                         case _:
                             return node
 
-                self.expr = SqlExpr(expr.inner().transform(_strip))  # pyright: ignore[reportUnknownMemberType, reportAny]
+                self.expr = SqlExpr(inner.transform(_strip))  # pyright: ignore[reportUnknownMemberType, reportAny]
             case False:
                 self.expr = expr
-
-        search = partial(_find_all, self.expr.inner())
-        self.is_pure_reducer = search(exp.AggFunc, exp.List).any(
-            lambda node: not _has_window_ancestor(node)
-        ) and not search(exp.Column).any(_is_projection_distinct)
-        self.is_multi = (
-            isinstance(self.expr.inner(), exp.Columns) or self.expr.inner().is_star
-        )
 
     def maybe_alias(self, expr: SqlExpr) -> SqlExpr:
         return expr if self.is_multi else expr.alias(self.name)
