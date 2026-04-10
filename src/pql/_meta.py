@@ -167,7 +167,6 @@ class SingleMeta(ExprMeta):
 @dataclass(slots=True)
 class MultiMeta(ExprMeta):
     resolver: Resolver = field(kw_only=True)
-    preserve_native: bool = field(default=False, kw_only=True)
 
     @override
     def into_resolved(self, template: SqlExpr, cols: Cols) -> pc.Iter[ResolvedExpr]:
@@ -176,14 +175,9 @@ class MultiMeta(ExprMeta):
             output_names = self.get_output_names(base_names, template)
             return NamesBuilder(base_names, output_names, template)
 
-        expr = template.inner()
-        match expr:
+        match template.inner():
             case exp.Alias():
                 return _get_builder().aliased()
-            case starred if (
-                expr.is_star and self.preserve_native and self.alias_name.is_none()
-            ):
-                return ResolvedExpr(template, starred.output_name).into(pc.Iter.once)
             case _:
                 return _get_builder().resolved()
 

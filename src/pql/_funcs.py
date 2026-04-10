@@ -55,7 +55,7 @@ def _agg_expr(
         return SqlExpr(expr)
 
     names = try_iter(cols).chain(more_cols).collect().then_some()
-    meta = MultiMeta(resolver=Resolver.agg_expr(names), preserve_native=True)
+    meta = MultiMeta(resolver=Resolver.agg_expr(names))
     inner_expr = (
         names
         .map(_columns_expr)
@@ -108,7 +108,7 @@ def all(exclude: TryIter[IntoExprColumn] = None) -> Expr:
     Returns:
         Expr: A new expression that evaluates to all columns.
     """
-    meta = MultiMeta(resolver=Resolver.all_fn(pc.Option(exclude)), preserve_native=True)
+    meta = MultiMeta(resolver=Resolver.all_fn(pc.Option(exclude)))
     return Expr(sql.all(exclude), meta)
 
 
