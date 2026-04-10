@@ -106,3 +106,28 @@ The **gen-{fns, themes}** commands will respectively generate python code for:
 ## References
 
 - [DuckDB functions](https://duckdb.org/docs/stable/sql/functions/overview)
+
+## Known bug: `DuckDB` → `polars.LazyFrame` panic on `dynamic_predicate`
+
+> **Versions**: Polars 1.39.3, DuckDB 1.5.2.dev40
+
+### Summary
+
+`pql.LazyFrame.lazy()` produces a Polars `LazyFrame` backed by a **`PYTHON SCAN`** (via `duckdb/polars_io.py`).
+Certain Polars operations that internally generate a `dynamic_predicate` optimization node cause a **panic** when collected.
+
+**Affected operations:** `.sort().limit()`, `.sort().head()`, `.top_k()`, `.bottom_k()`
+
+**Workaround:** `.collect().lazy()` works — it materializes to an in-memory `DataFrame` first, so the plan uses a native `DF [...]` scan instead of `PYTHON SCAN`.
+
+### Mechanism
+
+1. Polars optimizes `sort + limit` into a single node with a `dynamic_predicate` — an internal filter that pre-screens rows before the full sort.
+2. This predicate gets pushed down to the DuckDB IO source plugin as the `predicate` callback argument.
+3. `_predicate_to_expression` in `polars_io.py` fails to convert the `dynamic_predicate` node to a DuckDB expression (correctly suppressed via `contextlib.suppress`).
+4. The fallback path (`polars_io.py:307`) calls `pl.from_arrow(batch).filter(predicate)`, which internally does `.lazy().filter(predicate).collect()`.
+5. The `dynamic_predicate` expression is an optimizer-internal node — Polars' own `expr_to_ir` converter doesn't handle it → **panic** at `expr_to_ir.rs:627`.
+
+### Responsibility
+
+This is a **DuckDB `polars_io` plugin bug**: the fallback filter path doesn't account for optimizer-internal predicate nodes that cannot be evaluated as user-level expressions.
