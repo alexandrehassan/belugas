@@ -1,450 +1,200 @@
-Created 5 todos
-
-Let me gather extensive context in parallel.
-
-Explore LazyFrame and ScanSource
-
-Explore sqlglot usage patterns
-
-Explore tests and terminal methods
-
-Searched for text `sqlglot`, 66 results
-
-Searched for regex `exp\.`, 100 results
-
-Searched for text `glot`, 100 results
-
-Searched for regex `exp\.Select|exp\.Query`, 3 results
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/MISSING_SQLGLOT.md)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/_conversions.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_frame.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/_scans.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/_expr.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/_conversions.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/_core.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_frame.py#1-1), lines 1 to 150
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_meta.py#1-1), lines 1 to 300
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/meta.py#1-1), lines 1 to 300
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/tests/_utils.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/tests/_data.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/tests/test_lazyframe.py#1-1), lines 1 to 200
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/selectors.py#1-1), lines 1 to 300
-
-Searched for regex `\.collect\(\)|\.lazy\(\)|\.pl\(\)|\.fetchall\(\)|\.fetchone\(\)|\.fetchdf\(\)|\.show\(\)|\.explain\(\)` (`**/src/pql/_frame.py`), 14 results
-
-Searched for text `self\.inner\(\)\.relation` (`**/src/pql/_frame.py`), 20 results
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_meta.py#300-300), lines 300 to 452
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/_sqlglot_patch.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/_when.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/_funcs.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/typing.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/utils.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/_sqlglot_patch.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_parser.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/namespaces.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/_code_gen/_fns.py#1-1), lines 1 to 200
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_frame.py#150-150), lines 150 to 950
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_scans.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/__init__.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_typing.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_groupby.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_joins.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_namespaces.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_frame.py#950-950), lines 950 to 1294
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/tests/test_lazyframe.py#140-140), lines 140 to 150
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_parser.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_when.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_funcs.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_expr.py)
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/selectors.py#150-150), lines 150 to 280
-
-Searched for regex `^\s+@property|^\s+def columns|^\s+def schema|^\s+def show` (`**/src/pql/_frame.py`), 8 results
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_meta.py)
-
-Created memory file [](file:///c%3A/Users/tibo/AppData/Roaming/Code/User/workspaceStorage/42c9e39d50da7b9104cc2d5e8fb3c0a3/GitHub.copilot-chat/memory-tool/memories/repo/sqlglot_integration.md)
-
-Created memory file [](file:///c%3A/Users/tibo/AppData/Roaming/Code/User/workspaceStorage/42c9e39d50da7b9104cc2d5e8fb3c0a3/GitHub.copilot-chat/memory-tool/memories/Njg1ODVhMTUtYzgzMC00ZjE2LTg0YmItOGJjNmQxODMxNDA1/pql_lazyframe_exploration.md)
-
-Created memory file [](file:///c%3A/Users/tibo/AppData/Roaming/Code/User/workspaceStorage/42c9e39d50da7b9104cc2d5e8fb3c0a3/GitHub.copilot-chat/memory-tool/memories/Njg1ODVhMTUtYzgzMC00ZjE2LTg0YmItOGJjNmQxODMxNDA1/pql_architecture_exploration.md)
-
-Read [](file:///c%3A/Users/tibo/AppData/Roaming/Code/User/workspaceStorage/42c9e39d50da7b9104cc2d5e8fb3c0a3/GitHub.copilot-chat/chat-session-resources/68585a15-c830-4f16-84bb-8bc6d1831405/toolu_bdrk_01RKQNfF7Sdx48BuYCn3YKhD__vscode-1775896475255/content.txt#1-1), lines 1 to 200
-
-Read [](file:///c%3A/Users/tibo/AppData/Roaming/Code/User/workspaceStorage/42c9e39d50da7b9104cc2d5e8fb3c0a3/GitHub.copilot-chat/chat-session-resources/68585a15-c830-4f16-84bb-8bc6d1831405/toolu_bdrk_01K8retnRKCBGCcDVcMQQxyJ__vscode-1775896475256/content.txt#1-1), lines 1 to 200
-
-Read [](file:///c%3A/Users/tibo/AppData/Roaming/Code/User/workspaceStorage/42c9e39d50da7b9104cc2d5e8fb3c0a3/GitHub.copilot-chat/chat-session-resources/68585a15-c830-4f16-84bb-8bc6d1831405/toolu_bdrk_01K8retnRKCBGCcDVcMQQxyJ__vscode-1775896475256/content.txt#200-200), lines 200 to 239
-
-Now let me read the critical files directly to understand every relation access point.  
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_frame.py#1-1), lines 1 to 120
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_meta.py#1-1), lines 1 to 120
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_frame.py#120-120), lines 120 to 400
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_meta.py#120-120), lines 120 to 350
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_frame.py#400-400), lines 400 to 700
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_frame.py#600-600), lines 600 to 700
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_frame.py#700-700), lines 700 to 1000
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_frame.py#1000-1000), lines 1000 to 1294
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_groupby.py#1-1), lines 1 to 50
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/sql/_conversions.py#1-1), lines 1 to 100
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_groupby.py#50-50), lines 50 to 94
-
-Starting: *Gather web documentation* (2/5)
-
-Fetched 2 resources
-
-Fetched 2 resources
-
-Starting: *Draft refactor options* (3/5)
-
-Let me also check how columns are currently resolved through ExprPlan, since this is the critical piece.
-
-Read [](file:///c%3A/Users/tibo/python_codes/pql/src/pql/_meta.py#350-350), lines 350 to 452
-
-Starting: *Deep-dive each option* (4/5)
-
-Starting: *Synthesize and compare* (5/5)
-
-Here's the full brainstorming analysis.
-
----
+# Refactor LazyFrame → sqlglot AST
 
 ## Status quo
 
-- **`LazyFrame`** wraps `ScanSource` = `(duckdb.DuckDBPyRelation, pc.Vec[str])`.
-- Every transformation (`select`, `filter`, `sort`, `join`, ...) calls `self.inner().relation.<method>()` immediately → produces a new DuckDB relation → wraps it in a new `ScanSource`.
-- **`SqlExpr`** already wraps `exp.Expr` (sqlglot AST) internally. Conversion to `duckdb.Expression` only happens at `.into_duckdb()`.
-- **Pivot/unpivot/asof join** already build sqlglot ASTs and materialize via `_from_sql_expr()` → `ScanSource.from_query(ast.sql(dialect="duckdb"))`. The pattern already exists.
-- **`ExprPlan`** resolves expression metadata (multi-col selectors, aliasing, distinct/agg detection) and produces `DuckDBPyRelation` via `select_context`, `with_columns_context`, `agg_context`, `group_by_all_context`.
+- `LazyFrame` wraps `ScanSource` = `(duckdb.DuckDBPyRelation, pc.Vec[str])`.
+- Every transformation (`select`, `filter`, `sort`, `join`, ...) calls `self.inner().relation.<method>()` immediatement → produit une nouvelle DuckDB relation → wrap dans un nouveau `ScanSource`.
+- `SqlExpr` wraps déjà `exp.Expr` (sqlglot AST). La conversion vers `duckdb.Expression` ne se fait qu'au `.into_duckdb()`.
+- **Pivot/unpivot/asof join** construisent déjà des ASTs sqlglot et matérialisent via `_from_sql_expr()` → `ScanSource.from_query(ast.sql(dialect="duckdb"))`. Le pattern existe déjà.
+- `ExprPlan` résout les métadonnées d'expression et produit `DuckDBPyRelation` via `select_context`, `with_columns_context`, `agg_context`, `group_by_all_context`.
 
-**23 direct `self.inner().relation` access points** in _frame.py, plus_groupby.py's aggregator.
-
----
-
-## Option A: Full sqlglot AST (SQLFrame-like CTE chains)
-
-### Concept
-
-`LazyFrame._inner` becomes a `QueryPlan` storing:
-
-```python
-@dataclass
-class QueryPlan:
-    base: ScanSource          # materialized base data (dict/numpy/scan)
-    ast: exp.Select           # the full query tree built on top
-    tracked_cols: pc.Vec[str] # column names tracked through transforms
-```
-
-Every transformation mutates the AST:
-
-- `select()` → `exp.select(*resolved_exprs).from_(cte_alias)`
-- `filter()` → `ast.where(predicate)`
-- `sort()` → `ast.order_by(*ordered_exprs)`
-- `limit(n)` → `ast.limit(n)`
-- `with_columns()` → SELECT existing + new FROM current
-- `group_by().agg()` → SELECT aggs FROM current GROUP BY keys
-- `join()` → `ast.join(other_alias, on=condition, join_type=...)`
-- `union()` → `exp.Union(this=self.ast, expression=other.ast)`
-
-Each chaining step wraps the previous query as a CTE (like SQLFrame), ensuring composability.
-
-Terminal methods (`collect`, `lazy`, `columns`, `dtypes`, `shape`, `explain`, `show`, `sink_*`, `fetch_all`):
-
-1. Register base relation(s) as DuckDB temp views
-2. Generate SQL: `ast.sql(dialect="duckdb")`
-3. `duckdb.from_query(sql)` or `duckdb.execute(sql)`
-4. Return result
-
-### Pros
-
-- Full SQL introspectability at any point in the chain
-- sqlglot optimizer can merge projections, push predicates, eliminate dead columns
-- Portable foundation: switching backends (Postgres, Spark, SQLite) becomes possible
-- Serializable: the AST can be stored/sent/replayed
-- Naturally composable: CTEs are DuckDB's bread and butter
-- Eliminates reliance on DuckDB's Python relation API quirks/bugs
-- `SqlExpr` already builds sqlglot AST internally → no double conversion
-
-### Cons
-
-- **Column tracking is manual**: Currently `relation.columns` handles it. With AST we must propagate `tracked_cols` at every step. For `select()`, `with_columns()`, `join()`, `explode()` this is non-trivial — especially for multi-column selectors (`*`, `cs.numeric()`, etc.) that resolve against known columns.
-- **ExprPlan rewrite**: The 4 context methods (`select_context`, `with_columns_context`, `agg_context`, `group_by_all_context`) must produce AST nodes instead of `DuckDBPyRelation`. This is the single hardest migration point: the distinct/aggregation/broadcast logic is sophisticated.
-- **CTE overhead**: Each step = 1 CTE. Long chains generate verbose SQL. DuckDB's optimizer handles this well perf-wise, but explain output and `sql_query()` become noisy (sqlglot optimizer can help).
-- **DuckDB-specific terminal features**: `describe()`, `shape` (needs row count) → require materialization anyway, but currently they're just `relation.describe()` / `relation.shape`. Post-refactor they need a `from_query` round-trip.
-- **Registration side effects**: Base data must exist as a named DuckDB table/view. Need a mechanism to register temp views and manage their lifecycle.
-- **Largest refactor scope**: Touches _frame.py,_meta.py, _groupby.py, `_joins.py`, `_scans.py`, and possibly `selectors.py`.
+**23 accès directs `self.inner().relation`** dans `_frame.py`, plus l'agrégateur de `_groupby.py`.
 
 ---
 
-## Option B: Hybrid — AST layer on top of materialized base
+## Objectif
 
-### Concept
+`LazyFrame` transporte un AST sqlglot (`exp.Select`) au lieu de déléguer chaque opération à `DuckDBPyRelation`. La relation DuckDB n'est créée qu'aux terminaux (`collect`, `lazy`, `dtypes`, `shape`, `explain`, `show`, `sink_*`, `fetch_all`) via `ScanSource.from_query`.
 
-`ScanSource` stays as-is for base data. LazyFrame carries both:
-
-```python
-@dataclass
-class QueryPlan:
-    base: ScanSource                    # materialized base (always available)
-    transforms: pc.Vec[ASTTransform]    # pending AST operations
-```
-
-Where `ASTTransform` is a discriminated union of lightweight ops:
-
-```python
-type ASTTransform = SelectAST | FilterAST | SortAST | LimitAST | ...
-```
-
-On terminal methods, the transforms are **compiled** into a single sqlglot AST referencing the base relation, then executed via `from_query`.
-
-On methods that NEED intermediate column info (e.g. `with_columns` needs current columns to resolve `*`), we have two sub-strategies:
-
-- **B1: Track columns eagerly** — each transform op also updates a `tracked_cols` field, purely from AST analysis
-- **B2: Materialize on demand** — if column info is needed mid-chain, flush pending transforms to create a new base relation, then continue
-
-### Pros
-
-- Smaller refactor surface than Option A: transformation methods just append to a list
-- B2 variant is pragmatic — complex ops that need column info (explode, selectors) can materialize
-- Base data initialization stays untouched
-- Incremental adoption: migrate methods one by one, keeping the "flush to relation" escape hatch
-
-### Cons
-
-- **B2 breaks the "defer everything" goal**: If `with_columns` frequently needs columns → frequent materialization → gains are marginal
-- **B1 requires the same column tracking work as Option A** without the elegance of a uniform AST
-- Two representations to maintain (relation + transform list), more complex reasoning about state
-- No sqlglot optimizer benefits: the AST is only constructed at the end, not available for mid-chain analysis
-- Not serializable mid-chain since it depends on a live DuckDB base relation
+`ScanSource` reste inchangé : il gère la relation de base et les colonnes. C'est `LazyFrame` qui porte l'arbre.
 
 ---
 
-## Option C: Thin AST wrapper — current ops emit sqlglot instead of DuckDB calls
+## Architecture cible
 
-### Concept
-
-Keep `ScanSource` and the current architecture, but replace every `self.inner().relation.<method>()` call with its sqlglot equivalent:
-
-- `relation.select(*exprs)` → build `exp.select(*glot_exprs).from_(current_cte)`
-- `relation.filter(expr)` → `current.where(glot_expr)`
-- `relation.sort(*exprs)` → `current.order_by(*glot_exprs)`
-- `relation.limit(n)` → `current.limit(n)`
-- etc.
-
-`ScanSource` becomes:
+### ScanSource (inchangé)
 
 ```python
-@dataclass
+@dataclass(slots=True)
 class ScanSource:
-    base_relation: duckdb.DuckDBPyRelation   # the raw data
-    base_alias: str                          # registered name
-    query: exp.Select                        # the growing AST
-    columns: pc.Vec[str]                     # tracked names
+    relation: duckdb.DuckDBPyRelation   # source de données brute
+    columns: pc.Vec[str]                 # noms de colonnes de la source
 ```
 
-`ExprPlan` context methods return `exp.Select` instead of `DuckDBPyRelation`.
+Rôle : construire une relation DuckDB à partir de n'importe quelle source (dict, numpy, table, scan, etc.). Pas d'AST ici. C'est le point d'entrée des données et le point de matérialisation via `from_query`.
 
-### Pros
+### LazyFrame (porte l'AST)
 
-- Method-by-method migration: each method can be converted independently
-- Natural mapping: `relation.filter(expr)` → `query.where(expr)` is 1:1
-- Existing CTE approach for pivot/unpivot/asof already proves the pattern
-- `_from_sql_expr` pattern generalizes naturally
+```python
+@dataclass(slots=True, init=False, repr=False)
+class LazyFrame(sql.CoreHandler[ScanSource]):
+    _inner: ScanSource      # source de base (données brutes + colonnes initiales)
+    _ast: exp.Select         # arbre SQL construit par les transformations
+    _columns: pc.Vec[str]    # colonnes trackées à travers les ops
+```
 
-### Cons
+- `_inner` = le `ScanSource` de base. Ne change plus après init (sauf joins qui accumulent des sources).
+- `_ast` = l'arbre sqlglot qui grandit à chaque transformation. Initialisé à `SELECT * FROM base_alias`.
+- `_columns` = trackés manuellement à chaque opération.
 
-- Still need manual column tracking (same as Option A)
-- ExprPlan rewrite needed (same as Option A, but can be done incrementally)
-- Base relation needs registration as temp view (same as Option A)
-- Essentially becomes Option A when fully implemented — just a different migration path
+Matérialisation = `ScanSource.from_query(self._ast.sql(dialect="duckdb"), base=self._inner.relation)`.
 
 ---
 
-## Option D: LazyFrame stores `exp.Select`, `ScanSource.from_query()` at terminal only
+## Mapping des transformations
 
-### Concept
+Chaque méthode LazyFrame qui fait aujourd'hui `self.inner().relation.<method>()` manipule `_ast` à la place :
 
-This is the most targeted version of what you described. `LazyFrame._inner` changes to:
+| Méthode actuelle | Pattern actuel | Pattern cible |
+|---|---|---|
+| `filter(expr)` | `relation.filter(expr.into_duckdb())` | `_ast.where(expr.inner())` |
+| `sort(*exprs)` | `relation.sort(*exprs)` | `_ast.order_by(*glot_exprs)` |
+| `limit(n)` | `relation.limit(n)` | `_ast.limit(n)` |
+| `select(*exprs)` | `ExprPlan.select_context(relation)` | `ExprPlan.select_context_ast(_ast)` |
+| `with_columns(...)` | `ExprPlan.with_columns_context(relation)` | `ExprPlan.with_columns_context_ast(_ast)` |
+| `group_by_all(...)` | `ExprPlan.group_by_all_context(relation)` | `exp.select(*aggs).from_(_ast_as_cte)` |
+| `drop(*cols)` | `relation.select(all_except)` | `exp.select(*remaining).from_(_ast)` |
+| `union(other)` | `relation.union(other.relation)` | `exp.Union(this=self._ast, expression=other._ast)` |
+| `join(other, ...)` | `relation.join(other.relation, ...)` | `_ast.join(other_alias, on=condition, join_type=...)` |
+| `rename(mapping)` | `_iter_slct(alias logic)` | `exp.select(*aliased_cols).from_(_ast)` |
 
-```python
-@dataclass
-class LazyPlan:
-    sources: pc.Dict[str, ScanSource]   # named base relations
-    ast: exp.Select                      # the full query
-    columns: pc.Vec[str]                 # tracked column names
-```
+Les terminaux matérialisent l'AST :
 
-- `sources` holds all base data referenced by the query (main table + joined tables)
-- `ast` is the full sqlglot query tree
-- `columns` is tracked through transforms
+| Terminal | Implémentation |
+|---|---|
+| `collect()` | `_materialize().relation.pl()` |
+| `lazy()` | `_materialize().relation.pl(lazy=True)` |
+| `columns` | retourne `self._columns` (tracké, pas de matérialisation) |
+| `dtypes` | matérialisation nécessaire |
+| `schema` | = `_columns` + `dtypes` |
+| `shape` | matérialisation nécessaire |
+| `explain()` | `_materialize().relation.explain()` |
+| `show()` | `_materialize().relation.show()` |
+| `sink_*()` | `_materialize().relation.write_*()` |
+| `fetch_all()` | `_materialize().relation.fetchall()` |
+| `sql_query()` | `_ast.sql(dialect="duckdb")` directement |
+| `describe()` | matérialisation nécessaire |
 
-Terminal methods:
-
-```python
-def _materialize(self) -> ScanSource:
-    # Register all sources as temp views/aliases
-    # Generate SQL
-    # ScanSource.from_query(self.ast.sql(dialect="duckdb"), **self.sources)
-```
-
-This is essentially Option A with explicit source tracking, making `ScanSource.from_query` the single execution pathway.
-
-### Pros
-
-- Clean single-path execution model
-- `ScanSource.from_query` already exists and handles relation binding
-- `sources` dict makes join scenarios explicit
-- Most aligned with your stated goal
-
-### Cons
-
-- Same column tracking burden as all AST-based approaches
-- Same ExprPlan rewrite requirement
-- Multiple sources management adds complexity for joins (self-joins, multi-way joins)
+Avec `_materialize()` = `ScanSource.from_query(self._ast.sql(dialect="duckdb"), base=self._inner.relation)`.
 
 ---
 
-## Cross-cutting concerns (all options)
+## Column tracking
 
-### 1. Column tracking — the crux
+Chaque opération sur LazyFrame met à jour `_columns` :
 
-Every AST-based approach needs to answer: "what are the current columns?"
-
-| Operation | Column impact |
-|-----------|--------------|
-| `select()` | Replaces: output = resolved expr names |
-| `with_columns()` | Extends/replaces: existing + new, dedup by name |
+| Opération | Impact sur `_columns` |
+|-----------|---------------------|
+| `select()` | Remplace : output = noms des expressions résolues |
+| `with_columns()` | Étend/remplace : existant + nouveau, dédup par nom |
 | `filter()` | Passthrough |
 | `sort()` | Passthrough |
 | `limit()/head()/tail()` | Passthrough |
-| `drop()` | Removes named columns |
-| `rename()` | Remaps names |
-| `join()` | Merge of both sides with suffix handling |
-| `explode()` | Passthrough (names stay, types change) |
-| `pivot()` | Completely new set of columns (data-dependent!) |
-| `describe()` | Fixed schema |
+| `drop()` | Supprime les colonnes nommées |
+| `rename()` | Remap des noms |
+| `join()` | Merge des deux côtés avec gestion suffix |
+| `explode()` | Passthrough (noms restent, types changent) |
+| `pivot()` | Nouveau set (data-dependent mais `on_columns` est explicite) |
 | `union()` | Left side wins |
 
-**Pivot** is the hardest: the output columns depend on **data values**, not just the schema. This fundamentally requires a materialization step (or a pre-query to discover values). Current code already requires `on_columns` to be explicit, so this is manageable.
+`_columns` est déjà tracké via `ScanSource.columns` aujourd'hui. La seule différence : on ne peut plus faire `relation.columns` pour vérifier — on se fie au tracking. C'est correct tant que le tracking est fidèle.
 
-**Multi-column selectors** (`cs.all()`, regex selectors, `*`) require knowing all current columns. This is solvable since `tracked_cols` propagates.
-
-### 2. ExprPlan rewrite strategy
-
-ExprPlan currently outputs `DuckDBPyRelation`. It needs to output `exp.Select` (or AST fragments).
-
-The logic inside `select_context` is:
-
-- All distinct? → `.select(*exprs).distinct()`  
-- All pure reducers? → `.aggregate(*exprs)` (= `SELECT agg FROM ... GROUP BY ALL`)
-- Mixed? → `.select(*exprs)` with broadcast reducers windowed
-
-This translates naturally:
-
-- `.select(*exprs)` → `exp.select(*glot_exprs).from_(current_cte)`
-- `.aggregate(*exprs)` → same but with no GROUP BY (DuckDB auto-groups)
-- `.distinct()` → `current.distinct()`
-- Broadcast reducers → already handled by `_broadcast_reducers` which adds `OVER()`, which is pure sqlglot AST manipulation
-
-### 3. LazyGroupBy rewrite
-
-`_aggregator = partial(frame.inner().relation.aggregate, group_expr=...)` → becomes `lambda exprs: exp.select(*exprs).from_(base).group_by(...)`.
-
-### 4. `Marker.windowed()`
-
-Currently: `lf.select(row_nb, sql.all().into_duckdb())` on the relation. Would become: wrapping the current AST as a subquery with the row_number prepended.
+Multi-column selectors (`cs.all()`, `*`) résolvent contre `_columns` : déjà le cas via `ExprPlan`.
 
 ---
 
-## Synthesis & Recommendation
+## ExprPlan : rewrite des context methods
 
-Options A, C, and D converge to essentially the same end state:
-> LazyFrame stores a sqlglot AST + column names. Terminal methods generate SQL and call `duckdb.from_query()`.
+`ExprPlan` produit actuellement `DuckDBPyRelation`. Doit produire `exp.Select` (ou fragments AST).
 
-The difference is **migration strategy**:
+La logique de `select_context` :
 
-- **Option A/D** = big-bang rewrite
-- **Option C** = incremental method-by-method migration  
-- **Option B** = incremental but with a "hybrid" state that adds complexity without payoff
+- All distinct? → `exp.select(*exprs).from_(current).distinct()`
+- All pure reducers? → `exp.select(*aggs).from_(current)` (DuckDB auto-groups)
+- Mixed? → `exp.select(*exprs_with_broadcast).from_(current)`
 
-**My recommendation: Option C (incremental) towards the end-state of D.**
+`_broadcast_reducers` ajoute `OVER()` — c'est déjà de la manipulation AST sqlglot pure.
 
-Concretely:
+`with_columns_context` → `exp.select(*existing_plus_new).from_(current)`
 
-**Phase 1 — Foundation (low risk)**
+`agg_context` → `exp.select(*keys, *aggs).from_(current).group_by(*keys_str)`
 
-1. Add `columns: pc.Vec[str]` tracking to a new `QueryPlan` dataclass alongside the existing relation
-2. `ScanSource.build()` populates both relation and columns (already does)
-3. Simple passthrough methods (`filter`, `sort`, `limit`) emit sqlglot and go through `from_query` instead of `relation.<method>()`
-4. Keep the `relation` as fallback for methods not yet migrated
+`group_by_all_context` → `exp.select(*aggs).from_(current)` + `GROUP BY ALL`
 
-**Phase 2 — ExprPlan migration (medium risk)**
+`Marker.windowed()` → wrap l'AST courant en sous-requête avec `row_number()` prepended.
 
-1. Add `select_context_ast()` etc. that return `exp.Select` instead of `DuckDBPyRelation`
-2. Migrate `select()`, `with_columns()`, `group_by_all()` to use AST path
-3. Column tracking gets exercised extensively here
+---
 
-**Phase 3 — Complex operations (higher risk)**
+## LazyGroupBy : rewrite
 
-1. Migrate `join()`, `join_cross()`, `join_asof()` (asof already uses AST)
-2. Migrate `explode()`, `unique()`, `pivot()`, `unpivot()` (pivot/unpivot already use AST)
-3. Migrate `_iter_agg`, `_iter_slct` patterns
+Actuellement : `_aggregator = partial(frame.inner().relation.aggregate, group_expr=...)`.
+Cible : `lambda exprs: exp.select(*exprs).from_(base_cte).group_by(...)`.
+
+Les `keys` sont déjà des `SqlExpr` (= sqlglot AST). L'aggregateur reçoit des expressions sqlglot au lieu de `duckdb.Expression`.
+
+---
+
+## Gestion des sources pour les joins
+
+Un join implique deux `ScanSource` distincts. La source `relation` du right side doit être accessible lors de la matérialisation.
+
+Approche : au moment du join, le LazyFrame résultant accumule les références aux sources des deux côtés. `ScanSource.from_query` accepte déjà `**relations: IntoRel` — on passe les relations nommées.
+
+Pour les self-joins : aliasing via `set_alias` (déjà utilisé aujourd'hui).
+
+---
+
+## Cas spéciaux
+
+### `_from_sql_expr` (pivot/unpivot/asof)
+
+Déjà le pattern cible : construit un AST sqlglot, passe à `from_query`. Pas de changement nécessaire — ces méthodes deviennent juste le cas standard au lieu de l'exception.
+
+### `_iter_agg` / `_iter_slct`
+
+Ces helpers itèrent sur `_columns` et construisent des expressions. Actuellement appellent `relation.aggregate` / `select`. Cible : construisent un `exp.Select` à la place.
+
+### `describe()` / `shape`
+
+Nécessitent une vraie relation DuckDB. Matérialisent via `_materialize()` puis délèguent.
+
+---
+
+## Migration incrémentale
+
+Chaque phase laisse la test suite verte.
+
+**Phase 1 — Foundation**
+
+1. Ajouter `_ast: exp.Select` et `_columns: pc.Vec[str]` à `LazyFrame`. Init `_ast` à `SELECT * FROM base_alias`, init `_columns` depuis `ScanSource.columns`.
+2. `ScanSource` reste inchangé.
+3. Migrer les passthrough simples : `filter`, `sort`, `limit` → manipulent `_ast`, retournent un nouveau LazyFrame avec AST mis à jour.
+4. Les terminaux matérialisent via `_materialize()` → `ScanSource.from_query(_ast.sql(...))`.
+
+**Phase 2 — ExprPlan**
+
+1. Ajouter des variantes `*_context_ast()` qui retournent `exp.Select` au lieu de `DuckDBPyRelation`.
+2. Migrer `select()`, `with_columns()`, `group_by_all()` vers le path AST.
+3. Le column tracking est exercé à fond ici.
+
+**Phase 3 — Opérations complexes**
+
+1. Migrer `join()`, `join_cross()`, `join_asof()` (asof utilise déjà l'AST).
+2. Migrer `explode()`, `unique()`, `pivot()`, `unpivot()` (pivot/unpivot utilisent déjà l'AST).
+3. Migrer `_iter_agg`, `_iter_slct`, `LazyGroupBy`.
 
 **Phase 4 — Cleanup**
 
-1. Remove `duckdb.DuckDBPyRelation` from `ScanSource` for non-base usage
-2. `ScanSource` becomes the base-only materialization point
-3. Terminal methods unify through `from_query`
-
-This gives you the ability to **migrate and test incrementally**, with each phase leaving the test suite green.
-
-Completed: *Synthesize and compare* (5/5)
-
-Want me to dig deeper into any specific option, or start prototyping Phase 1?
+1. `ScanSource` ne sert plus qu'à stocker la source de base et à matérialiser via `from_query`.
+2. Tous les terminaux passent par `_materialize()`.
+3. Supprimer `glot_into_duckdb` et les chemins de conversion `SqlExpr → duckdb.Expression` pour les contextes LazyFrame (reste nécessaire pour `ScanSource.from_query` callback interne).
