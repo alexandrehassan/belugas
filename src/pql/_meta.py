@@ -312,7 +312,7 @@ class ExprPlan:
 
         return self.projections.iter().map(_into_expr)
 
-    def select_context(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
+    def select_ctx(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
         def _non_empty_slct(
             projs: pc.Seq[ResolvedExpr], lf: DuckDBPyRelation
         ) -> DuckDBPyRelation:
@@ -339,7 +339,7 @@ class ExprPlan:
             lambda projs: _non_empty_slct(projs, Marker.windowed(lf, projs))
         ).unwrap_or_else(lambda: ScanSource.from_none().relation)
 
-    def with_columns_context(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
+    def with_columns_ctx(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
         def _resolve() -> pc.Iter[Expression]:
             def _into_update(proj: ResolvedExpr) -> pc.Option[tuple[str, SqlExpr]]:
                 match proj.is_multi:
@@ -388,7 +388,7 @@ class ExprPlan:
 
         return Marker.windowed(lf, self.projections).select(*_resolve())
 
-    def with_fields_context(self, expr: SqlExpr) -> SqlExpr:
+    def with_fields_ctx(self, expr: SqlExpr) -> SqlExpr:
         return (
             self.projections
             .iter()
@@ -396,10 +396,10 @@ class ExprPlan:
             .into(lambda args: expr.struct.insert(*args))
         )
 
-    def group_by_all_context(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
+    def group_by_all_ctx(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
         return self.aliased_sql(broadcast_agg=False).into(lf.aggregate, "ALL")
 
-    def agg_context(
+    def agg_ctx(
         self,
         keys: PyoIterable[Expression],
         aggregator: Callable[[pc.Iter[Expression]], DuckDBPyRelation],

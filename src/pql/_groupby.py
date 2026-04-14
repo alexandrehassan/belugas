@@ -96,7 +96,7 @@ class LazyGroupBy:
         **named_aggs: IntoExpr,
     ) -> LazyFrame:
         keys = self._keys.iter().map(lambda c: c.into_duckdb())
-        rel = self._cols.into(ExprPlan, aggs, more_aggs, named_aggs).agg_context(
+        rel = self._cols.into(ExprPlan, aggs, more_aggs, named_aggs).agg_ctx(
             keys, self._aggregator
         )
         return self._constructor(rel)

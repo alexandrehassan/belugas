@@ -642,7 +642,7 @@ class ExprStructNameSpace(ExprNameSpaceBase):
         """
         return (
             ExprPlan(pc.Seq[str].new(), exprs, more_exprs, named_exprs)
-            .with_fields_context(self.inner().inner())
+            .with_fields_ctx(self.inner().inner())
             .pipe(self._cls)
         )
 

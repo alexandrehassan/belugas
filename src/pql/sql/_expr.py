@@ -380,7 +380,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
 
         return SqlExprGeoSpatialNameSpace(self)
 
-    def fill_nulls(
+    def fill_null(
         self,
         value: pc.Option[IntoExpr],
         strategy: pc.Option[FillNullStrategy],

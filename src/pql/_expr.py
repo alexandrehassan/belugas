@@ -1084,7 +1084,7 @@ class Expr(sql.CoreHandler[SqlExpr]):
         return (
             self
             .inner()
-            .fill_nulls(pc.Option(value), pc.Option(strategy), pc.Option(limit))
+            .fill_null(pc.Option(value), pc.Option(strategy), pc.Option(limit))
             .pipe(self._cls)
         )
 

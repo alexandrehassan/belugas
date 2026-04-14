@@ -7,14 +7,13 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Self, SupportsInt
+from typing import TYPE_CHECKING, Any, Literal, Self, SupportsInt, overload
 
 import pyochain as pc
 from sqlglot import exp
 
 from . import sql
 from ._datatypes import DataType
-from ._funcs import col
 from ._joins import JoinBuilder, JoinKeys
 from ._meta import ExprPlan, Marker
 from .sql import ScanSource, SqlExpr
@@ -90,15 +89,22 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             .into(self.inner().relation.aggregate)
         )
 
+    @overload
+    def _into_pl(self, *, lazy: Literal[True]) -> pl.LazyFrame: ...
+    @overload
+    def _into_pl(self, *, lazy: Literal[False]) -> pl.DataFrame: ...
+    def _into_pl(self, *, lazy: bool) -> pl.LazyFrame | pl.DataFrame:
+        return (
+            self.inner().relation.pl(lazy=lazy).pipe(Marker.drop_marker, self.columns)
+        )
+
     def lazy(self) -> pl.LazyFrame:
         """Get a Polars LazyFrame.
 
         Returns:
             pl.LazyFrame: A Polars LazyFrame representing the same query.
         """
-        return (
-            self.inner().relation.pl(lazy=True).pipe(Marker.drop_marker, self.columns)
-        )
+        return self._into_pl(lazy=True)
 
     def collect(self) -> pl.DataFrame:
         """Execute the query and return a Polars DataFrame.
@@ -106,7 +112,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             pl.DataFrame: A Polars DataFrame representing the query result.
         """
-        return self.inner().relation.pl().pipe(Marker.drop_marker, self.columns)
+        return self._into_pl(lazy=False)
 
     def select(
         self, exprs: TryIter[IntoExpr], *more_exprs: IntoExpr, **named_exprs: IntoExpr
@@ -122,7 +128,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             Self: A new LazyFrame with the selected columns.
         """
         return self.__class__(
-            self.columns.into(ExprPlan, exprs, more_exprs, named_exprs).select_context(
+            self.columns.into(ExprPlan, exprs, more_exprs, named_exprs).select_ctx(
                 self.inner().relation
             )
         )
@@ -143,7 +149,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         return self.__class__(
             self.columns.into(
                 ExprPlan, exprs, more_exprs, named_exprs
-            ).with_columns_context(self.inner().relation)
+            ).with_columns_ctx(self.inner().relation)
         )
 
     def filter(
@@ -171,7 +177,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             .chain(more_predicates)
             .map(lambda value: SqlExpr.new(value, as_col=True))
             .chain(pc.Iter(constraints.items()).map_star(_constraint))
-            .into(sql.reduce, SqlExpr.and_)
+            .reduce(SqlExpr.and_)
             .into_duckdb()
         )
         return self.__class__(self.inner().relation.filter(expr))
@@ -208,18 +214,15 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             else self
         )
 
-        def _group_strat(strat: pc.Option[str]) -> pc.Option[str]:
-            match strat:
-                case pc.Some(s):
-                    return pc.Some(f"{s} ({key_exprs.iter().map(str).join(', ')})")
-                case _:
-                    return strat
+        def _group_strat() -> pc.Option[str]:
+            match strategy:
+                case None:
+                    return pc.NONE
+                case str():
+                    keys = key_exprs.iter().map(str).join(", ")
+                    return pc.Some(f"{strategy} ({keys})")
 
-        return LazyGroupBy(
-            grouped_frame,
-            key_exprs,
-            group_expr=pc.Option(strategy).into(_group_strat),
-        )
+        return LazyGroupBy(grouped_frame, key_exprs, _group_strat())
 
     def group_by_all(
         self,
@@ -240,7 +243,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         return self.__class__(
             self.columns.into(
                 ExprPlan, exprs, more_exprs, named_exprs
-            ).group_by_all_context(self.inner().relation)
+            ).group_by_all_ctx(self.inner().relation)
         )
 
     def sort(
@@ -666,9 +669,9 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         """
         return self._iter_slct(
             lambda c: (
-                col(c)
-                .fill_null(value=value, strategy=strategy, limit=limit)
-                .inner()
+                sql
+                .col(c)
+                .fill_null(pc.Option(value), pc.Option(strategy), pc.Option(limit))
                 .alias(c)
             )
         )
