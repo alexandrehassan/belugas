@@ -89,14 +89,16 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         return self.__class__(qry)
 
     def _iter_slct(self, func: Callable[[str], SqlExpr]) -> Self:
-        return self.select(self.columns.iter().map(func))
+        return self.columns.iter().map(func).into(self.select)
 
     def _iter_agg(self, func: Callable[[SqlExpr], SqlExpr]) -> Self:
-        return self.__class__(
+        return (
             self.columns
             .iter()
-            .map(lambda c: func(sql.col(c)).alias(c).into_duckdb())
-            .into(self.inner().relation.aggregate)
+            .map(lambda c: sql.col(c).pipe(func).alias(c).inner())
+            .into(lambda agg_exprs: exp.select(*agg_exprs))
+            .from_("src")
+            .pipe(self._from_sql_expr, src=self.inner())
         )
 
     @overload
