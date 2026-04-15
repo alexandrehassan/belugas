@@ -141,9 +141,13 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the selected columns.
         """
-        return self.__class__(
-            self.columns.into(ExprPlan, exprs, more_exprs, named_exprs).select_ctx(
-                self.inner().relation
+        return (
+            self.columns
+            .into(ExprPlan, exprs, more_exprs, named_exprs)
+            .select_ctx()
+            .map_or(
+                self.__class__(ScanSource.from_none().relation),
+                lambda ast: self._from_sql_expr(ast, src=self.inner()),
             )
         )
 

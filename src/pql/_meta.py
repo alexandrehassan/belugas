@@ -12,7 +12,7 @@ from pyochain.traits import Pipeable
 from sqlglot import exp
 
 from . import sql
-from .sql import ScanSource, SqlExpr
+from .sql import SqlExpr
 from .sql.utils import TryIter, try_iter
 
 if TYPE_CHECKING:
@@ -245,7 +245,7 @@ class ResolvedExpr(Pipeable):
                 self.expr = expr
 
     def maybe_alias(self, expr: SqlExpr) -> SqlExpr:
-        return expr if self.is_multi else expr.alias(self.name)
+        return expr if self.is_multi or not self.name else expr.alias(self.name)
 
     def implode_or_scalar(self) -> SqlExpr:
         match self.is_pure_reducer:
@@ -317,44 +317,36 @@ class ExprPlan:
             .collect()
         )
 
-    def aliased_sql(self, *, broadcast_agg: bool) -> pc.Iter[Expression]:
-        def _into_expr(resolved: ResolvedExpr) -> Expression:
-            return resolved.as_aliased(broadcast_agg=broadcast_agg).into_duckdb()
-
-        return self.projections.iter().map(_into_expr)
-
-    def aliased_glot(self, *, broadcast_agg: bool) -> pc.Iter[exp.Expr]:
+    def aliased_sql(self, *, broadcast_agg: bool) -> pc.Iter[exp.Expr]:
         def _into_expr(resolved: ResolvedExpr) -> exp.Expr:
             return resolved.as_aliased(broadcast_agg=broadcast_agg).inner()
 
         return self.projections.iter().map(_into_expr)
 
-    def select_ctx(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
-        def _non_empty_slct(
-            projs: pc.Seq[ResolvedExpr], lf: DuckDBPyRelation
-        ) -> DuckDBPyRelation:
+    def select_ctx(self) -> pc.Option[exp.Select]:
+        def _non_empty_slct(projs: pc.Seq[ResolvedExpr], lf: exp.Expr) -> exp.Select:
             match projs.all(lambda r: r.has_projection_distinct):
                 case True:
                     return (
                         self
                         .aliased_sql(broadcast_agg=False)
-                        .into(lambda exprs: lf.select(*exprs))
+                        .into(lambda exprs: exp.select(*exprs).from_(lf))
                         .distinct()
                     )
                 case False:
-                    match projs.all(lambda r: r.is_pure_reducer):
-                        case True:
-                            return self.aliased_sql(broadcast_agg=False).into(
-                                lf.aggregate
-                            )
-                        case False:
-                            return self.aliased_sql(broadcast_agg=True).into(
-                                lambda exprs: lf.select(*exprs)
-                            )
+                    broadcast = projs.all(lambda r: r.is_pure_reducer)
+                    return (
+                        self
+                        .aliased_sql(broadcast_agg=not broadcast)
+                        .into(lambda exprs: exp.select(*exprs))
+                        .from_(lf)
+                    )
 
         return self.projections.then(
-            lambda projs: _non_empty_slct(projs, Marker.windowed(lf, projs))
-        ).unwrap_or_else(lambda: ScanSource.from_none().relation)
+            lambda projs: _non_empty_slct(
+                projs, exp.to_table("src").pipe(Marker.windowed_glot, projs)
+            )
+        )
 
     def with_columns_ctx(self) -> exp.Select:
         def _resolve() -> pc.Iter[exp.Expr]:
@@ -417,7 +409,7 @@ class ExprPlan:
     def group_by_all_ctx(self) -> exp.Select:
         return (
             self
-            .aliased_glot(broadcast_agg=False)
+            .aliased_sql(broadcast_agg=False)
             .into(lambda exprs: exp.select(*exprs))
             .from_("src")
             .group_by("ALL")

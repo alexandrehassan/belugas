@@ -21,7 +21,12 @@ class When:
     _when: sql.When
 
     def then(self, value: IntoExpr) -> Then:
-        return Then(self._when.then(value), SingleMeta(root_name=Marker.LIT))
+        match value:
+            case Expr():
+                meta = value.meta
+            case _:
+                meta = SingleMeta(root_name=Marker.LIT)
+        return Then(self._when.then(value), meta)
 
 
 @dataclass(slots=True, init=False)

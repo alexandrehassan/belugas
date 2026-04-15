@@ -149,18 +149,18 @@ def test_selector_in_group_by_agg() -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "lf",
-    [
-        sample_pql().select(pql.col("a"), total=cs.contains("vals")),
-        sample_pql().group_by("a").agg(total=cs.contains("vals")),
-    ],
-)
-def test_named_selector(lf: pql.LazyFrame) -> None:
+def test_named_selector_select() -> None:
+    lf = sample_pql().select(pql.col("a"), total=cs.contains("vals"))
+    assert_lf_eq(lf.lazy(), lf)
+    assert lf.schema.keys().into(list) == ["a", "total"]
+
+
+def test_named_selector_agg() -> None:
     """Currently bugged on lazy case.
 
     Seems like when go `DuckDBPyRelation -> pl.LazyFrame`, it crashes with `pl.exceptions.ComputeError`, but not with `DuckDBPyRelation -> pl.DataFrame`.
     """
+    lf = sample_pql().group_by("a").agg(total=cs.contains("vals"))
     assert_lf_eq(lf.collect().lazy(), lf)
     msg = "column appears more than once"
     with pytest.raises(pl.exceptions.ComputeError, match=msg):
