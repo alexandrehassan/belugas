@@ -19,9 +19,9 @@ if TYPE_CHECKING:
 
 
 def _root_column_name(expr: SqlExpr) -> pc.Option[str]:
-    match expr.inner().unalias():
+    match expr.inner():
         case exp.Column() as column:
-            return pc.Option.if_some(column.parts[-1]).map(lambda part: part.name)
+            return pc.Some(column.output_name)
         case _:
             return pc.NONE
 

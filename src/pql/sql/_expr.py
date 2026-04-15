@@ -260,7 +260,9 @@ class SqlExpr(Fns):  # noqa: PLW1641
         return self.__sub__(other)
 
     def alias(self, name: str) -> Self:
-        return self._cls(exp.Alias(this=self.inner(), alias=exp.to_identifier(name)))
+        return self._cls(
+            exp.Alias(this=self.inner().unalias(), alias=exp.to_identifier(name))
+        )
 
     def asc(self) -> Self:
         return self._cls(exp.Ordered(this=self.inner(), desc=False))

@@ -234,11 +234,7 @@ class ResolvedExpr(Pipeable):
                 self.expr = expr
 
     def maybe_alias(self, expr: SqlExpr) -> SqlExpr:
-        match self.is_multi:
-            case True:
-                return expr
-            case False:
-                return expr.inner().unalias().pipe(SqlExpr).alias(self.name)
+        return expr if self.is_multi else expr.alias(self.name)
 
     def implode_or_scalar(self) -> SqlExpr:
         match self.is_pure_reducer:
