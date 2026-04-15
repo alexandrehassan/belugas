@@ -78,6 +78,17 @@ class Marker(StrEnum):
             case False:
                 return lf
 
+    @classmethod
+    def windowed_glot(
+        cls, source: exp.Expr, cols: PyoIterable[ResolvedExpr]
+    ) -> exp.Expr:
+        match cols.any(lambda p: p.is_windowed(cls.TEMP)):
+            case True:
+                row_nb = sql.row_number().over().sub(1).alias(cls.TEMP).inner()
+                return exp.select(row_nb, "*").from_(source).subquery("src")
+            case False:
+                return source
+
 
 def _has_window_ancestor(node: exp.Expr) -> bool:
     def _ancestor_is_window(ancestor: exp.Expr | None) -> bool:
@@ -345,8 +356,8 @@ class ExprPlan:
             lambda projs: _non_empty_slct(projs, Marker.windowed(lf, projs))
         ).unwrap_or_else(lambda: ScanSource.from_none().relation)
 
-    def with_columns_ctx(self, lf: DuckDBPyRelation) -> DuckDBPyRelation:
-        def _resolve() -> pc.Iter[Expression]:
+    def with_columns_ctx(self) -> exp.Select:
+        def _resolve() -> pc.Iter[exp.Expr]:
             def _into_update(proj: ResolvedExpr) -> pc.Option[tuple[str, SqlExpr]]:
                 match proj.is_multi:
                     case True:
@@ -355,15 +366,15 @@ class ExprPlan:
                         expr = _broadcast_reducers(proj.expr)
                         return pc.Some((proj.name, expr))
 
-            def _resolved(updates: pc.Dict[str, SqlExpr]) -> pc.Iter[SqlExpr]:
+            def _resolved(updates: pc.Dict[str, SqlExpr]) -> pc.Iter[exp.Expr]:
                 match updates.any(lambda name: name in self.cols):
                     case False:
                         return (
                             updates
                             .items()
                             .iter()
-                            .map_star(lambda name, e: e.alias(name))
-                            .insert(sql.all())
+                            .map_star(lambda name, e: e.alias(name).inner())
+                            .insert(exp.Star())
                         )
                     case True:
                         return (
@@ -371,7 +382,8 @@ class ExprPlan:
                             .iter()
                             .map(
                                 lambda name: updates.get_item(name).map_or(
-                                    sql.col(name), lambda c: c.alias(name)
+                                    sql.col(name).inner(),
+                                    lambda c: c.alias(name).inner(),
                                 )
                             )
                             .chain(
@@ -379,7 +391,7 @@ class ExprPlan:
                                 .items()
                                 .iter()
                                 .filter_star(lambda name, _expr: name not in self.cols)
-                                .map_star(lambda name, e: e.alias(name))
+                                .map_star(lambda name, e: e.alias(name).inner())
                             )
                         )
 
@@ -389,10 +401,10 @@ class ExprPlan:
                 .filter_map(_into_update)
                 .collect(pc.Dict)
                 .into(_resolved)
-                .map(lambda c: c.into_duckdb())
             )
 
-        return Marker.windowed(lf, self.projections).select(*_resolve())
+        source = exp.to_table("src").pipe(Marker.windowed_glot, self.projections)
+        return exp.select(*_resolve()).from_(source)
 
     def with_fields_ctx(self, expr: SqlExpr) -> SqlExpr:
         return (
