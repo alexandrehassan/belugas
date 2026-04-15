@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from functools import partial
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, final
 
 import pyochain as pc
@@ -13,6 +12,7 @@ from ._meta import ExprPlan
 
 if TYPE_CHECKING:
     from ._frame import LazyFrame
+    from ._typing import GroupByClause
     from .sql import SqlExpr
     from .sql.typing import IntoExpr
     from .sql.utils import TryIter
@@ -28,22 +28,17 @@ def _root_column_name(expr: SqlExpr) -> pc.Option[str]:
 
 @final
 class LazyGroupBy:
-    __slots__ = ("_aggregator", "_cols", "_constructor", "_keys")
+    __slots__ = ("_cols", "_frame", "_keys", "_strategy")
 
     def __init__(
-        self, frame: LazyFrame, keys: pc.Seq[SqlExpr], group_expr: pc.Option[str]
+        self, frame: LazyFrame, keys: pc.Seq[SqlExpr], strategy: GroupByClause | None
     ) -> None:
-        self._constructor = frame.__class__
+        self._frame = frame
         self._keys = keys
+        self._strategy: GroupByClause | None = strategy
         keys_names = keys.iter().filter_map(_root_column_name).collect(pc.Set)
         self._cols = (
             frame.columns.iter().filter(lambda name: name not in keys_names).collect()
-        )
-        self._aggregator = partial(
-            frame.inner().relation.aggregate,
-            group_expr=group_expr.unwrap_or_else(
-                lambda: keys.iter().map(str).join(", ")
-            ),
         )
 
     def _agg_columns(self, func: Callable[[Expr], Expr]) -> LazyFrame:
@@ -95,8 +90,21 @@ class LazyGroupBy:
         *more_aggs: IntoExpr,
         **named_aggs: IntoExpr,
     ) -> LazyFrame:
-        keys = self._keys.iter().map(lambda c: c.into_duckdb())
-        rel = self._cols.into(ExprPlan, aggs, more_aggs, named_aggs).agg_ctx(
-            keys, self._aggregator
+        key_glots = self._keys.iter().map(lambda c: c.inner()).collect(list)
+
+        def _group_by_clause() -> Iterable[exp.Expr]:
+            match self._strategy:
+                case "CUBE":
+                    return pc.Iter.once(exp.Cube(expressions=key_glots))
+                case "ROLLUP":
+                    return pc.Iter.once(exp.Rollup(expressions=key_glots))
+                case None:
+                    return key_glots
+
+        return (
+            self._cols
+            .into(ExprPlan, aggs, more_aggs, named_aggs)
+            .agg_ctx(pc.Iter(key_glots))
+            .group_by(*_group_by_clause())
+            .pipe(self._frame._from_sql_expr, src=self._frame.inner())  # pyright: ignore[reportPrivateUsage]
         )
-        return self._constructor(rel)

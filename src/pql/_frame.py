@@ -238,16 +238,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             if drop_null_keys
             else self
         )
-
-        def _group_strat() -> pc.Option[str]:
-            match strategy:
-                case None:
-                    return pc.NONE
-                case str():
-                    keys = key_exprs.iter().map(str).join(", ")
-                    return pc.Some(f"{strategy} ({keys})")
-
-        return LazyGroupBy(grouped_frame, key_exprs, _group_strat())
+        return LazyGroupBy(grouped_frame, key_exprs, strategy)
 
     def group_by_all(
         self,

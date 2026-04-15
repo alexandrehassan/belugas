@@ -16,7 +16,7 @@ from .sql import SqlExpr
 from .sql.utils import TryIter, try_iter
 
 if TYPE_CHECKING:
-    from duckdb import DuckDBPyRelation, Expression
+    from duckdb import DuckDBPyRelation
     from narwhals.typing import IntoFrameT
     from pyochain.traits import PyoIterable
 
@@ -415,12 +415,8 @@ class ExprPlan:
             .group_by("ALL")
         )
 
-    def agg_ctx(
-        self,
-        keys: PyoIterable[Expression],
-        aggregator: Callable[[pc.Iter[Expression]], DuckDBPyRelation],
-    ) -> DuckDBPyRelation:
-        def _lower_projection(proj: ResolvedExpr) -> pc.Iter[Expression]:
+    def agg_ctx(self, keys: PyoIterable[exp.Expr]) -> exp.Select:
+        def _lower_projection(proj: ResolvedExpr) -> pc.Iter[exp.Expr]:
             def _excluded(star: exp.Star) -> pc.Set[str]:
                 return (
                     pc
@@ -431,13 +427,9 @@ class ExprPlan:
                     .collect(pc.Set)
                 )
 
-            def _into_duck(name: str) -> Expression:
+            def _into_glot(name: str) -> exp.Expr:
                 return (
-                    sql
-                    .col(name)
-                    .pipe(ResolvedExpr, name)
-                    .implode_or_scalar()
-                    .into_duckdb()
+                    sql.col(name).pipe(ResolvedExpr, name).implode_or_scalar().inner()
                 )
 
             match proj.expr.inner():
@@ -447,7 +439,7 @@ class ExprPlan:
                         self.cols
                         .iter()
                         .filter(lambda name: name not in excluded)
-                        .map(_into_duck)
+                        .map(_into_glot)
                     )
                 case exp.Explode(this=exp.Expr() as inner):
                     return pc.Iter.once(
@@ -457,11 +449,13 @@ class ExprPlan:
                         )
                         .list.flatten()
                         .alias(proj.name)
-                        .into_duckdb()
+                        .inner()
                     )
                 case _:
-                    return pc.Iter.once(proj.implode_or_scalar().into_duckdb())
+                    return pc.Iter.once(proj.implode_or_scalar().inner())
 
         plan = self.projections.iter().flat_map(_lower_projection)
 
-        return keys.iter().chain(plan).into(aggregator)
+        return (
+            keys.iter().chain(plan).into(lambda exprs: exp.select(*exprs)).from_("src")
+        )
