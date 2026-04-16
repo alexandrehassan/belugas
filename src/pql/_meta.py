@@ -70,7 +70,7 @@ class Marker(StrEnum):
     def windowed(cls, source: exp.Expr, cols: PyoIterable[ResolvedExpr]) -> exp.Expr:
         match cols.any(lambda p: p.is_windowed(cls.TEMP)):
             case True:
-                row_nb = sql.row_number().over().sub(1).alias(cls.TEMP).inner()
+                row_nb = sql.row_number().window().sub(1).alias(cls.TEMP).inner()
                 return exp.select(row_nb, "*").from_(source).subquery("src")
             case False:
                 return source
@@ -102,7 +102,7 @@ def _broadcast_reducers(expr: SqlExpr) -> SqlExpr:
     def _window_agg(node: exp.Expr) -> exp.Expr:
         match node:
             case exp.AggFunc() | exp.List() if not _has_window_ancestor(node):
-                return SqlExpr(node).over().inner()
+                return SqlExpr(node).window().inner()
             case _:
                 return node
 

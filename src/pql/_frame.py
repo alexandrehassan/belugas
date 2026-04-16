@@ -344,8 +344,8 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
 
         def _with_idx_and_len() -> Self:
             return self.with_columns(
-                sql.row_number().over().sub(1).alias(Marker.IDX),
-                sql.lit(1).count().over().alias(Marker.LEN),
+                sql.row_number().window().sub(1).alias(Marker.IDX),
+                sql.lit(1).count().window().alias(Marker.LEN),
             )
 
         def _from_end_start(off: int) -> SqlExpr:
@@ -975,18 +975,18 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             ):
                 case ("none", _):
                     return pc.Ok(
-                        sql.all().count().over(partition_by=pc.Some(subset_cols))
+                        sql.all().count().window(partition_by=pc.Some(subset_cols))
                     )
                 case ("first", pc.Some(order_by_cols)):
                     return pc.Ok(
-                        sql.row_number().over(
+                        sql.row_number().window(
                             partition_by=pc.Some(subset_cols),
                             order_by=pc.Some(order_by_cols),
                         )
                     )
                 case ("last", pc.Some(order_by_cols)):
                     return pc.Ok(
-                        sql.row_number().over(
+                        sql.row_number().window(
                             partition_by=pc.Some(subset_cols),
                             order_by=pc.Some(order_by_cols),
                             descending=True,
@@ -1000,7 +1000,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                     return pc.Err(ValueError(msg))
                 case _:
                     return pc.Ok(
-                        sql.row_number().over(partition_by=pc.Some(subset_cols))
+                        sql.row_number().window(partition_by=pc.Some(subset_cols))
                     )
 
         return (
@@ -1207,7 +1207,12 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             Self: A new LazyFrame with the row index added.
         """
         row_nb = (
-            sql.row_number().over(order_by=pc.Some(order_by)).sub(1).alias(name).inner()
+            sql
+            .row_number()
+            .window(order_by=pc.Some(order_by))
+            .sub(1)
+            .alias(name)
+            .inner()
         )
         return (
             exp

@@ -3,7 +3,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from decimal import Decimal
-from functools import partial
 from typing import TYPE_CHECKING, Self, override
 
 import pyochain as pc
@@ -11,7 +10,6 @@ import pyochain as pc
 from . import sql
 from ._meta import ExprMeta, Marker
 from .sql import SqlExpr
-from .sql.utils import TryIter, try_iter
 
 if TYPE_CHECKING:
     from ._datatypes import DataType
@@ -31,6 +29,7 @@ if TYPE_CHECKING:
         RankMethod,
         RoundMode,
     )
+    from .sql.utils import TryIter
 
 
 @dataclass(slots=True)
@@ -748,20 +747,14 @@ class Expr(sql.CoreHandler[SqlExpr]):
         descending: bool = False,
         nulls_last: bool = False,
     ) -> Self:
-        expr = partial(self.inner().over, descending=descending, nulls_last=nulls_last)
-        partition_exprs: pc.Option[TryIter[IntoExprColumn]] = pc.Some(
-            try_iter(partition_by)
-            .chain(more_exprs)
-            .map(lambda x: SqlExpr.new(x, as_col=True))
-        )
         return self._cls(
-            pc
-            .Option(order_by)
-            .map(
-                lambda value: try_iter(value).map(lambda x: SqlExpr.new(x, as_col=True))
+            self.inner().over(
+                partition_by,
+                *more_exprs,
+                order_by=order_by,
+                descending=descending,
+                nulls_last=nulls_last,
             )
-            .map(lambda order_exprs: expr(partition_exprs, pc.Some(order_exprs)))
-            .unwrap_or_else(lambda: expr(partition_exprs))
         )
 
     def floor(self) -> Self:

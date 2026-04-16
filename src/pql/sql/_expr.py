@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterable
-from functools import cache
+from functools import cache, partial
 from typing import TYPE_CHECKING, ClassVar, Self, override
 
 import pyochain as pc
@@ -45,13 +45,13 @@ def _fill_strategy() -> pc.Dict[FillNullStrategy, Callable[[SqlExpr], SqlExpr]]:
     from ._funcs import coalesce
 
     return pc.Dict.from_ref({
-        "forward": lambda expr: expr.last_value().over(
+        "forward": lambda expr: expr.last_value().window(
             frame_end=pc.Some(0), ignore_nulls=True
         ),
-        "backward": lambda expr: expr.any_value().over(frame_start=pc.Some(0)),
-        "min": lambda expr: coalesce(expr, expr.min().over()),
-        "max": lambda expr: coalesce(expr, expr.max().over()),
-        "mean": lambda expr: coalesce(expr, expr.mean().over()),
+        "backward": lambda expr: expr.any_value().window(frame_start=pc.Some(0)),
+        "min": lambda expr: coalesce(expr, expr.min().window()),
+        "max": lambda expr: coalesce(expr, expr.max().window()),
+        "mean": lambda expr: coalesce(expr, expr.mean().window()),
         "zero": lambda expr: coalesce(expr, 0),
         "one": lambda expr: coalesce(expr, 1),
     })
@@ -447,9 +447,9 @@ class SqlExpr(Fns):  # noqa: PLW1641
     def _reversed(self, *, reverse: bool = False) -> Self:
         match reverse:
             case True:
-                return self.over(frame_start=pc.Some(0))
+                return self.window(frame_start=pc.Some(0))
             case False:
-                return self.over(frame_end=pc.Some(0))
+                return self.window(frame_end=pc.Some(0))
 
     @property
     def arr(self) -> nm.SqlExprArrayNameSpace:
@@ -646,9 +646,9 @@ class SqlExpr(Fns):  # noqa: PLW1641
             case 0:
                 return self
             case n_val if n_val > 0:
-                return self.lag(n_val, None).over()
+                return self.lag(n_val, None).window()
             case _:
-                return self.lead(-n, None).over()
+                return self.lead(-n, None).window()
 
     def round(self, decimals: int, mode: RoundMode) -> Self:
         match mode:
@@ -776,7 +776,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             Self: A boolean expression indicating whether the value is the first occurrence.
         """
-        return self.row_number().over(pc.Some(self)).eq(1)
+        return self.row_number().window(pc.Some(self)).eq(1)
 
     def is_last_distinct(self) -> Self:
         """Check if value is last occurrence.
@@ -790,7 +790,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         return (
             self
             .row_number()
-            .over(pc.Some(self), pc.Some(row_idx), descending=True)
+            .window(pc.Some(self), pc.Some(row_idx), descending=True)
             .eq(1)
         )
 
@@ -802,7 +802,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         """
         from ._funcs import all
 
-        return self._cls(all().count().over(pc.Some(self)).gt(1).inner())
+        return self._cls(all().count().window(pc.Some(self)).gt(1).inner())
 
     def is_unique(self) -> Self:
         """Check if value is unique.
@@ -812,7 +812,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         """
         from ._funcs import all
 
-        return self._cls(all().count().over(pc.Some(self)).eq(1).inner())
+        return self._cls(all().count().window(pc.Some(self)).eq(1).inner())
 
     def arg_sort(self, *, descending: bool = False, nulls_last: bool = False) -> Self:
         """Return indices that would sort the expression."""
@@ -822,7 +822,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         return self._cls(
             row_idx
             .nth_value(row_idx.add(1))
-            .over(
+            .window(
                 order_by=pc.Some((self, row_idx)),
                 descending=(descending, False),
                 nulls_last=(nulls_last, False),
@@ -836,7 +836,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             Self: An expression with null values filled with the last non-null value.
         """
-        return self.last_value().over(frame_end=pc.Some(0), ignore_nulls=True)
+        return self.last_value().window(frame_end=pc.Some(0), ignore_nulls=True)
 
     def backward_fill(self, limit: int | None) -> Self:
         """Fill null values with the next non-null value.
@@ -844,7 +844,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             Self: An expression with null values filled with the next non-null value.
         """
-        expr = self.any_value().over
+        expr = self.any_value().window
         return (
             pc
             .Option(limit)
@@ -938,7 +938,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         expr = exp.Least(this=self.inner(), expressions=args_into_glot(args))
         return self._cls(expr)
 
-    def over(  # noqa: PLR0913, PLR0917
+    def window(  # noqa: PLR0913, PLR0917
         self,
         partition_by: pc.Option[TryIter[IntoExprColumn]] = pc.NONE,
         order_by: pc.Option[TryIter[IntoExprColumn]] = pc.NONE,
@@ -978,6 +978,28 @@ class SqlExpr(Fns):  # noqa: PLW1641
                 partition_by=get_partition(partition_by), order=order, spec=spec
             )
             .build()
+        )
+
+    def over(
+        self,
+        partition_by: TryIter[IntoExpr],
+        *more_exprs: IntoExpr,
+        order_by: TryIter[IntoExpr] = None,
+        descending: bool = False,
+        nulls_last: bool = False,
+    ) -> Self:
+        expr = partial(self.window, descending=descending, nulls_last=nulls_last)
+        partition_exprs: pc.Option[TryIter[IntoExprColumn]] = pc.Some(
+            try_iter(partition_by)
+            .chain(more_exprs)
+            .map(lambda x: self.new(x, as_col=True))
+        )
+        return (
+            pc
+            .Option(order_by)
+            .map(lambda value: try_iter(value).map(lambda x: self.new(x, as_col=True)))
+            .map(lambda order_exprs: expr(partition_exprs, pc.Some(order_exprs)))
+            .unwrap_or_else(lambda: expr(partition_exprs))
         )
 
     def set_order(self, *, desc: bool, nulls_last: bool) -> Self:
@@ -1066,7 +1088,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         def _peer_count() -> SqlExpr:
             from ._funcs import all
 
-            return all().count().over(pc.Some(self.inner()))
+            return all().count().window(pc.Some(self.inner()))
 
         def _base_rank() -> Self:
             return (
@@ -1082,7 +1104,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
             )
 
         def _over(expr: Self) -> Self:
-            return expr.over(order_by=pc.Some(self.inner()), descending=descending)
+            return expr.window(order_by=pc.Some(self.inner()), descending=descending)
 
         match method:
             case "average":
