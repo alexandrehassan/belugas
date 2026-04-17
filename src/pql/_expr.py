@@ -20,10 +20,10 @@ if TYPE_CHECKING:
         ExprStringNameSpace,
         ExprStructNameSpace,
     )
-    from .sql.datatypes import DataType
     from .sql.typing import (
         ClosedInterval,
         FillNullStrategy,
+        IntoDataType,
         IntoExpr,
         IntoExprColumn,
         RankMethod,
@@ -296,13 +296,13 @@ class Expr(sql.CoreHandler[SqlExpr]):
         """
         return self._cls(self.inner().is_not_null())
 
-    def cast(self, dtype: DataType) -> Self:
+    def cast(self, dtype: IntoDataType) -> Self:
         """Cast to a different data type.
 
         Returns:
             Self: A new expression cast to the given data type.
         """
-        return self._cls(self.inner().cast(dtype.raw))
+        return self._cls(self.inner().cast(dtype))
 
     def is_in(self, other: TryIter[IntoExpr]) -> Self:
         """Check if value is in an iterable of values.

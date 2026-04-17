@@ -20,6 +20,7 @@ from ._window import (
     make_spec,
     rolling_agg,
 )
+from .datatypes import DataType
 from .utils import try_iter
 
 if TYPE_CHECKING:
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
         ClosedInterval,
         FillNullStrategy,
         FrameMode,
+        IntoDataType,
         IntoExpr,
         IntoExprColumn,
         RankMethod,
@@ -397,8 +399,14 @@ class SqlExpr(Fns):  # noqa: PLW1641
             )
         )
 
-    def cast(self, dtype: exp.DataType) -> Self:
-        return self._cls(exp.Cast(this=self.inner(), to=dtype))
+    def cast(self, dtype: IntoDataType) -> Self:
+        match dtype:
+            case DataType():
+                dtype_expr = dtype.raw
+            case exp.DataType():
+                dtype_expr = dtype
+
+        return self._cls(exp.Cast(this=self.inner(), to=dtype_expr))
 
     def collate(self, collation: str) -> Self:
         expr = exp.Collate(this=self.inner(), expression=exp.to_identifier(collation))

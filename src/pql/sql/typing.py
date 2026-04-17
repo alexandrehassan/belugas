@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from ._core import DuckHandler
     from ._expr import SqlExpr
     from ._scans import ScanSource
+    from .datatypes import DataType
 
 
 @runtime_checkable
@@ -153,3 +154,5 @@ TimeUnit = Literal["ms", "us", "ns"]
 EpochTimeUnit = Literal["ms", "us", "ns", "s", "d"]
 FillNullStrategy = Literal["forward", "backward", "min", "max", "mean", "zero", "one"]
 RankMethod = Literal["average", "min", "max", "dense", "ordinal"]
+type IntoDataType = exp.DataType | DataType
+"""Types that can be converted into a `DataType` instance."""
