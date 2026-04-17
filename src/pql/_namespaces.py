@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import IntEnum
 from typing import TYPE_CHECKING, override
 
 import pyochain as pc
@@ -17,33 +16,6 @@ if TYPE_CHECKING:
     from ._typing import TransferEncoding
     from .sql.typing import EpochTimeUnit, IntoExpr, IntoExprColumn, TimeUnit
     from .sql.utils import TryIter
-
-
-class Lit:
-    TITLECASE: SqlExpr = sql.lit(r"[a-z]*[^a-z]*")
-    NONE: SqlExpr = sql.lit(None)
-    G_PARAM: SqlExpr = sql.lit("g")
-    EMPTY_STR: SqlExpr = sql.lit("")
-    ESCAPE_REGEX: SqlExpr = sql.lit(r"([.^$*+?{}\[\]\\|()])")
-    ESCAPE_REPLACE: SqlExpr = sql.lit(r"\\\1")
-    ESCAPE: SqlExpr = sql.lit(" ")
-    STR_AGG: SqlExpr = sql.lit("string_agg")
-    DAY: SqlExpr = sql.lit("day")
-    MONTH: SqlExpr = sql.lit("month")
-    ZERO: SqlExpr = sql.lit("0")
-
-
-class Sec(IntEnum):
-    TO_NANO = 1_000_000_000
-    TO_MICRO = 1_000_000
-    TO_MILLI = 1_000
-    BY_MINUTE = 60
-    BY_HOUR = 3_600
-    BY_DAY = 86_400
-
-    @classmethod
-    def micro_by_day(cls) -> int:
-        return cls.BY_DAY * cls.TO_MICRO
 
 
 @dataclass(slots=True)
@@ -62,7 +34,7 @@ class ExprStringNameSpace(ExprNameSpaceBase):
     """
 
     def join(
-        self, delimiter: IntoExprColumn = Lit.EMPTY_STR, *, ignore_nulls: bool = True
+        self, delimiter: IntoExprColumn = nm.Lit.EMPTY_STR, *, ignore_nulls: bool = True
     ) -> Expr:
         """Vertically concatenate string values into a single string.
 
@@ -152,7 +124,7 @@ class ExprStringNameSpace(ExprNameSpaceBase):
             case 0:
                 return self._cls(expr)
             case n_val if n_val < 0:
-                return self._cls(expr.re.replace(pattern_expr, value, Lit.G_PARAM))
+                return self._cls(expr.re.replace(pattern_expr, value, nm.Lit.G_PARAM))
             case _:
                 return (
                     pc
@@ -357,10 +329,10 @@ class ExprStringNameSpace(ExprNameSpaceBase):
         """
         return self._cls(self.inner().inner().str.reverse())
 
-    def pad_start(self, length: int, fill_char: IntoExprColumn = Lit.ESCAPE) -> Expr:
+    def pad_start(self, length: int, fill_char: IntoExprColumn = nm.Lit.ESCAPE) -> Expr:
         return self._cls(self.inner().inner().str.lpad(length, fill_char))
 
-    def pad_end(self, length: int, fill_char: IntoExprColumn = Lit.ESCAPE) -> Expr:
+    def pad_end(self, length: int, fill_char: IntoExprColumn = nm.Lit.ESCAPE) -> Expr:
         return self._cls(self.inner().inner().str.rpad(length, fill_char))
 
     def zfill(self, length: int) -> Expr:
@@ -738,13 +710,13 @@ class ExprDateTimeNameSpace(ExprNameSpaceBase):
         return self._cls(self.inner().inner().dt.second())
 
     def millisecond(self) -> Expr:
-        return self._cls(self.inner().inner().dt.millisecond().mod(Sec.TO_MILLI))
+        return self._cls(self.inner().inner().dt.millisecond().mod(nm.Sec.TO_MILLI))
 
     def microsecond(self) -> Expr:
-        return self._cls(self.inner().inner().dt.microsecond().mod(Sec.TO_MICRO))
+        return self._cls(self.inner().inner().dt.microsecond().mod(nm.Sec.TO_MICRO))
 
     def nanosecond(self) -> Expr:
-        return self._cls(self.inner().inner().dt.nanosecond().mod(Sec.TO_NANO))
+        return self._cls(self.inner().inner().dt.nanosecond().mod(nm.Sec.TO_NANO))
 
     def month_start(self) -> Expr:
         return self._cls(self.inner().inner().dt.month_start())
@@ -773,11 +745,11 @@ class ExprDateTimeNameSpace(ExprNameSpaceBase):
                     .inner()
                     .inner()
                     .dt.epoch_us()
-                    .truediv(Sec.micro_by_day())
+                    .truediv(nm.Sec.micro_by_day())
                     .floor()
                 )
             case "s":
-                return self._cls(expr.epoch_us().truediv(Sec.TO_MICRO).floor())
+                return self._cls(expr.epoch_us().truediv(nm.Sec.TO_MICRO).floor())
             case "ms":
                 return self._cls(expr.epoch_ms())
             case "us":

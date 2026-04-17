@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from enum import IntEnum
 from typing import TYPE_CHECKING, final
 
 from sqlglot import exp
@@ -27,6 +28,26 @@ from ._when import when
 
 if TYPE_CHECKING:
     from .typing import IntoExpr, IntoExprColumn
+
+
+class Sec(IntEnum):
+    """Time unit constants and conversions."""
+
+    TO_NANO = 1_000_000_000
+    TO_MICRO = 1_000_000
+    TO_MILLI = 1_000
+    BY_MINUTE = 60
+    BY_HOUR = 3_600
+    BY_DAY = 86_400
+
+    @classmethod
+    def micro_by_day(cls) -> int:
+        """Number of microseconds in a day.
+
+        Returns:
+            int: The number of microseconds in a day.
+        """
+        return cls.BY_DAY * cls.TO_MICRO
 
 
 @final
