@@ -14,7 +14,7 @@ from sqlglot import exp
 if TYPE_CHECKING:
     from duckdb.sqltypes import DuckDBPyType
 
-    from .sql.typing import EpochTimeUnit, IntoDict
+    from .typing import EpochTimeUnit, IntoDict
 
 
 @dataclass(slots=True)
@@ -28,6 +28,15 @@ class ClassInstMethod[**P, R]:
     @overload
     def __get__(self, instance: object, type_: type) -> Callable[P, R]: ...
     def __get__(self, instance: object | None, type_: type) -> Callable[..., R]:
+        """Support both instance and class method calls.
+
+        Args:
+            instance (object | None): The instance of the class, or None if called from the class.
+            type_ (type): The class type.
+
+        Returns:
+            Callable[..., R]: The method bound to the instance or class.
+        """
         if instance is not None:
             return self.func.__get__(instance, type_)
         return self.func.__get__(type_, type_)
@@ -211,6 +220,14 @@ class ComplexDataType(DataType):
 
     @classmethod
     def __from_raw__(cls, raw: exp.DataType) -> DataType:  # noqa: PLW3201
+        """Construct a DataType instance from a raw sqlglot DataType expression.
+
+        Args:
+            raw (exp.DataType): The raw sqlglot DataType expression to construct from.
+
+        Returns:
+            DataType: The constructed DataType instance.
+        """
         instance = cls.__new__(cls)
         instance.raw = raw
         instance._init_cache()
@@ -223,40 +240,57 @@ class ComplexDataType(DataType):
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Time(TemporalType):
+    """Time data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.TIME.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class TimeTZ(TemporalType):
+    """Time with time zone data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.TIMETZ.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Duration(TemporalType):
+    """Interval/Duration data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.INTERVAL.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Date(TemporalType):
+    """Date data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.DATE.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class DatetimeTZ(TemporalType):
+    """Timestamp with time zone data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.TIMESTAMPTZ.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Datetime(TemporalType):
+    """Timestamp/Datetime data type with configurable precision."""
+
     raw: exp.DataType
     time_unit: EpochTimeUnit
 
     def __init__(self, time_unit: EpochTimeUnit = "ns") -> None:
+        """Initialize a Datetime data type with the specified time unit.
+
+        Args:
+            time_unit (EpochTimeUnit, optional): The time unit for the datetime type. Defaults to "ns".
+        """
         self.raw = PRECISION_MAP.get_item(time_unit).expect(
             f"Unsupported time unit: {time_unit}"
         )
@@ -266,37 +300,55 @@ class Datetime(TemporalType):
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Boolean(DataType):
+    """Boolean data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.BOOLEAN.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Number(NumericType):
+    """Generic number data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.BIGNUM.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class UUID(NumericType):
+    """UUID data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.UUID.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Float32(FloatType):
+    """Float32/Real data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.FLOAT.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Float64(FloatType):
+    """Float64/Double data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.DOUBLE.into_expr())
 
 
 @final
 @dataclass(slots=True, init=False, unsafe_hash=True)
 class Decimal(NumericType, ComplexDataType):
+    """Decimal data type with configurable precision and scale."""
+
     def __init__(self, precision: int = 18, scale: int = 0) -> None:
+        """Initialize a Decimal data type with the specified precision and scale.
+
+        Args:
+            precision (int, optional): The precision of the decimal type. Defaults to 18.
+            scale (int, optional): The scale of the decimal type. Defaults to 0.
+        """
         self.raw = exp.DataType(
             this=exp.DType.DECIMAL,
             expressions=[
@@ -307,107 +359,147 @@ class Decimal(NumericType, ComplexDataType):
 
     @property
     def precision(self) -> int:
+        """Get the precision of the decimal type."""
         return int(self.raw.expressions[0].this.this)  # pyright: ignore[reportAny]
 
     @property
     def scale(self) -> int:
+        """Get the scale of the decimal type."""
         return int(self.raw.expressions[1].this.this)  # pyright: ignore[reportAny]
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Int8(SignedIntegerType):
+    """Int8/`TINYINT` data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.TINYINT.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Int16(SignedIntegerType):
+    """Int16/`SMALLINT` data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.SMALLINT.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Int32(SignedIntegerType):
+    """Int32/`INT` data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.INT.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Int64(SignedIntegerType):
+    """Int64/`BIGINT` data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.BIGINT.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Int128(SignedIntegerType):
+    """Int128/`INT128` data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.INT128.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class UInt8(UnsignedIntegerType):
+    """UInt8/`UTINYINT` data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.UTINYINT.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class UInt16(UnsignedIntegerType):
+    """UInt16/`USMALLINT` data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.USMALLINT.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class UInt32(UnsignedIntegerType):
+    """UInt32/`UINT` data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.UINT.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class UInt64(UnsignedIntegerType):
+    """UInt64/`UBIGINT` data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.UBIGINT.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class UInt128(UnsignedIntegerType):
+    """UInt128 data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.UINT128.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Binary(DataType):
+    """Binary/Varbinary data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.BLOB.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Geometry(DataType):
+    """Geometry data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.GEOMETRY.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class String(StringType):
+    """String/VarChar/Text data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.VARCHAR.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class Json(StringType):
+    """JSON data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.JSON.into_expr())
 
 
 @final
 @dataclass(slots=True, unsafe_hash=True)
 class BitString(StringType):
+    """BitString/Bit data type."""
+
     raw: exp.DataType = field(init=False, default=exp.DType.BIT.into_expr())
 
 
 @final
 @dataclass(slots=True, init=False, unsafe_hash=True)
 class Enum(StringType, ComplexDataType):
+    """Enum data type with configurable categories."""
+
     def __init__(self, categories: Iterable[str] | type[PyEnum]) -> None:
+        """Initialize an Enum data type with the specified categories.
+
+        Args:
+            categories (Iterable[str] | type[PyEnum]): The categories of the enum type, either as an iterable of strings or a Python Enum class.
+
+        """
         match categories:
             case type():
                 values: pc.Iter[str] = pc.Iter(categories).map(lambda i: i.value)  # pyright: ignore[reportAny]
@@ -421,15 +513,24 @@ class Enum(StringType, ComplexDataType):
 
     @property
     def categories(self) -> pc.Seq[str]:
+        """Get the categories of the enum type."""
+        exprs: list[exp.Expr] = self.raw.expressions
         return (
-            pc.Iter(self.raw.expressions).map(lambda lit: lit.this).collect()  # pyright: ignore[reportAny]
+            pc.Iter(exprs).map(lambda lit: lit.this).collect()  # pyright: ignore[reportAny]
         )
 
 
 @final
 @dataclass(slots=True, init=False, unsafe_hash=True)
 class Union(NestedType, ComplexDataType):
+    """Union data type with configurable fields."""
+
     def __init__(self, fields: Iterable[DataType]) -> None:
+        """Initialize a Union data type with the specified fields.
+
+        Args:
+            fields (Iterable[DataType]): The fields of the union type.
+        """
         exprs = (
             pc
             .Iter(fields)
@@ -443,6 +544,7 @@ class Union(NestedType, ComplexDataType):
 
     @property
     def fields(self) -> pc.Seq[DataType]:
+        """Get the fields of the union type."""
         return (
             pc
             .Iter(self.raw.expressions)
@@ -454,24 +556,41 @@ class Union(NestedType, ComplexDataType):
 @final
 @dataclass(slots=True, init=False, unsafe_hash=True)
 class Map(NestedType, ComplexDataType):
+    """Map data type with configurable key-value pairs."""
+
     def __init__(self, key: DataType, value: DataType) -> None:
+        """Initialize a Map data type with the specified key and value types.
+
+        Args:
+            key (DataType): The data type of the map keys.
+            value (DataType): The data type of the map values.
+        """
         self.raw = exp.DataType(
             this=exp.DType.MAP, expressions=[key.raw, value.raw], nested=True
         )
 
     @property
     def key(self) -> DataType:
+        """Get the key type of the map."""
         return self.from_sql(self.raw.expressions[0])  # pyright: ignore[reportAny]
 
     @property
     def value(self) -> DataType:
+        """Get the value type of the map."""
         return self.from_sql(self.raw.expressions[1])  # pyright: ignore[reportAny]
 
 
 @final
 @dataclass(slots=True, init=False, unsafe_hash=True)
 class Struct(NestedType, ComplexDataType):
+    """Struct data type with configurable fields."""
+
     def __init__(self, fields: IntoDict[str, DataType]) -> None:
+        """Initialize a Struct data type with the specified fields.
+
+        Args:
+            fields (IntoDict[str, DataType]): The fields of the struct type, either as a dictionary or an iterable of key-value pairs.
+        """
         exprs = (
             pc
             .Dict(fields)
@@ -488,6 +607,7 @@ class Struct(NestedType, ComplexDataType):
 
     @property
     def fields(self) -> pc.Dict[str, DataType]:
+        """Get the fields of the struct type."""
         return (
             pc
             .Iter(self.raw.expressions)
@@ -504,7 +624,15 @@ class Struct(NestedType, ComplexDataType):
 @final
 @dataclass(slots=True, init=False, unsafe_hash=True)
 class Array(NestedType, ComplexDataType):
+    """Array data type with configurable inner type and dimensions."""
+
     def __init__(self, inner: DataType, size: int = 1) -> None:
+        """Initialize an Array data type with the specified inner type and size.
+
+        Args:
+            inner (DataType): The inner type of the array.
+            size (int, optional): The size of the array. Defaults to 1.
+        """
         self.raw = exp.DataType(
             this=exp.DType.ARRAY,
             expressions=[inner.raw],
@@ -525,10 +653,12 @@ class Array(NestedType, ComplexDataType):
 
     @property
     def inner(self) -> DataType:
+        """Get the inner type of the array."""
         return self.from_sql(self.raw.expressions[0])  # pyright: ignore[reportAny]
 
     @property
     def shape(self) -> int:
+        """Get the number of dimensions of the array."""
         values = self.raw.args.get("values")
         return int(values[0].this) if values else 1  # pyright: ignore[reportAny]
 
@@ -536,13 +666,21 @@ class Array(NestedType, ComplexDataType):
 @final
 @dataclass(slots=True, init=False, unsafe_hash=True)
 class List(NestedType, ComplexDataType):
+    """List data type with configurable inner type."""
+
     def __init__(self, inner: DataType) -> None:
+        """Initialize a List data type with the specified inner type.
+
+        Args:
+            inner (DataType): The inner type of the list.
+        """
         self.raw = exp.DataType(
             this=exp.DType.ARRAY, expressions=[inner.raw], nested=True
         )
 
     @property
     def inner(self) -> DataType:
+        """Get the inner type of the list."""
         return self.from_sql(self.raw.expressions[0])  # pyright: ignore[reportAny]
 
 

@@ -1,7 +1,39 @@
 """PQL - Polars Query Language over DuckDB."""
 
 from . import meta, selectors, sql
-from ._datatypes import (
+from ._expr import Expr
+from ._frame import LazyFrame, Schema
+from ._funcs import (
+    all,
+    all_horizontal,
+    any_horizontal,
+    coalesce,
+    col,
+    element,
+    len,
+    lit,
+    max,
+    max_horizontal,
+    mean,
+    mean_horizontal,
+    median,
+    min,
+    min_horizontal,
+    sum,
+    sum_horizontal,
+)
+from ._scans import (
+    from_df,
+    from_dict,
+    from_dicts,
+    from_numpy,
+    from_query,
+    from_records,
+    from_table,
+    from_table_function,
+)
+from ._when import when
+from .sql.datatypes import (
     UUID,
     Array,
     Binary,
@@ -37,38 +69,6 @@ from ._datatypes import (
     UInt128,
     Union,
 )
-from ._expr import Expr
-from ._frame import LazyFrame, Schema
-from ._funcs import (
-    all,
-    all_horizontal,
-    any_horizontal,
-    coalesce,
-    col,
-    element,
-    len,
-    lit,
-    max,
-    max_horizontal,
-    mean,
-    mean_horizontal,
-    median,
-    min,
-    min_horizontal,
-    sum,
-    sum_horizontal,
-)
-from ._scans import (
-    from_df,
-    from_dict,
-    from_dicts,
-    from_numpy,
-    from_query,
-    from_records,
-    from_table,
-    from_table_function,
-)
-from ._when import when
 
 __all__ = [
     "UUID",

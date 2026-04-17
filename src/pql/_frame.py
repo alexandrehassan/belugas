@@ -13,10 +13,10 @@ import pyochain as pc
 from sqlglot import exp
 
 from . import sql
-from ._datatypes import DataType
 from ._joins import JoinBuilder, JoinKeys
 from ._meta import ExprPlan, Marker
 from .sql import ScanSource, SqlExpr
+from .sql.datatypes import DataType
 from .sql.utils import TryIter, TrySeq, check_by_arg, try_iter, try_seq
 
 if TYPE_CHECKING:

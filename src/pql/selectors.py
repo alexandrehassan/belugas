@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
     from pyochain.traits import PyoCollection
 
-    from . import _datatypes as dt  # pyright: ignore[reportPrivateUsage]
+    from .sql import datatypes as dt
     from .sql.typing import IntoExpr, IntoExprColumn
 
 

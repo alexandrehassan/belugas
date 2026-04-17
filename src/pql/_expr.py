@@ -12,7 +12,6 @@ from ._meta import ExprMeta, Marker
 from .sql import SqlExpr
 
 if TYPE_CHECKING:
-    from ._datatypes import DataType
     from ._namespaces import (
         ExprArrayNameSpace,
         ExprDateTimeNameSpace,
@@ -21,6 +20,7 @@ if TYPE_CHECKING:
         ExprStringNameSpace,
         ExprStructNameSpace,
     )
+    from .sql.datatypes import DataType
     from .sql.typing import (
         ClosedInterval,
         FillNullStrategy,

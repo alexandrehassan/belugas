@@ -1,6 +1,6 @@
 """SQL expression functions and converters."""
 
-from . import typing, utils
+from . import datatypes, typing, utils
 from ._code_gen import meta
 from ._core import CoreHandler
 from ._expr import SqlExpr
@@ -41,6 +41,7 @@ __all__ = [
     "any_horizontal",
     "coalesce",
     "col",
+    "datatypes",
     "element",
     "fn_once",
     "lit",

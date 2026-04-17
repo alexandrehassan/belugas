@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, override
 
 import pyochain as pc
 
-from . import _datatypes as dt, sql  # pyright: ignore[reportPrivateUsage]
+from . import sql
 from ._expr import Expr
 from ._meta import Aliaser, ExprPlan
-from .sql import SqlExpr, namespaces as nm
+from .sql import SqlExpr, datatypes as dt, namespaces as nm
 
 if TYPE_CHECKING:
     from ._typing import TransferEncoding
