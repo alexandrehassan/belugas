@@ -10,7 +10,7 @@ from sqlglot import exp
 
 from ._code_gen import Fns
 from ._conversions import args_into_glot, pql_into_glot
-from ._core import DuckHandler, func
+from ._core import func
 from ._window import (
     BoundsValues,
     FrameBound,
@@ -75,19 +75,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             SqlExpr
         """
-        from .._expr import Expr
-
-        match value:
-            case DuckHandler():
-                return cls(value.inner())
-            case Expr():
-                return cls(value.inner().inner())
-            case str() if as_col:
-                return cls(exp.column(value))
-            case exp.Expr():
-                return cls(value)
-            case _:
-                return cls(exp.convert(value))
+        return cls(pql_into_glot(value, as_col=as_col))
 
     def _rolling_agg(
         self,
