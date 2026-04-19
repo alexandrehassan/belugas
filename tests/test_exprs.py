@@ -97,6 +97,10 @@ def test_radd() -> None:
     assert_eq(pql_x.__radd__(10), pl_x.__radd__(10))
 
 
+def test_lit_keeps_literal_name_when_composed() -> None:
+    assert_eq(pql.lit(10).add(pql_x), pl.lit(10).add(pl_x))
+
+
 def test_rmul() -> None:
     assert_eq(pql_x.__rmul__(10), pl_x.__rmul__(10))
 
