@@ -198,8 +198,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             .inner
         )
         return (
-            exp
-            .select(exp.Star())
+            _slct_all()
             .from_("src")
             .where(condition)
             .pipe(self._from_sql_expr, src=self.inner)
@@ -293,11 +292,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             .map_star(
                 lambda expr, desc, nls: expr.set_order(desc=desc, nulls_last=nls).inner
             )
-            .into(
-                lambda order_exprs: (
-                    exp.select(exp.Star()).from_("src").order_by(*order_exprs)
-                )
-            )
+            .into(lambda order_exprs: _slct_all().from_("src").order_by(*order_exprs))
             .pipe(self._from_sql_expr, src=self.inner)
         )
 
@@ -311,11 +306,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             Self: A new LazyFrame with the limited rows.
         """
         return (
-            exp
-            .select(exp.Star())
-            .from_("src")
-            .limit(n)
-            .pipe(self._from_sql_expr, src=self.inner)
+            _slct_all().from_("src").limit(n).pipe(self._from_sql_expr, src=self.inner)
         )
 
     def head(self, n: int = 5) -> Self:
@@ -358,8 +349,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                     return pc.Err(ValueError(msg))
                 case (len_val, offset) if offset >= 0:
                     return pc.Ok(
-                        exp
-                        .select(exp.Star())
+                        _slct_all()
                         .from_("src")
                         .limit(len_val.unwrap_or(MAX_I64))
                         .offset(offset)
@@ -516,8 +506,9 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         )
 
     def union(self, other: Self) -> Self:
-        lhs = exp.select(exp.Star()).from_("lhs")
-        rhs = exp.select(exp.Star()).from_("rhs")
+        slct = _slct_all().from_
+        lhs = slct("lhs")
+        rhs = slct("rhs")
         return self._from_sql_expr(exp.union(lhs, rhs), lhs=self.inner, rhs=other)
 
     def rename(self, mapping: Mapping[str, str]) -> Self:
@@ -1090,7 +1081,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                 return group.unwrap() if group.is_some() else None
 
             def _pivot() -> exp.Expr:
-                return exp.to_table("rel").pipe(
+                return exp.to_table("src").pipe(
                     lambda e: exp.Pivot(
                         this=e,
                         expressions=_on_exprs(),
@@ -1101,8 +1092,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
 
             def _select_ordered(cols: Iterable[str]) -> exp.Expr:
                 return (
-                    exp
-                    .select(exp.Star())
+                    _slct_all()
                     .from_(_pivot().pipe(lambda e: exp.Subquery(this=e)))
                     .order_by(*cols)
                 )
@@ -1112,7 +1102,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                 .collect()
                 .then(_select_ordered)
                 .unwrap_or_else(_pivot)
-                .pipe(self._from_sql_expr, rel=self.inner)
+                .pipe(self._from_sql_expr, src=self.inner)
             )
 
         def _handle_multi(lf: Self) -> Self:
@@ -1172,7 +1162,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         def _select() -> exp.Select:
             return exp.select(*index_cols, variable_name, value_name).from_(
                 exp
-                .to_table("rel")
+                .to_table("src")
                 .pipe(
                     lambda e: exp.Pivot(
                         this=e,
@@ -1190,7 +1180,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             try_iter(order_by)
             .then(lambda cols: _select().order_by(*cols))
             .unwrap_or_else(_select)
-            .pipe(self._from_sql_expr, rel=self.inner)
+            .pipe(self._from_sql_expr, src=self.inner)
         )
 
     def with_row_index(self, name: str, *, order_by: TryIter[str]) -> Self:
@@ -1326,3 +1316,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
     @property
     def shape(self) -> tuple[int, int]:
         return self.inner.relation.shape
+
+
+def _slct_all() -> exp.Select:
+    return exp.select(exp.Star())
