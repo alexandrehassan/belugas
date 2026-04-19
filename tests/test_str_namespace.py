@@ -1,7 +1,5 @@
 from collections.abc import Iterable
 
-import duckdb
-import narwhals as nw
 import polars as pl
 import pyochain as pc
 import pytest
@@ -16,182 +14,159 @@ pql_text_short = pql.col("text_short")
 pl_text = pl.col("text")
 pl_text_short = pl.col("text_short")
 
+_LF = pql.LazyFrame({
+    "text": [
+        "  Hello World suffix  ",
+        "  foo bar baz suffix  ",
+        "  Polars is great suffix  ",
+        "  Testing string functions suffix  ",
+    ],
+    "text_nullable": [
+        "  abc  ",
+        "abc",
+        "",
+        "  ",
+    ],
+    "text_short": [
+        "a",
+        "ab",
+        "",
+        "abc",
+    ],
+    "date_str": [
+        "2024-01-15",
+        "2024-02-20",
+        "2024-03-25",
+        "2024-04-30",
+    ],
+    "dt_str": [
+        "2024-01-15 10:30:00",
+        "2024-02-20 15:45:30",
+        "2024-03-25 20:00:00",
+        "2024-04-30 23:59:59",
+    ],
+    "dt_mixed": [
+        "2024-01-15",
+        "2024-02-20 15:45:30",
+        "2024-03-25",
+        "2024-04-30 23:59:59",
+    ],
+    "time_str": [
+        "10:30:00",
+        "15:45:30",
+        "20:00:00",
+        "23:59:59",
+    ],
+    "normalize_input": [
+        "ardèch",
+        "Café",
+        "résumé",
+        "naive",
+    ],
+    "text_with_null": [
+        "aa",
+        None,
+        "bb",
+        "cc",
+    ],
+    "prefixed": [
+        "prefix_text",
+        "prefix_other",
+        "prefix_sample",
+        "prefix_data",
+    ],
+    "suffixed": [
+        "text_suffix",
+        "other_suffix",
+        "sample_suffix",
+        "data_suffix",
+    ],
+    "prefix_exact": [
+        "foobar",
+        "foofoobar",
+        "baab",
+        "barfoo",
+    ],
+    "suffix_exact": [
+        "foobar",
+        "foobarbar",
+        "barfoo",
+        "ababa",
+    ],
+    "prefix_col": [
+        "prefix_",
+        "prefix_",
+        "pre",
+        "data",
+    ],
+    "suffix_col": [
+        "_suffix",
+        "_suffix",
+        "suffix",
+        "data",
+    ],
+    "suffix_val": pc.Iter(range(4)).map(lambda _: "suffix").collect(list),
+    "json": ['{"a": 1}', '{"a": 2}', '{"a": 3}', '{"a": 4}'],
+    "json_path": ["$.a", "$.a", "$.a", "$.a"],
+    "numbers": ["123.456", "456.789", "789.123", "1234.567"],
+    "signed_numbers": ["-1", "+7", "-12345", None],
+})
 
-def sample_df() -> nw.LazyFrame[duckdb.DuckDBPyRelation]:
-    return nw.from_native(
-        duckdb.from_arrow(
-            pl.DataFrame({
-                "text": [
-                    "  Hello World suffix  ",
-                    "  foo bar baz suffix  ",
-                    "  Polars is great suffix  ",
-                    "  Testing string functions suffix  ",
-                ],
-                "text_nullable": [
-                    "  abc  ",
-                    "abc",
-                    "",
-                    "  ",
-                ],
-                "text_short": [
-                    "a",
-                    "ab",
-                    "",
-                    "abc",
-                ],
-                "date_str": [
-                    "2024-01-15",
-                    "2024-02-20",
-                    "2024-03-25",
-                    "2024-04-30",
-                ],
-                "dt_str": [
-                    "2024-01-15 10:30:00",
-                    "2024-02-20 15:45:30",
-                    "2024-03-25 20:00:00",
-                    "2024-04-30 23:59:59",
-                ],
-                "dt_mixed": [
-                    "2024-01-15",
-                    "2024-02-20 15:45:30",
-                    "2024-03-25",
-                    "2024-04-30 23:59:59",
-                ],
-                "time_str": [
-                    "10:30:00",
-                    "15:45:30",
-                    "20:00:00",
-                    "23:59:59",
-                ],
-                "normalize_input": [
-                    "ardèch",
-                    "Café",
-                    "résumé",
-                    "naive",
-                ],
-                "text_with_null": [
-                    "aa",
-                    None,
-                    "bb",
-                    "cc",
-                ],
-                "prefixed": [
-                    "prefix_text",
-                    "prefix_other",
-                    "prefix_sample",
-                    "prefix_data",
-                ],
-                "suffixed": [
-                    "text_suffix",
-                    "other_suffix",
-                    "sample_suffix",
-                    "data_suffix",
-                ],
-                "prefix_exact": [
-                    "foobar",
-                    "foofoobar",
-                    "baab",
-                    "barfoo",
-                ],
-                "suffix_exact": [
-                    "foobar",
-                    "foobarbar",
-                    "barfoo",
-                    "ababa",
-                ],
-                "prefix_col": [
-                    "prefix_",
-                    "prefix_",
-                    "pre",
-                    "data",
-                ],
-                "suffix_col": [
-                    "_suffix",
-                    "_suffix",
-                    "suffix",
-                    "data",
-                ],
-                "suffix_val": pc.Iter(range(4)).map(lambda _: "suffix").collect(),
-                "json": ['{"a": 1}', '{"a": 2}', '{"a": 3}', '{"a": 4}'],
-                "json_path": ["$.a", "$.a", "$.a", "$.a"],
-                "numbers": ["123.456", "456.789", "789.123", "1234.567"],
-                "signed_numbers": ["-1", "+7", "-12345", None],
-            })
-        )
-    )
+
+def sample_df() -> pql.LazyFrame:
+    return _LF
 
 
 def assert_eq(
-    pql_exprs: pql.Expr | Iterable[pql.Expr], polars_exprs: nw.Expr | Iterable[nw.Expr]
-) -> None:
-    assert_frame_equal(
-        pql.LazyFrame(sample_df().to_native()).select(pql_exprs).collect(),
-        sample_df().lazy().select(polars_exprs).to_native().pl(),
-        check_dtypes=False,
-        check_row_order=False,
-    )
-
-
-def assert_eq_pl(
     pql_exprs: pql.Expr | Iterable[pql.Expr], polars_exprs: pl.Expr | Iterable[pl.Expr]
 ) -> None:
     assert_frame_equal(
-        pql.LazyFrame(sample_df().to_native()).select(pql_exprs).collect(),
-        sample_df().to_native().pl(lazy=True).select(polars_exprs).collect(),
+        sample_df().select(pql_exprs).lazy(),
+        sample_df().lazy().select(polars_exprs),
         check_dtypes=False,
         check_row_order=False,
     )
 
 
 def test_to_uppercase() -> None:
-    assert_eq(pql_text.str.to_uppercase(), nw.col("text").str.to_uppercase())
+    assert_eq(pql_text.str.to_uppercase(), pl_text.str.to_uppercase())
 
 
 def test_to_lowercase() -> None:
-    assert_eq(pql_text.str.to_lowercase(), nw.col("text").str.to_lowercase())
+    assert_eq(pql_text.str.to_lowercase(), pl_text.str.to_lowercase())
 
 
 def test_len_chars() -> None:
-    assert_eq(pql_text.str.len_chars(), nw.col("text").str.len_chars())
+    assert_eq(pql_text.str.len_chars(), pl_text.str.len_chars())
 
 
 def test_contains_literal() -> None:
     assert_eq(
         pql_text.str.contains("lo", literal=True),
-        nw.col("text").str.contains("lo", literal=True),
+        pl_text.str.contains("lo", literal=True),
     )
 
 
 def test_contains_regex() -> None:
     assert_eq(
         pql_text.str.contains(r"\d+", literal=False),
-        nw.col("text").str.contains(r"\d+", literal=False),
+        pl_text.str.contains(r"\d+", literal=False),
     )
 
 
 def test_starts_with() -> None:
-    assert_eq(
-        pql_text.str.starts_with("Hello"),
-        nw.col("text").str.starts_with("Hello"),
-    )
+    assert_eq(pql_text.str.starts_with("Hello"), pl_text.str.starts_with("Hello"))
 
 
 def test_ends_with() -> None:
-    assert_eq(
-        pql_text.str.ends_with("suffix"),
-        nw.col("text").str.ends_with("suffix"),
-    )
+    assert_eq(pql_text.str.ends_with("suffix"), pl_text.str.ends_with("suffix"))
 
 
 def test_replace() -> None:
     hi = "Hi"
-    with pytest.raises(NotImplementedError):
-        assert_eq(
-            pql_text.str.replace("Hello", hi), nw.col("text").str.replace("Hello", hi)
-        )
-    assert_eq_pl(pql_text.str.replace("Hello", hi), pl_text.str.replace("Hello", hi))
+    assert_eq(pql_text.str.replace("Hello", hi), pl_text.str.replace("Hello", hi))
     sep = "_"
-    assert_eq_pl(
+    assert_eq(
         (
             pql_text.str.replace("a", sep, n=2),
             pql_text.str.replace("a", sep, n=0).alias("replaced_0"),
@@ -210,26 +185,20 @@ _SPACE = " "
 
 @pytest.mark.parametrize("characters", [" ", None])
 def test_strip_chars(characters: str | None) -> None:
-    assert_eq(
-        pql_text.str.strip_chars(characters),
-        nw.col("text").str.strip_chars(characters),
-    )
+    assert_eq(pql_text.str.strip_chars(characters), pl_text.str.strip_chars(characters))
 
 
 @pytest.mark.parametrize("characters", [" ", None])
 def test_strip_chars_start(characters: str | None) -> None:
-    assert_eq_pl(
+    assert_eq(
         pql_text.str.strip_chars_start(characters),
         pl_text.str.strip_chars_start(characters),
     )
 
 
 def test_strip_chars_end() -> None:
-    assert_eq_pl(pql_text.str.strip_chars_end(), pl_text.str.strip_chars_end())
-    assert_eq_pl(
-        pql_text.str.strip_chars_end(_SPACE),
-        pl_text.str.strip_chars_end(_SPACE),
-    )
+    assert_eq(pql_text.str.strip_chars_end(), pl_text.str.strip_chars_end())
+    assert_eq(pql_text.str.strip_chars_end(_SPACE), pl_text.str.strip_chars_end(_SPACE))
 
 
 @pytest.mark.parametrize("offset", [0, 2, 5])
@@ -237,42 +206,42 @@ def test_strip_chars_end() -> None:
 def test_slice(offset: int, length: int) -> None:
     assert_eq(
         pql_text_short.str.slice(offset=offset, length=length),
-        nw.col("text_short").str.slice(offset=offset, length=length),
+        pl_text_short.str.slice(offset=offset, length=length),
     )
 
 
 def test_len_bytes() -> None:
-    assert_eq_pl(pql_text.str.len_bytes(), pl_text.str.len_bytes())
+    assert_eq(pql_text.str.len_bytes(), pl_text.str.len_bytes())
 
 
 @pytest.mark.parametrize("n", [1, 2, 3])
 def test_head_tail(n: int) -> None:
-    assert_eq(pql_text.str.head(n), nw.col("text").str.head(n))
-    assert_eq(pql_text.str.tail(n), nw.col("text").str.tail(n))
+    assert_eq(pql_text.str.head(n), pl_text.str.head(n))
+    assert_eq(pql_text.str.tail(n), pl_text.str.tail(n))
 
 
 def test_reverse_str() -> None:
-    assert_eq_pl(pql_text.str.reverse(), pl_text.str.reverse())
+    assert_eq(pql_text.str.reverse(), pl_text.str.reverse())
 
 
 def test_to_titlecase() -> None:
-    assert_eq(pql_text.str.to_titlecase(), nw.col("text").str.to_titlecase())
+    assert_eq(pql_text.str.to_titlecase(), pl_text.str.to_titlecase())
 
 
 def test_split() -> None:
     sep = ","
-    assert_eq(pql_text.str.split(sep), nw.col("text").str.split(sep))
+    assert_eq(pql_text.str.split(sep), pl_text.str.split(sep))
 
 
 def test_extract_all() -> None:
     ptrn = r"\d+"
-    assert_eq_pl(pql_text.str.extract_all(ptrn), pl_text.str.extract_all(ptrn))
+    assert_eq(pql_text.str.extract_all(ptrn), pl_text.str.extract_all(ptrn))
 
 
 def test_extract() -> None:
     ptrn = r"(\w+)"
 
-    assert_eq_pl(
+    assert_eq(
         (
             pql_text.str.extract(ptrn).alias("group_default"),
             pql
@@ -296,7 +265,7 @@ def test_find() -> None:
     pattern = r"[A-Z][a-z]+"
     world = "World"
     missing = "missing"
-    assert_eq_pl(
+    assert_eq(
         (
             pql_text.str.find(world, literal=True).alias("lit_found"),
             pql_text.str.find(missing, literal=True).alias("lit_none"),
@@ -311,14 +280,14 @@ def test_find() -> None:
 
 
 def test_escape_regex() -> None:
-    assert_eq_pl(pql_text.str.escape_regex(), pl_text.str.escape_regex())
+    assert_eq(pql_text.str.escape_regex(), pl_text.str.escape_regex())
 
 
 @pytest.mark.parametrize(
     "json_path", [("$.a", "$.a"), (pql.col("json_path"), pl.col("json_path"))]
 )
 def test_json_path_match(json_path: TestArgs) -> None:
-    assert_eq_pl(
+    assert_eq(
         pql.col("json").str.json_path_match(json_path[0]),
         pl.col("json").str.json_path_match(json_path[1]),
     )
@@ -327,7 +296,7 @@ def test_json_path_match(json_path: TestArgs) -> None:
 @pytest.mark.parametrize("delimiter", ["|", "-", ","])
 @pytest.mark.parametrize("ignore_nulls", [True, False])
 def test_join(delimiter: str, ignore_nulls: bool) -> None:
-    assert_eq_pl(
+    assert_eq(
         pql_text_short.str.join(delimiter, ignore_nulls=ignore_nulls),
         pl_text_short.str.join(delimiter, ignore_nulls=ignore_nulls),
     )
@@ -335,7 +304,7 @@ def test_join(delimiter: str, ignore_nulls: bool) -> None:
 
 def test_to_date() -> None:
     fmt = "%Y-%m-%d"
-    assert_eq_pl(
+    assert_eq(
         pql.col("date_str").str.to_date(format=fmt),
         pl.col("date_str").str.to_date(format=fmt),
     )
@@ -343,7 +312,7 @@ def test_to_date() -> None:
 
 def test_to_datetime() -> None:
     fmt = "%Y-%m-%d %H:%M:%S"
-    assert_eq_pl(
+    assert_eq(
         pql.col("dt_str").str.to_datetime(format=fmt),
         pl.col("dt_str").str.to_datetime(format=fmt),
     )
@@ -351,7 +320,7 @@ def test_to_datetime() -> None:
 
 def test_to_time() -> None:
     fmt = "%H:%M:%S"
-    assert_eq_pl(
+    assert_eq(
         pql.col("time_str").str.to_time(format=fmt),
         pl.col("time_str").str.to_time(format=fmt),
     )
@@ -359,7 +328,7 @@ def test_to_time() -> None:
 
 def test_strptime() -> None:
     fmt = "%Y-%m-%d %H:%M:%S"
-    assert_eq_pl(
+    assert_eq(
         pql.col("dt_str").str.strptime(fmt),
         pl.col("dt_str").str.strptime(pl.Datetime, fmt),
     )
@@ -367,7 +336,7 @@ def test_strptime() -> None:
 
 def test_normalize() -> None:
     """Duckdb currently only supports NFC normalization."""
-    assert_eq_pl(
+    assert_eq(
         pql.col("normalize_input").str.normalize(),
         pl.col("normalize_input").str.normalize("NFC"),
     )
@@ -375,7 +344,7 @@ def test_normalize() -> None:
 
 @pytest.mark.parametrize("scale", [0, 2, 3])
 def test_to_decimal(scale: int) -> None:
-    assert_eq_pl(
+    assert_eq(
         pql.col("numbers").str.to_decimal(scale=scale),
         pl.col("numbers").str.to_decimal(scale=scale),
     )
@@ -390,7 +359,7 @@ def test_to_decimal(scale: int) -> None:
     ],
 )
 def test_strip_prefix(prefixes: TestArgs) -> None:
-    assert_eq_pl(
+    assert_eq(
         pql.col("prefixed").str.strip_prefix(prefixes[0]),
         pl.col("prefixed").str.strip_prefix(prefixes[1]),
     )
@@ -405,7 +374,7 @@ def test_strip_prefix(prefixes: TestArgs) -> None:
     ],
 )
 def test_strip_suffix(suffixes: TestArgs) -> None:
-    assert_eq_pl(
+    assert_eq(
         pql.col("suffixed").str.strip_suffix(suffixes[0]),
         pl.col("suffixed").str.strip_suffix(suffixes[1]),
     )
@@ -415,28 +384,28 @@ def test_replace_all() -> None:
 
     assert_eq(
         pql_text.str.replace_all("o", "0", literal=True),
-        nw.col("text").str.replace_all("o", "0", literal=True),
+        pl_text.str.replace_all("o", "0", literal=True),
     )
 
     assert_eq(
         pql_text.str.replace_all("l", "L", literal=True),
-        nw.col("text").str.replace_all("l", "L", literal=True),
+        pl_text.str.replace_all("l", "L", literal=True),
     )
 
     assert_eq(
         pql_text.str.replace_all(r"\d+", "X", literal=False),
-        nw.col("text").str.replace_all(r"\d+", "X", literal=False),
+        pl_text.str.replace_all(r"\d+", "X", literal=False),
     )
     assert_eq(
         pql_text.str.replace_all("suffix", pql.col("suffix_val"), literal=True),
-        nw.col("text").str.replace_all("suffix", nw.col("suffix_val"), literal=True),
+        pl_text.str.replace_all("suffix", pl.col("suffix_val"), literal=True),
     )
 
 
 @pytest.mark.parametrize("pattern", ["a", r"\d+"])
 @pytest.mark.parametrize("literal", [True, False])
 def test_count_matches(pattern: str, literal: bool) -> None:
-    assert_eq_pl(
+    assert_eq(
         (pql_text.str.count_matches(pattern, literal=literal)),
         (pl_text.str.count_matches(pattern, literal=literal)),
     )
@@ -445,7 +414,7 @@ def test_count_matches(pattern: str, literal: bool) -> None:
 @pytest.mark.parametrize("length", [5, 10])
 @pytest.mark.parametrize("fill_char", ["*", "-", " "])
 def test_pad_start(length: int, fill_char: str) -> None:
-    assert_eq_pl(
+    assert_eq(
         pql_text_short.str.pad_start(length, fill_char=fill_char),
         pl_text_short.str.pad_start(length, fill_char=fill_char),
     )
@@ -454,7 +423,7 @@ def test_pad_start(length: int, fill_char: str) -> None:
 @pytest.mark.parametrize("length", [5, 10])
 @pytest.mark.parametrize("fill_char", ["*", "-", " "])
 def test_pad_end(length: int, fill_char: str) -> None:
-    assert_eq_pl(
+    assert_eq(
         pql_text_short.str.pad_end(length, fill_char=fill_char),
         pl_text_short.str.pad_end(length, fill_char=fill_char),
     )
@@ -462,10 +431,8 @@ def test_pad_end(length: int, fill_char: str) -> None:
 
 @pytest.mark.parametrize("length", [4, 5, 10])
 def test_zfill(length: int) -> None:
-    assert_eq_pl(
-        pql.col("numbers").str.zfill(length), pl.col("numbers").str.zfill(length)
-    )
-    assert_eq_pl(
+    assert_eq(pql.col("numbers").str.zfill(length), pl.col("numbers").str.zfill(length))
+    assert_eq(
         pql.col("signed_numbers").str.zfill(length),
         pl.col("signed_numbers").str.zfill(length),
     )
@@ -473,4 +440,4 @@ def test_zfill(length: int) -> None:
 
 @pytest.mark.parametrize("encoding", ["base64", "hex"])
 def test_encode(encoding: pql.sql.typing.TransferEncoding) -> None:
-    assert_eq_pl(pql_text.str.encode(encoding), pl_text.str.encode(encoding))
+    assert_eq(pql_text.str.encode(encoding), pl_text.str.encode(encoding))
