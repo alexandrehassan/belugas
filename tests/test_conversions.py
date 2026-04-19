@@ -138,7 +138,7 @@ def test_from_numpy_4d(orient: pql.sql.typing.Orientation) -> None:
 def test_from_pql_expr() -> None:
     expr = duckdb.ConstantExpression(42)
     rel = duckdb.values(expr)
-    assert_eq(pql.LazyFrame(pql.lit(42).inner()).collect(), rel.pl())
+    assert_eq(pql.LazyFrame(pql.lit(42).inner).collect(), rel.pl())
 
 
 def test_from_seq_of_dicts() -> None:

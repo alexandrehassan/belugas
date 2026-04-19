@@ -85,7 +85,7 @@ def test_empty_frame(lf: pql.LazyFrame) -> None:
 
 
 def test_repr(lf: pql.LazyFrame) -> None:
-    assert repr(lf) == repr(lf.inner())
+    assert repr(lf) == repr(lf.inner)
 
 
 def test_clone(lf: pql.LazyFrame) -> None:
