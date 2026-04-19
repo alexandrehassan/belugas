@@ -1218,5 +1218,5 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             SqlExpr: An expression representing the `COALESCE` operation.
         """
-        exprs = try_iter(exprs).chain(more_exprs).into(args_into_glot, as_col=True)
-        return self._cls(exp.Coalesce(this=self.inner, expressions=exprs))
+        exprs_lst = try_iter(exprs).chain(more_exprs).into(args_into_glot, as_col=True)
+        return self._cls(exp.Coalesce(this=self.inner, expressions=exprs_lst))
