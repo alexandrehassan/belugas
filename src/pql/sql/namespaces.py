@@ -674,6 +674,19 @@ class ExprDateTimeNameSpace(DateTimeFns[Expr]):
             case _:
                 return self.timestamp(time_unit)
 
+    def iso_year(self) -> Expr:
+        """Extract the isoyear component from a date or timestamp.
+
+        **SQL name**: *isoyear*
+
+        Examples:
+            isoyear(timestamp '2021-08-03 11:59:44.123456')
+
+        Returns:
+            Expr
+        """
+        return self.isoyear()
+
 
 @dataclass(slots=True)
 class ExprListNameSpace(ListFns[Expr]):
