@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Self, override
 import pyochain as pc
 
 from . import sql
-from ._meta import ExprMeta, Marker
+from ._meta import ExprMeta
 from .sql import SqlExpr
 
 if TYPE_CHECKING:
@@ -40,9 +40,6 @@ class Expr(sql.CoreHandler[SqlExpr]):
     @override
     def _cls(self, value: SqlExpr) -> Self:
         return self.__class__(value, self.meta)
-
-    def _as_lit(self, expr: SqlExpr) -> Self:
-        return self.__class__(expr.alias(Marker.LITERAL), self.meta.unalias())
 
     @property
     def str(self) -> ExprStringNameSpace:
@@ -114,43 +111,43 @@ class Expr(sql.CoreHandler[SqlExpr]):
         return self.add(other)
 
     def __radd__(self, other: IntoExpr) -> Self:
-        return self._as_lit(self.inner.radd(other))
+        return self._cls(self.inner.radd(other))
 
     def __sub__(self, other: IntoExpr) -> Self:
         return self.sub(other)
 
     def __rsub__(self, other: IntoExpr) -> Self:
-        return self._as_lit(self.inner.rsub(other))
+        return self._cls(self.inner.rsub(other))
 
     def __mul__(self, other: IntoExpr) -> Self:
         return self.mul(other)
 
     def __rmul__(self, other: IntoExpr) -> Self:
-        return self._as_lit(self.inner.rmul(other))
+        return self._cls(self.inner.rmul(other))
 
     def __truediv__(self, other: IntoExpr) -> Self:
         return self.truediv(other)
 
     def __rtruediv__(self, other: IntoExpr) -> Self:
-        return self._as_lit(self.inner.rtruediv(other))
+        return self._cls(self.inner.rtruediv(other))
 
     def __floordiv__(self, other: IntoExpr) -> Self:
         return self.floordiv(other)
 
     def __rfloordiv__(self, other: IntoExpr) -> Self:
-        return self._as_lit(self.inner.rfloordiv(other))
+        return self._cls(self.inner.rfloordiv(other))
 
     def __mod__(self, other: IntoExprColumn | Decimal | float) -> Self:
         return self.mod(other)
 
     def __rmod__(self, other: IntoExpr) -> Self:
-        return self._as_lit(self.inner.rmod(other))
+        return self._cls(self.inner.rmod(other))
 
     def __pow__(self, other: IntoExprColumn | float) -> Self:
         return self.pow(other)
 
     def __rpow__(self, other: IntoExpr) -> Self:
-        return self._as_lit(self.inner.rpow(other))
+        return self._cls(self.inner.rpow(other))
 
     def __neg__(self) -> Self:
         return self.neg()
@@ -179,7 +176,7 @@ class Expr(sql.CoreHandler[SqlExpr]):
         return self.and_(other)
 
     def __rand__(self, other: IntoExpr) -> Self:
-        return self._as_lit(self.inner.rand(other))
+        return self._cls(self.inner.rand(other))
 
     def __or__(self, other: IntoExpr) -> Self:
         return self.or_(other)
@@ -190,7 +187,7 @@ class Expr(sql.CoreHandler[SqlExpr]):
         return self.xor(other)
 
     def __ror__(self, other: IntoExpr) -> Self:
-        return self._as_lit(self.inner.ror(other))
+        return self._cls(self.inner.ror(other))
 
     def __invert__(self) -> Self:
         return self.not_()

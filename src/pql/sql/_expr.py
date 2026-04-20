@@ -221,7 +221,11 @@ class SqlExpr(Fns):  # noqa: PLW1641
         return self._build_op(op, self.inner, pql_into_glot(other))
 
     def _rbinop[T: exp.Binary](self, op: type[T], other: IntoExpr) -> Self:
-        return self._build_op(op, pql_into_glot(other), self.inner)
+        from .._meta import Marker
+
+        return self._build_op(op, pql_into_glot(other), self.inner).alias(
+            Marker.LITERAL
+        )
 
     def __add__(self, other: IntoExpr) -> Self:
         return self._binop(exp.Add, other)
@@ -331,13 +335,17 @@ class SqlExpr(Fns):  # noqa: PLW1641
         return self.__rand__(other)
 
     def __rfloordiv__(self, other: IntoExpr) -> Self:
-        return self._floordiv_op(pql_into_glot(other), self.inner)
+        from .._meta import Marker
+
+        return self._floordiv_op(pql_into_glot(other), self.inner).alias(Marker.LITERAL)
 
     def rfloordiv(self, other: IntoExpr) -> Self:
         return self.__rfloordiv__(other)
 
     def __rmod__(self, other: IntoExpr) -> Self:
-        return self.new(other).fmod(self.inner)
+        from .._meta import Marker
+
+        return self.new(other).fmod(self.inner).alias(Marker.LITERAL)
 
     def rmod(self, other: IntoExpr) -> Self:
         return self.__rmod__(other)
