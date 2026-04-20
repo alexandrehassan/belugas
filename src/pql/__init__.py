@@ -1,9 +1,20 @@
 """PQL - Polars Query Language over DuckDB."""
 
-from . import meta, selectors, sql
-from ._expr import Expr
+from . import meta, sql
 from ._frame import LazyFrame, Schema
-from ._funcs import (
+from ._scans import (
+    from_df,
+    from_dict,
+    from_dicts,
+    from_numpy,
+    from_query,
+    from_records,
+    from_table,
+    from_table_function,
+)
+from .sql import selectors
+from .sql._expr import Expr
+from .sql._funcs import (
     all,
     all_horizontal,
     any_horizontal,
@@ -22,17 +33,7 @@ from ._funcs import (
     sum,
     sum_horizontal,
 )
-from ._scans import (
-    from_df,
-    from_dict,
-    from_dicts,
-    from_numpy,
-    from_query,
-    from_records,
-    from_table,
-    from_table_function,
-)
-from ._when import when
+from .sql._when import when
 from .sql.datatypes import (
     UUID,
     Array,

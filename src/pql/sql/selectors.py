@@ -8,19 +8,19 @@ from typing import TYPE_CHECKING, Self, final, overload, override
 
 import pyochain as pc
 
-from . import sql
+from . import _funcs as fn  # pyright: ignore[reportPrivateUsage]
 from ._expr import Expr
 from ._meta import MultiMeta
-from .sql import SqlExpr
-from .sql.utils import TryIter, try_iter
+from .utils import TryIter, try_iter
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from pyochain.traits import PyoCollection
+    from sqlglot import exp
 
-    from .sql import datatypes as dt
-    from .sql.typing import IntoExpr, IntoExprColumn
+    from . import datatypes as dt
+    from .typing import IntoExpr, IntoExprColumn
 
 
 type Cols = PyoCollection[str]
@@ -42,7 +42,7 @@ class Resolver:
         return MultiMeta(resolver=self)
 
     def into_selector(self) -> Selector:
-        return Selector(sql.all(), self.into_meta())
+        return Selector(fn.all().inner, self.into_meta())
 
     @classmethod
     def all_columns(cls) -> Self:
@@ -63,7 +63,7 @@ class Resolver:
         return exclude.map(
             lambda exc: (
                 try_iter(exc)
-                .map(lambda value: SqlExpr.new(value, as_col=True).inner.name)
+                .map(lambda value: Expr.new(value, as_col=True).inner.name)
                 .collect(pc.Set)
                 .into(cls.exclude)
             )
@@ -127,7 +127,7 @@ class Selector(Expr):
     __slots__ = ()
 
     @override
-    def _cls(self, value: SqlExpr) -> Expr:
+    def _cls(self, value: exp.Expr) -> Expr:
         return Expr(value, self.meta)
 
     @property

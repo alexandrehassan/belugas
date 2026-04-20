@@ -14,8 +14,8 @@ from sqlglot import exp
 
 from . import sql
 from ._joins import JoinBuilder, JoinKeys
-from ._meta import ExprPlan, Marker
-from .sql import ScanSource, SqlExpr
+from .sql import Expr, ScanSource
+from .sql._meta import ExprPlan, Marker
 from .sql.datatypes import DataType
 from .sql.utils import TryIter, TrySeq, check_by_arg, try_iter, try_seq
 
@@ -28,7 +28,6 @@ if TYPE_CHECKING:
     )
     from pyochain.traits import PyoIterable
 
-    from ._expr import Expr
     from ._groupby import LazyGroupBy
     from ._parser import ParsedQuery
     from ._typing import (
@@ -49,16 +48,16 @@ if TYPE_CHECKING:
     )
 
 MAX_I64 = 9_223_372_036_854_775_807
-PIVOT_AGG: dict[PivotAgg, Callable[[SqlExpr], SqlExpr]] = {
-    "min": SqlExpr.min,
-    "max": SqlExpr.max,
-    "first": SqlExpr.first,
-    "last": SqlExpr.last,
-    "sum": SqlExpr.sum,
-    "mean": SqlExpr.mean,
-    "median": SqlExpr.median,
-    "len": SqlExpr.count,
-    "count": SqlExpr.count,
+PIVOT_AGG: dict[PivotAgg, Callable[[Expr], Expr]] = {
+    "min": Expr.min,
+    "max": Expr.max,
+    "first": Expr.first,
+    "last": Expr.last,
+    "sum": Expr.sum,
+    "mean": Expr.mean,
+    "median": Expr.median,
+    "len": Expr.count,
+    "count": Expr.count,
 }
 
 type Schema = pc.Dict[str, DataType]
@@ -88,10 +87,10 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         qry = ScanSource.from_query(expr, **kwargs).relation
         return self.__class__(qry)
 
-    def _iter_slct(self, func: Callable[[str], SqlExpr]) -> Self:
+    def _iter_slct(self, func: Callable[[str], Expr]) -> Self:
         return self.columns.iter().map(func).into(self.select)
 
-    def _iter_agg(self, func: Callable[[SqlExpr], SqlExpr]) -> Self:
+    def _iter_agg(self, func: Callable[[Expr], Expr]) -> Self:
         return (
             self.columns
             .iter()
@@ -184,15 +183,15 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             Self: A new LazyFrame with the filtered rows.
         """
 
-        def _constraint(k: str, val: IntoExpr) -> SqlExpr:
-            return sql.col(k).eq(SqlExpr.new(val))
+        def _constraint(k: str, val: IntoExpr) -> Expr:
+            return sql.col(k).eq(Expr.new(val))
 
         condition = (
             try_iter(predicates)
             .chain(more_predicates)
-            .map(lambda value: SqlExpr.new(value, as_col=True))
+            .map(lambda value: Expr.new(value, as_col=True))
             .chain(pc.Iter(constraints.items()).map_star(_constraint))
-            .reduce(SqlExpr.and_)
+            .reduce(Expr.and_)
             .inner
         )
         return (
@@ -225,7 +224,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         key_exprs = (
             try_iter(keys)
             .chain(more_keys)
-            .map(lambda key: SqlExpr.new(key, as_col=True))
+            .map(lambda key: Expr.new(key, as_col=True))
             .collect()
         )
         grouped_frame = (
@@ -279,7 +278,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         return (
             try_iter(by)
             .chain(more_by)
-            .map(lambda v: SqlExpr.new(v, as_col=True))
+            .map(lambda v: Expr.new(v, as_col=True))
             .collect()
             .into(
                 lambda sort_exprs: sort_exprs.iter().zip(
@@ -333,7 +332,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                 sql.lit(1).count().window().alias(Marker.LEN),
             )
 
-        def _from_end_start(off: int) -> SqlExpr:
+        def _from_end_start(off: int) -> Expr:
             return Marker.TEMP.to_expr().ge(Marker.LEN.to_expr().add(off))
 
         def _filter_lf(
@@ -469,7 +468,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         )
         is_single_explode = to_explode.length() == 1
 
-        def _project_col(name: str, *, unnest: bool, replace: SqlExpr) -> SqlExpr:
+        def _project_col(name: str, *, unnest: bool, replace: Expr) -> Expr:
             match (unnest, name in to_explode_names):
                 case (True, True):
                     match is_single_explode:
@@ -483,7 +482,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                 case _:
                     return sql.col(name)
 
-        def _proj(*, unnest: bool) -> pc.Iter[SqlExpr]:
+        def _proj(*, unnest: bool) -> pc.Iter[Expr]:
             replace = sql.unnest(target) if unnest else sql.lit(None)
             return self.columns.iter().map(
                 lambda name: _project_col(name, unnest=unnest, replace=replace)
@@ -572,7 +571,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
 
     def count(self) -> Self:
         """Return the count of each column."""
-        return self._iter_agg(SqlExpr.count)
+        return self._iter_agg(Expr.count)
 
     def describe(self) -> Self:
         """Return descriptive statistics."""
@@ -584,7 +583,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the sum of each column.
         """
-        return self._iter_agg(SqlExpr.sum)
+        return self._iter_agg(Expr.sum)
 
     def mean(self) -> Self:
         """Aggregate the mean of each column.
@@ -592,7 +591,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the mean of each column.
         """
-        return self._iter_agg(SqlExpr.mean)
+        return self._iter_agg(Expr.mean)
 
     def median(self) -> Self:
         """Aggregate the median of each column.
@@ -600,7 +599,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the median of each column.
         """
-        return self._iter_agg(SqlExpr.median)
+        return self._iter_agg(Expr.median)
 
     def min(self) -> Self:
         """Aggregate the minimum of each column.
@@ -608,7 +607,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the minimum of each column.
         """
-        return self._iter_agg(SqlExpr.min)
+        return self._iter_agg(Expr.min)
 
     def max(self) -> Self:
         """Aggregate the maximum of each column.
@@ -616,7 +615,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the maximum of each column.
         """
-        return self._iter_agg(SqlExpr.max)
+        return self._iter_agg(Expr.max)
 
     def std(self, ddof: int = 1) -> Self:
         """Aggregate the standard deviation of each column.
@@ -627,7 +626,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the standard deviation of each column.
         """
-        fn = partial(SqlExpr.std, ddof=ddof)
+        fn = partial(Expr.std, ddof=ddof)
         return self._iter_agg(fn)
 
     def var(self, ddof: int = 1) -> Self:
@@ -639,7 +638,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the variance of each column.
         """
-        fn = partial(SqlExpr.var, ddof=ddof)
+        fn = partial(Expr.var, ddof=ddof)
         return self._iter_agg(fn)
 
     def null_count(self) -> Self:
@@ -687,12 +686,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             Self: A new LazyFrame with nulls filled.
         """
         return self._iter_slct(
-            lambda c: (
-                sql
-                .col(c)
-                .fill_null(pc.Option(value), pc.Option(strategy), pc.Option(limit))
-                .alias(c)
-            )
+            lambda c: sql.col(c).fill_null(value, strategy, limit).alias(c)
         )
 
     def shift(self, n: int = 1, *, fill_value: IntoExpr = None) -> Self:
@@ -825,7 +819,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             .iter()
             .zip(join_keys.right)
             .map_star(builder.equals)
-            .reduce(SqlExpr.and_)
+            .reduce(Expr.and_)
             .inner.pipe(
                 lambda condition: (
                     _cols_how()
@@ -900,7 +894,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         _ = on_opt.map(lambda _: drop_keys.add(on_keys.right))
         builder = JoinBuilder(suffix, self.columns, drop_keys)
 
-        def _get_strategy(expr: SqlExpr) -> SqlExpr:
+        def _get_strategy(expr: Expr) -> Expr:
             other = builder.rhs(on_keys.right)
             match strategy:
                 case "backward":
@@ -914,7 +908,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             .zip(by_keys.right)
             .map_star(builder.equals)
             .chain(builder.lhs(on_keys.left).pipe(_get_strategy).pipe(pc.Iter.once))
-            .reduce(SqlExpr.and_)
+            .reduce(Expr.and_)
             .inner
         )
         return (
@@ -949,7 +943,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
 
         def _marker(
             subset_cols: Iterable[IntoExprColumn],
-        ) -> pc.Result[SqlExpr, ValueError]:
+        ) -> pc.Result[Expr, ValueError]:
             match (
                 keep,
                 pc.Option(order_by).map(lambda value: try_iter(value).collect()),
@@ -1056,7 +1050,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         multi = val_cols.length() > 1
         agg = PIVOT_AGG[aggregate_function]
 
-        def _aliased(col: str) -> SqlExpr:
+        def _aliased(col: str) -> Expr:
             expr = sql.col(col).pipe(agg)
             return expr.alias(col) if multi else expr
 
@@ -1103,8 +1097,8 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                 case True:
                     on_values = pc.Iter(on_columns).map(str).collect()
 
-                    def _rename_col(val_col: str) -> pc.Iter[SqlExpr]:
-                        def _swap(on_val: str) -> SqlExpr:
+                    def _rename_col(val_col: str) -> pc.Iter[Expr]:
+                        def _swap(on_val: str) -> Expr:
                             in_ = f"{on_val}_{val_col}"
                             out = f"{val_col}{separator}{on_val}"
                             return sql.col(in_).alias(out)

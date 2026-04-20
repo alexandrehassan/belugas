@@ -42,7 +42,7 @@ def test_simple_fns(fn: str) -> None:
 
 @pytest.mark.parametrize("unit", t.EpochTimeUnit.__args__)
 def test_epoch(unit: t.EpochTimeUnit) -> None:
-    assert_eq(pql_dt.epoch(unit), pl_dt.epoch(unit))
+    assert_eq(pql_dt.epoch_by(unit), pl_dt.epoch(unit))
 
 
 @pytest.mark.parametrize("unit", t.TimeUnit.__args__)

@@ -10,16 +10,15 @@ import pyochain as pc
 from pyochain.traits import Pipeable
 from sqlglot import exp
 
-from . import sql
-from .sql import SqlExpr
-from .sql.utils import TryIter, try_iter
+from .utils import TryIter, try_iter
 
 if TYPE_CHECKING:
     from narwhals.typing import IntoFrameT
     from pyochain.traits import PyoIterable
 
+    from ._expr import Expr
     from .selectors import Cols, Resolver
-    from .sql.typing import IntoExpr
+    from .typing import IntoExpr
 
 type Aliaser = Callable[[str], str]
 """Alias function type, used for generating deferred column aliases."""
@@ -33,11 +32,13 @@ class Marker(StrEnum):
     LEN = auto()
     TEMP = "__pql_temp__"
 
-    def to_expr(self) -> SqlExpr:
-        return sql.col(self.value)
+    def to_expr(self) -> Expr:
+        from ._funcs import col
+
+        return col(self.value)
 
     @classmethod
-    def replace_col(cls, expr: SqlExpr, column_name: str) -> SqlExpr:
+    def replace_col(cls, expr: Expr, column_name: str) -> Expr:
         target = exp.column(column_name)
 
         def _replacer(node: exp.Expr) -> exp.Expr:
@@ -47,7 +48,7 @@ class Marker(StrEnum):
                 case _:
                     return node
 
-        return SqlExpr(expr.inner.transform(_replacer))  # pyright: ignore[reportUnknownMemberType, reportAny]
+        return expr.__class__(expr.inner.transform(_replacer))  # pyright: ignore[reportUnknownMemberType, reportAny]
 
     @classmethod
     def drop_marker(cls, result: IntoFrameT, cols: Collection[str]) -> IntoFrameT:
@@ -61,11 +62,12 @@ class Marker(StrEnum):
 
     @classmethod
     def windowed(cls, source: exp.Expr, cols: PyoIterable[ResolvedExpr]) -> exp.Expr:
+        from ._funcs import row_number
+
         match cols.any(lambda p: p.is_windowed(cls.TEMP)):
             case True:
                 return (
-                    sql
-                    .row_number()
+                    row_number()
                     .window()
                     .sub(1)
                     .alias(cls.TEMP)
@@ -99,18 +101,18 @@ def _is_projection_distinct(node: exp.Expr) -> bool:
     return node.find_ancestor(exp.AggFunc, exp.List, exp.Window) is None
 
 
-def _broadcast_reducers(expr: SqlExpr) -> SqlExpr:
+def _broadcast_reducers(expr: Expr) -> Expr:
     def _window_agg(node: exp.Expr) -> exp.Expr:
         match node:
             case exp.AggFunc() | exp.List() if not _has_window_ancestor(node):
-                return SqlExpr(node).window().inner
+                return expr.window().inner
             case _:
                 return node
 
-    return SqlExpr(expr.inner.transform(_window_agg))  # pyright: ignore[reportUnknownMemberType, reportAny]
+    return expr.__class__(expr.inner.transform(_window_agg))  # pyright: ignore[reportUnknownMemberType, reportAny]
 
 
-def _resolve_exploded(expr: SqlExpr, *, is_distinct: bool) -> SqlExpr:
+def _resolve_exploded(expr: Expr, *, is_distinct: bool) -> Expr:
     match is_distinct:
         case True:
             return expr.implode().list.distinct()
@@ -190,12 +192,12 @@ class ExprMeta:
 
     alias_name: pc.Option[Aliaser] = field(default_factory=lambda: pc.NONE)
 
-    def into_resolved(self, expr: SqlExpr, _cols: Cols) -> pc.Iter[ResolvedExpr]:
+    def into_resolved(self, expr: Expr, _cols: Cols) -> pc.Iter[ResolvedExpr]:
         output_name = (_extract_root_name(expr.inner),)
         name = pc.Seq(output_name).into(self.get_output_names, expr).first()
         return ResolvedExpr(expr, name).into(pc.Iter.once)
 
-    def get_output_names(self, base_names: Cols, expr: SqlExpr) -> Cols:
+    def get_output_names(self, base_names: Cols, expr: Expr) -> Cols:
         match expr.inner, self.alias_name:
             case exp.Alias() as inner, pc.Some(alias_fn):
                 return pc.Iter.once(inner.output_name).map(alias_fn).collect()
@@ -225,16 +227,16 @@ class MultiMeta(ExprMeta):
     resolver: Resolver = field(kw_only=True)
 
     @override
-    def into_resolved(self, expr: SqlExpr, cols: Cols) -> pc.Iter[ResolvedExpr]:
+    def into_resolved(self, expr: Expr, cols: Cols) -> pc.Iter[ResolvedExpr]:
         base_names = self.resolver(cols)
         output_names = self.get_output_names(base_names, expr)
 
-        def _resolved(expr: SqlExpr, col_name: str, name: str) -> ResolvedExpr:
+        def _resolved(expr: Expr, col_name: str, name: str) -> ResolvedExpr:
             return ResolvedExpr(Marker.replace_col(expr, col_name), name)
 
         match expr.inner:
             case exp.Alias():
-                expr = expr.inner.unalias().pipe(SqlExpr)
+                expr = expr.inner.unalias().pipe(expr.__class__)
                 alias = output_names.first()
                 return base_names.iter().map(lambda name: _resolved(expr, name, alias))
 
@@ -257,13 +259,13 @@ def _find_all[T: exp.Expr](
 class ResolvedExpr(Pipeable):
     """A fully resolved expression ready for SQL emission."""
 
-    expr: SqlExpr
+    expr: Expr
     name: str
     has_projection_distinct: bool
     is_pure_reducer: bool
     is_multi: bool
 
-    def __init__(self, expr: SqlExpr, name: str) -> None:
+    def __init__(self, expr: Expr, name: str) -> None:
         self.name = name
         inner = expr.inner
         self.has_projection_distinct = inner.pipe(_find_all, exp.Distinct).any(
@@ -287,14 +289,14 @@ class ResolvedExpr(Pipeable):
                         case _:
                             return node
 
-                self.expr = SqlExpr(inner.transform(_strip))  # pyright: ignore[reportUnknownMemberType, reportAny]
+                self.expr = expr.__class__(inner.transform(_strip))  # pyright: ignore[reportUnknownMemberType, reportAny]
             case False:
                 self.expr = expr
 
-    def maybe_alias(self, expr: SqlExpr) -> SqlExpr:
+    def maybe_alias(self, expr: Expr) -> Expr:
         return expr if self.is_multi or not self.name else expr.alias(self.name)
 
-    def implode_or_scalar(self) -> SqlExpr:
+    def implode_or_scalar(self) -> Expr:
         match self.is_pure_reducer:
             case True:
                 expr = self.expr
@@ -304,7 +306,7 @@ class ResolvedExpr(Pipeable):
                 )
         return expr.pipe(self.maybe_alias)
 
-    def as_aliased(self, *, broadcast_agg: bool) -> SqlExpr:
+    def as_aliased(self, *, broadcast_agg: bool) -> Expr:
         return self.expr.pipe(
             lambda e: _broadcast_reducers(e) if broadcast_agg else e
         ).pipe(self.maybe_alias)
@@ -334,22 +336,25 @@ class ExprPlan:
         more_exprs: Iterable[IntoExpr],
         named_exprs: dict[str, IntoExpr],
     ) -> None:
-        from ._expr import Expr
 
         def _alias_named_expr(name: str, val: IntoExpr) -> IntoExpr:
+            from ._expr import Expr
+
             match val:
                 case Expr() as expr:
                     return expr.alias(name)
                 case _:
-                    return SqlExpr.new(val, as_col=True).alias(name)
+                    return Expr.new(val, as_col=True).alias(name)
 
         def _resolve(val: IntoExpr) -> pc.Iter[ResolvedExpr]:
+            from ._expr import Expr
+
             match val:
                 case Expr() as expr:
-                    return expr.meta.into_resolved(expr.inner, cols)
+                    return expr.meta.into_resolved(expr, cols)
                 case _:
                     return (
-                        SqlExpr
+                        Expr
                         .new(val, as_col=True)
                         .pipe(lambda e: ResolvedExpr(e, e.inner.output_name))
                         .into(pc.Iter.once)
@@ -397,7 +402,7 @@ class ExprPlan:
 
     def with_columns_ctx(self) -> exp.Select:
         def _resolve() -> pc.Iter[exp.Expr]:
-            def _into_update(proj: ResolvedExpr) -> pc.Option[tuple[str, SqlExpr]]:
+            def _into_update(proj: ResolvedExpr) -> pc.Option[tuple[str, Expr]]:
                 match proj.is_multi:
                     case True:
                         return pc.NONE
@@ -405,7 +410,8 @@ class ExprPlan:
                         expr = _broadcast_reducers(proj.expr)
                         return pc.Some((proj.name, expr))
 
-            def _resolved(updates: pc.Dict[str, SqlExpr]) -> pc.Iter[exp.Expr]:
+            def _resolved(updates: pc.Dict[str, Expr]) -> pc.Iter[exp.Expr]:
+
                 match updates.any(lambda name: name in self.cols):
                     case False:
                         return (
@@ -421,8 +427,7 @@ class ExprPlan:
                             .iter()
                             .map(
                                 lambda name: updates.get_item(name).map_or(
-                                    sql.col(name).inner,
-                                    lambda c: c.alias(name).inner,
+                                    exp.column(name), lambda c: c.alias(name).inner
                                 )
                             )
                             .chain(
@@ -445,7 +450,7 @@ class ExprPlan:
         source = exp.to_table("src").pipe(Marker.windowed, self.projections)
         return exp.select(*_resolve()).from_(source)
 
-    def with_fields_ctx(self, expr: SqlExpr) -> SqlExpr:
+    def with_fields_ctx(self, expr: Expr) -> Expr:
         return (
             self.projections
             .iter()
@@ -475,7 +480,9 @@ class ExprPlan:
                 )
 
             def _into_glot(name: str) -> exp.Expr:
-                return sql.col(name).pipe(ResolvedExpr, name).implode_or_scalar().inner
+                from ._funcs import col
+
+                return col(name).pipe(ResolvedExpr, name).implode_or_scalar().inner
 
             match proj.expr.inner:
                 case exp.Star() as star:
@@ -488,7 +495,8 @@ class ExprPlan:
                     )
                 case exp.Explode(this=exp.Expr() as inner):
                     return pc.Iter.once(
-                        SqlExpr(inner)
+                        proj.expr
+                        .__class__(inner)
                         .pipe(
                             _resolve_exploded, is_distinct=proj.has_projection_distinct
                         )

@@ -203,7 +203,7 @@ def rolling_agg(expr: exp.Expr, order_by: str, spec: BoundsValues) -> exp.Expr:
 def _rewrite_forward_fill(
     expr: exp.Expr, clauses: ClauseArgs
 ) -> tuple[exp.Expr, ClauseArgs]:
-    from .._meta import Marker
+    from ._meta import Marker
 
     def _last_value_arg(inner: exp.Expr) -> pc.Option[exp.Expr]:
         match inner:

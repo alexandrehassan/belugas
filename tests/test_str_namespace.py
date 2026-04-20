@@ -140,14 +140,14 @@ def test_len_chars() -> None:
 
 def test_contains_literal() -> None:
     assert_eq(
-        pql_text.str.contains("lo", literal=True),
+        pql_text.str.contains("lo"),
         pl_text.str.contains("lo", literal=True),
     )
 
 
 def test_contains_regex() -> None:
     assert_eq(
-        pql_text.str.contains(r"\d+", literal=False),
+        pql_text.re.matches(r"\d+"),
         pl_text.str.contains(r"\d+", literal=False),
     )
 
@@ -162,13 +162,11 @@ def test_ends_with() -> None:
 
 def test_replace() -> None:
     pql_replace = pql_text.str.replace
-    pl_replace = pl_text.str.replace
+    pl_replace = pl_text.str.replace_all
     hi = "Hi"
     assert_eq(pql_replace("Hello", hi), pl_replace("Hello", hi))
     sep = "_"
-    assert_eq(pql_replace("a", sep, n=2), pl_replace("a", sep, n=2))
-    assert_eq(pql_replace("a", sep, n=0), pl_replace("a", sep, n=0))
-    assert_eq(pql_replace("a", sep, n=-1), pl_replace("a", sep, n=-1))
+    assert_eq(pql_replace("a", sep), pl_replace("a", sep))
 
 
 _SPACE = " "

@@ -7,7 +7,7 @@ import polars.selectors as cs_pl
 import pytest
 
 import pql
-import pql.selectors as cs
+from pql import selectors as cs
 
 from ._data import sample_lf, sample_pql
 from ._utils import assert_eq, assert_lf_eq

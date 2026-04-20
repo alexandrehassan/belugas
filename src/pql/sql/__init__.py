@@ -1,9 +1,9 @@
 """SQL expression functions and converters."""
 
-from . import datatypes, typing, utils
+from . import datatypes, selectors, typing, utils
 from ._code_gen import meta
 from ._core import CoreHandler
-from ._expr import SqlExpr
+from ._expr import Expr
 from ._funcs import (
     all,
     all_horizontal,
@@ -36,10 +36,10 @@ __all__ = [
     "ChainedThen",
     "ChainedWhen",
     "CoreHandler",
+    "Expr",
     "NullsClause",
     "ScanSource",
     "SortClause",
-    "SqlExpr",
     "Then",
     "When",
     "all",
@@ -63,6 +63,7 @@ __all__ = [
     "reduce",
     "rolling_agg",
     "row_number",
+    "selectors",
     "sum",
     "sum_horizontal",
     "typing",

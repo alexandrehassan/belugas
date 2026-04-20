@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from sqlglot import exp
 
 from ._conversions import into_glot
-from ._expr import SqlExpr
+from ._expr import Expr
 from ._funcs import reduce
 from .utils import try_iter
 
@@ -20,13 +20,13 @@ def when(predicates: TryIter[IntoExpr], *more_predicates: IntoExpr) -> When:
     return When(_into_pred(predicates, more_predicates))
 
 
-def _into_pred(preds: TryIter[IntoExpr], more_preds: Iterable[IntoExpr]) -> SqlExpr:
-    return try_iter(preds).chain(more_preds).into(reduce, function=SqlExpr.and_)
+def _into_pred(preds: TryIter[IntoExpr], more_preds: Iterable[IntoExpr]) -> Expr:
+    return try_iter(preds).chain(more_preds).into(reduce, function=Expr.and_)
 
 
 @dataclass(slots=True)
 class When:
-    _when: SqlExpr
+    _when: Expr
 
     def then(self, value: IntoExpr) -> Then:
         """Attach the value for the initial WHEN condition.
@@ -40,22 +40,22 @@ class When:
 
 
 @dataclass(slots=True)
-class Then(SqlExpr):
+class Then(Expr):
     def when(
         self, predicates: TryIter[IntoExpr], *more_predicates: IntoExpr
     ) -> ChainedWhen:
         return ChainedWhen(self, _into_pred(predicates, more_predicates))
 
-    def otherwise(self, statement: IntoExpr) -> SqlExpr:
+    def otherwise(self, statement: IntoExpr) -> Expr:
         case = self.inner.copy()
         case.set("default", into_glot(statement))
-        return SqlExpr(case)
+        return Expr(case)
 
 
 @dataclass(slots=True)
 class ChainedWhen:
-    _chained_when: SqlExpr
-    _predicate: SqlExpr
+    _chained_when: Expr
+    _predicate: Expr
 
     def then(self, statement: IntoExpr) -> ChainedThen:
         case = self._chained_when.inner.copy()
@@ -65,13 +65,13 @@ class ChainedWhen:
 
 
 @dataclass(slots=True)
-class ChainedThen(SqlExpr):
+class ChainedThen(Expr):
     def when(
         self, predicates: TryIter[IntoExpr], *more_predicates: IntoExpr
     ) -> ChainedWhen:
         return ChainedWhen(self, _into_pred(predicates, more_predicates))
 
-    def otherwise(self, statement: IntoExpr) -> SqlExpr:
+    def otherwise(self, statement: IntoExpr) -> Expr:
         case = self.inner.copy()
         case.set("default", into_glot(statement))
-        return SqlExpr(case)
+        return Expr(case)

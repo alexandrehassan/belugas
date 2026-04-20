@@ -66,7 +66,8 @@ def test_replace() -> None:
 
 
 def test_repr() -> None:
-    assert "Expr" in repr(pql.col("name"))
+    txt = "this=Identifier(this=name, quoted=False))"
+    assert txt in repr(pql.col("name"))
 
 
 def test_sql_list_sort_uses_array_sort_constructor() -> None:
@@ -336,12 +337,9 @@ def test_is_unique() -> None:
     assert_eq(pql_a.is_unique(), pl_a.is_unique())
 
 
-@pytest.mark.parametrize("ignore_nulls", [True, False])
-def test_first(ignore_nulls: bool) -> None:
-    assert_eq(
-        pql_n.first(ignore_nulls=ignore_nulls),
-        pl_n.first(ignore_nulls=ignore_nulls),
-    )
+def test_first() -> None:
+    assert_eq(pql_n.first(), pl_n.first(ignore_nulls=False))
+    assert_eq(pql_n.any_value(), pl_n.first(ignore_nulls=True))
 
 
 def test_last() -> None:

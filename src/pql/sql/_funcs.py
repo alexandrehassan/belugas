@@ -5,45 +5,42 @@ import pyochain as pc
 from sqlglot import exp
 
 from ._conversions import args_into_glot, into_glot
-from ._expr import SqlExpr
+from ._expr import Expr
 from .typing import IntoExpr, IntoExprColumn, PythonLiteral
 from .utils import TryIter, try_iter
 
 
 def reduce(
-    exprs: Iterable[IntoExpr], function: Callable[[SqlExpr, IntoExpr], SqlExpr]
-) -> SqlExpr:
-    """Reduces an `Iterable` of `IntoExpr` into a single `SqlExpr`.
+    exprs: Iterable[IntoExpr], function: Callable[[Expr, IntoExpr], Expr]
+) -> Expr:
+    """Reduces an `Iterable` of `IntoExpr` into a single `Expr`.
 
     Done by applying a binary *fn* (defaulting to logical `AND`) to each item, after converting them with `into_expr`.
 
     Args:
         exprs (Iterable[IntoExpr]): The expressions to reduce.
-        function (Callable[[SqlExpr, IntoExpr], SqlExpr]): The binary function to apply for reduction.
+        function (Callable[[Expr, IntoExpr], Expr]): The binary function to apply for reduction.
 
     Returns:
-        SqlExpr: The result of reducing the expressions with the given function.
+        Expr: The result of reducing the expressions with the given function.
     """
     return (
-        pc
-        .Iter(exprs)
-        .map(lambda value: SqlExpr.new(value, as_col=True))
-        .reduce(function)
+        pc.Iter(exprs).map(lambda value: Expr.new(value, as_col=True)).reduce(function)
     )
 
 
-def row_number() -> SqlExpr:
+def row_number() -> Expr:
     """Create a ROW_NUMBER() expression.
 
     Returns:
-        SqlExpr: An expression representing the ROW_NUMBER() function.
+        Expr: An expression representing the ROW_NUMBER() function.
     """
-    return SqlExpr(exp.RowNumber())
+    return Expr(exp.RowNumber())
 
 
 def unnest(
     col: IntoExprColumn, max_depth: int | None = None, *, recursive: bool = False
-) -> SqlExpr:
+) -> Expr:
     """The unnest special function is used to unnest lists or structs by one level.
 
     The function can be used as a regular scalar function, but only in the SELECT clause.
@@ -66,25 +63,25 @@ def unnest(
         We use `exp.Explode` altough `DuckDB` document `UNNEST`. `Exp.Unnest()` does not seem to be equivalent when parsed.
 
     Args:
-        col (SqlExpr): The column to unnest.
+        col (Expr): The column to unnest.
         max_depth (int | None): Maximum depth of recursive unnesting.
         recursive (bool): Whether to recursively unnest lists and structs (default: `False`).  Note that lists *within* structs are not unnested.
 
     Returns:
-        SqlExpr: An expression representing the unnesting operation.
+        Expr: An expression representing the unnesting operation.
     """
     expr = exp.Explode(this=into_glot(col), max_depth=max_depth, recursive=recursive)
-    return SqlExpr(expr)
+    return Expr(expr)
 
 
 @final
 class Col:
     __slots__ = ()
 
-    def __call__(self, name: str, table: str | None = None) -> SqlExpr:
-        return SqlExpr(exp.column(name, table=table))
+    def __call__(self, name: str, table: str | None = None) -> Expr:
+        return Expr(exp.column(name, table=table))
 
-    def __getattr__(self, name: str) -> SqlExpr:
+    def __getattr__(self, name: str) -> Expr:
         return self(name)
 
 
@@ -97,48 +94,51 @@ ELEMENT = col(ELEM_NAME)
 _ELEM_ID = exp.to_identifier(ELEM_NAME)
 
 
-def element() -> SqlExpr:
+def element() -> Expr:
     return ELEMENT
 
 
-def fn_once(rhs: IntoExpr) -> SqlExpr:
-    return SqlExpr(exp.Lambda(this=into_glot(rhs), expressions=[_ELEM_ID]))
+def fn_once(rhs: IntoExpr) -> Expr:
+    return Expr(exp.Lambda(this=into_glot(rhs), expressions=[_ELEM_ID]))
 
 
-def all(exclude: TryIter[IntoExprColumn] = None) -> SqlExpr:
+def all(exclude: TryIter[IntoExprColumn] = None) -> Expr:
+    from .selectors import Resolver
+
+    exclude_opt: pc.Option[TryIter[IntoExprColumn]] = pc.Option(exclude)
     return (
-        pc
-        .Option(exclude)
+        exclude_opt
         .map(lambda x: try_iter(x).map(into_glot).collect())
-        .map(lambda exc: SqlExpr(exp.Star(except_=exc)))
-        .unwrap_or_else(lambda: SqlExpr(exp.Star()))
+        .map(lambda exc: exp.Star(except_=exc))
+        .unwrap_or_else(exp.Star)
+        .pipe(Expr, Resolver.all_fn(exclude_opt).into_meta())
     )
 
 
-def lit(value: PythonLiteral) -> SqlExpr:
+def lit(value: PythonLiteral) -> Expr:
     """Create a literal expression.
 
     Args:
         value (PythonLiteral): The literal value to create an expression for.
 
     Returns:
-        SqlExpr: An expression representing the literal value.
+        Expr: An expression representing the literal value.
     """
-    return SqlExpr(exp.convert(value))
+    return Expr(exp.convert(value))
 
 
-def len() -> SqlExpr:
+def len() -> Expr:
     """Return the number of rows.
 
     Returns:
-        SqlExpr
+        Expr
     """
-    from .._meta import Marker
+    from ._meta import Marker
 
     return lit(1).count().alias(Marker.LEN)
 
 
-def coalesce(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
+def coalesce(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
     """Create a COALESCE expression.
 
     Args:
@@ -146,25 +146,25 @@ def coalesce(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
         *more_exprs (IntoExpr): Additional expressions to coalesce.
 
     Returns:
-        SqlExpr: An expression representing the COALESCE operation.
+        Expr: An expression representing the COALESCE operation.
     """
     all_exprs = try_iter(exprs).chain(more_exprs)
-    expr = all_exprs.next().map(SqlExpr.new, as_col=True).unwrap()
+    expr = all_exprs.next().map(Expr.new, as_col=True).unwrap()
     return expr.coalesce(all_exprs).alias(expr.inner.output_name)
 
 
 _HORIZONTAL_ERR = "At least one expression is required."
 
 
-def _into_col(value: IntoExpr) -> SqlExpr:
-    return SqlExpr.new(value, as_col=True)
+def _into_col(value: IntoExpr) -> Expr:
+    return Expr.new(value, as_col=True)
 
 
 def _horizontal_fn(
     exprs: TryIter[IntoExpr],
     more_exprs: Iterable[IntoExpr],
-    fn: Callable[[SqlExpr, *tuple[IntoExpr]], SqlExpr],
-) -> SqlExpr:
+    fn: Callable[[Expr, *tuple[IntoExpr]], Expr],
+) -> Expr:
     all_exprs = try_iter(exprs).chain(more_exprs).map(_into_col)
     return (
         all_exprs
@@ -177,35 +177,35 @@ def _horizontal_fn(
 def _horizontal_reduce(
     exprs: TryIter[IntoExpr],
     more_exprs: Iterable[IntoExpr],
-    fn: Callable[[SqlExpr, IntoExpr], SqlExpr],
-) -> SqlExpr:
+    fn: Callable[[Expr, IntoExpr], Expr],
+) -> Expr:
     all_exprs = try_iter(exprs).chain(more_exprs).map(_into_col).collect()
     return all_exprs.iter().reduce(fn).alias(all_exprs.first().inner.output_name)
 
 
-def min_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
-    return _horizontal_fn(exprs, more_exprs, SqlExpr.least)
+def min_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
+    return _horizontal_fn(exprs, more_exprs, Expr.least)
 
 
-def max_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
-    return _horizontal_fn(exprs, more_exprs, SqlExpr.greatest)
+def max_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
+    return _horizontal_fn(exprs, more_exprs, Expr.greatest)
 
 
-def sum_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
+def sum_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
     return _horizontal_reduce(
         exprs, more_exprs, lambda lhs, rhs: lhs.add(_into_col(rhs).coalesce(0))
     )
 
 
-def all_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
-    return _horizontal_reduce(exprs, more_exprs, SqlExpr.and_)
+def all_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
+    return _horizontal_reduce(exprs, more_exprs, Expr.and_)
 
 
-def any_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
-    return _horizontal_reduce(exprs, more_exprs, SqlExpr.or_)
+def any_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
+    return _horizontal_reduce(exprs, more_exprs, Expr.or_)
 
 
-def mean_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
+def mean_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
     dtype = exp.DType.BIGINT.into_expr()
     return (
         try_iter(exprs)
@@ -217,12 +217,12 @@ def mean_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
                 vals
                 .iter()
                 .map(lambda value: value.coalesce(0))
-                .reduce(SqlExpr.add)
+                .reduce(Expr.add)
                 .truediv(
                     vals
                     .iter()
                     .map(lambda value: value.is_not_null().cast(dtype))
-                    .reduce(SqlExpr.add)
+                    .reduce(Expr.add)
                 )
                 .alias(vals.first().inner.output_name)
             )
@@ -231,34 +231,37 @@ def mean_horizontal(exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
     )
 
 
-def sum(cols: TryIter[str], *more_cols: str) -> SqlExpr:
-    return _agg_expr(SqlExpr.sum, cols, more_cols)
+def sum(cols: TryIter[str], *more_cols: str) -> Expr:
+    return _agg_expr(Expr.sum, cols, more_cols)
 
 
-def mean(cols: TryIter[str], *more_cols: str) -> SqlExpr:
-    return _agg_expr(SqlExpr.mean, cols, more_cols)
+def mean(cols: TryIter[str], *more_cols: str) -> Expr:
+    return _agg_expr(Expr.mean, cols, more_cols)
 
 
-def median(cols: TryIter[str], *more_cols: str) -> SqlExpr:
-    return _agg_expr(SqlExpr.median, cols, more_cols)
+def median(cols: TryIter[str], *more_cols: str) -> Expr:
+    return _agg_expr(Expr.median, cols, more_cols)
 
 
-def min(cols: TryIter[str], *more_cols: str) -> SqlExpr:
-    return _agg_expr(SqlExpr.min, cols, more_cols)
+def min(cols: TryIter[str], *more_cols: str) -> Expr:
+    return _agg_expr(Expr.min, cols, more_cols)
 
 
-def max(cols: TryIter[str], *more_cols: str) -> SqlExpr:
-    return _agg_expr(SqlExpr.max, cols, more_cols)
+def max(cols: TryIter[str], *more_cols: str) -> Expr:
+    return _agg_expr(Expr.max, cols, more_cols)
 
 
 def _agg_expr(
-    agg: Callable[[SqlExpr], SqlExpr], cols: TryIter[str], more_cols: Iterable[str]
-) -> SqlExpr:
+    agg: Callable[[Expr], Expr], cols: TryIter[str], more_cols: Iterable[str]
+) -> Expr:
+    from .selectors import Resolver
+
+    all_cols = try_iter(cols).chain(more_cols).collect().then_some()
+    meta = all_cols.map(Resolver.fixed).unwrap_or_else(Resolver.all_columns).into_meta()
     return (
-        try_iter(cols)
-        .chain(more_cols)
-        .then(lambda inner_cols: exp.Columns(this=inner_cols.into(args_into_glot)))
+        all_cols
+        .map(lambda inner_cols: exp.Columns(this=inner_cols.into(args_into_glot)))
         .unwrap_or_else(lambda: exp.Columns(this=exp.Star()))
-        .pipe(SqlExpr)
+        .pipe(Expr, meta)
         .pipe(agg)
     )

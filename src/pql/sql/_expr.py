@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from functools import partial
-from typing import TYPE_CHECKING, ClassVar, Self, override
+from typing import TYPE_CHECKING, Self, override
 
 import pyochain as pc
 from sqlglot import exp
@@ -11,6 +12,7 @@ from sqlglot import exp
 from ._code_gen import Fns
 from ._conversions import args_into_glot, into_glot
 from ._core import func
+from ._meta import ExprMeta, Marker
 from ._window import (
     BoundsValues,
     FrameBound,
@@ -40,7 +42,7 @@ if TYPE_CHECKING:
     )
     from .utils import TryIter
 
-_FILL_STRATEGY: dict[FillNullStrategy, Callable[[SqlExpr], SqlExpr]] = {
+_FILL_STRATEGY: dict[FillNullStrategy, Callable[[Expr], Expr]] = {
     "forward": lambda expr: expr.last_value().window(
         frame_end=pc.Some(0), ignore_nulls=True
     ),
@@ -56,39 +58,40 @@ _FILL_STRATEGY: dict[FillNullStrategy, Callable[[SqlExpr], SqlExpr]] = {
 """Computation strategies for `fill_null` when ."""
 
 
-class SqlExpr(Fns):  # noqa: PLW1641
+@dataclass(slots=True, repr=False)
+class Expr(Fns):
     """A wrapper around sqlglot.exp.Expr that provides operator overloading and SQL function methods."""
 
-    __slots__: ClassVar[Iterable[str]] = ()
+    meta: ExprMeta = field(default_factory=ExprMeta)
 
     @classmethod
     def new(cls, value: IntoExpr, *, as_col: bool = False) -> Self:
-        """Convert a value to a `SqlExpr`.
+        """Convert a value to a `Expr`.
 
         Args:
             value (IntoExpr): The value to convert.
             as_col (bool): Whether to treat `str` values as column names (default: `False`).
 
         Returns:
-            SqlExpr
+            Expr
         """
         return cls(into_glot(value, as_col=as_col))
 
     def _rolling_agg(
         self,
-        agg: Callable[[SqlExpr], SqlExpr],
+        agg: Callable[[Expr], Expr],
         window_size: int,
         min_samples: int | None,
         *,
         center: bool,
     ) -> Self:
-        from .._meta import Marker
+        from ._meta import Marker
         from ._when import when
 
         spec = BoundsValues.rolling(window_size, center=center)
 
-        def _clause(e: SqlExpr) -> SqlExpr:
-            return e.inner.pipe(rolling_agg, Marker.TEMP, spec).pipe(SqlExpr)
+        def _clause(e: Expr) -> Expr:
+            return e.inner.pipe(rolling_agg, Marker.TEMP, spec).pipe(Expr)
 
         return (
             when(self.count().pipe(_clause).ge(min_samples or window_size))
@@ -109,7 +112,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             Self: A new expression that evaluates to the rolling max.
         """
-        return self._rolling_agg(SqlExpr.max, window_size, min_samples, center=center)
+        return self._rolling_agg(Expr.max, window_size, min_samples, center=center)
 
     def rolling_min(
         self,
@@ -123,7 +126,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             Self: A new expression that evaluates to the rolling min.
         """
-        return self._rolling_agg(SqlExpr.min, window_size, min_samples, center=center)
+        return self._rolling_agg(Expr.min, window_size, min_samples, center=center)
 
     def rolling_mean(
         self,
@@ -137,7 +140,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             Self: A new expression that evaluates to the rolling mean.
         """
-        return self._rolling_agg(SqlExpr.mean, window_size, min_samples, center=center)
+        return self._rolling_agg(Expr.mean, window_size, min_samples, center=center)
 
     def rolling_median(
         self,
@@ -151,9 +154,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             Self: A new expression that evaluates to the rolling median.
         """
-        return self._rolling_agg(
-            SqlExpr.median, window_size, min_samples, center=center
-        )
+        return self._rolling_agg(Expr.median, window_size, min_samples, center=center)
 
     def rolling_sum(
         self,
@@ -167,7 +168,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             Self: A new expression that evaluates to the rolling sum.
         """
-        return self._rolling_agg(SqlExpr.sum, window_size, min_samples, center=center)
+        return self._rolling_agg(Expr.sum, window_size, min_samples, center=center)
 
     def rolling_std(
         self,
@@ -221,8 +222,6 @@ class SqlExpr(Fns):  # noqa: PLW1641
         return self._build_op(op, self.inner, into_glot(other))
 
     def _rbinop[T: exp.Binary](self, op: type[T], other: IntoExpr) -> Self:
-        from .._meta import Marker
-
         return self._build_op(op, into_glot(other), self.inner).alias(Marker.LITERAL)
 
     def __add__(self, other: IntoExpr) -> Self:
@@ -333,16 +332,12 @@ class SqlExpr(Fns):  # noqa: PLW1641
         return self.__rand__(other)
 
     def __rfloordiv__(self, other: IntoExpr) -> Self:
-        from .._meta import Marker
-
         return self._floordiv_op(into_glot(other), self.inner).alias(Marker.LITERAL)
 
     def rfloordiv(self, other: IntoExpr) -> Self:
         return self.__rfloordiv__(other)
 
     def __rmod__(self, other: IntoExpr) -> Self:
-        from .._meta import Marker
-
         return self.new(other).fmod(self.inner).alias(Marker.LITERAL)
 
     def rmod(self, other: IntoExpr) -> Self:
@@ -380,6 +375,10 @@ class SqlExpr(Fns):  # noqa: PLW1641
 
     def __sub__(self, other: IntoExpr) -> Self:
         return self._binop(exp.Sub, other)
+
+    @override
+    def __hash__(self) -> int:
+        return hash(self.inner.output_name)
 
     def sub(self, other: IntoExpr) -> Self:
         return self.__sub__(other)
@@ -443,85 +442,92 @@ class SqlExpr(Fns):  # noqa: PLW1641
                 return self.window(frame_end=pc.Some(0))
 
     @property
-    def arr(self) -> nm.SqlExprArrayNameSpace:
+    def arr(self) -> nm.ExprArrayNameSpace:
         """Access array functions."""
-        from .namespaces import SqlExprArrayNameSpace
+        from .namespaces import ExprArrayNameSpace
 
-        return SqlExprArrayNameSpace(self)
+        return ExprArrayNameSpace(self)
 
     @property
-    def str(self) -> nm.SqlExprStringNameSpace:
+    def str(self) -> nm.ExprStringNameSpace:
         """Access string functions."""
-        from .namespaces import SqlExprStringNameSpace
+        from .namespaces import ExprStringNameSpace
 
-        return SqlExprStringNameSpace(self)
+        return ExprStringNameSpace(self)
 
     @property
-    def list(self) -> nm.SqlExprListNameSpace:
+    def list(self) -> nm.ExprListNameSpace:
         """Access list functions."""
-        from .namespaces import SqlExprListNameSpace
+        from .namespaces import ExprListNameSpace
 
-        return SqlExprListNameSpace(self)
+        return ExprListNameSpace(self)
 
     @property
-    def struct(self) -> nm.SqlExprStructNameSpace:
+    def struct(self) -> nm.ExprStructNameSpace:
         """Access struct functions."""
-        from .namespaces import SqlExprStructNameSpace
+        from .namespaces import ExprStructNameSpace
 
-        return SqlExprStructNameSpace(self)
+        return ExprStructNameSpace(self)
 
     @property
-    def dt(self) -> nm.SqlExprDateTimeNameSpace:
+    def dt(self) -> nm.ExprDateTimeNameSpace:
         """Access datetime functions."""
-        from .namespaces import SqlExprDateTimeNameSpace
+        from .namespaces import ExprDateTimeNameSpace
 
-        return SqlExprDateTimeNameSpace(self)
+        return ExprDateTimeNameSpace(self)
 
     @property
-    def json(self) -> nm.SqlExprJsonNameSpace:
+    def json(self) -> nm.ExprJsonNameSpace:
         """Access JSON functions."""
-        from .namespaces import SqlExprJsonNameSpace
+        from .namespaces import ExprJsonNameSpace
 
-        return SqlExprJsonNameSpace(self)
+        return ExprJsonNameSpace(self)
 
     @property
-    def re(self) -> nm.SqlExprRegexNameSpace:
+    def re(self) -> nm.ExprRegexNameSpace:
         """Access regex functions."""
-        from .namespaces import SqlExprRegexNameSpace
+        from .namespaces import ExprRegexNameSpace
 
-        return SqlExprRegexNameSpace(self)
+        return ExprRegexNameSpace(self)
 
     @property
-    def map(self) -> nm.SqlExprMapNameSpace:
+    def map(self) -> nm.ExprMapNameSpace:
         """Access map functions."""
-        from .namespaces import SqlExprMapNameSpace
+        from .namespaces import ExprMapNameSpace
 
-        return SqlExprMapNameSpace(self)
+        return ExprMapNameSpace(self)
 
     @property
-    def enum(self) -> nm.SqlExprEnumNameSpace:
+    def enum(self) -> nm.ExprEnumNameSpace:
         """Access enum functions."""
-        from .namespaces import SqlExprEnumNameSpace
+        from .namespaces import ExprEnumNameSpace
 
-        return SqlExprEnumNameSpace(self)
+        return ExprEnumNameSpace(self)
 
     @property
-    def geo(self) -> nm.SqlExprGeoSpatialNameSpace:
+    def geo(self) -> nm.ExprGeoSpatialNameSpace:
         """Access geospatial functions."""
-        from .namespaces import SqlExprGeoSpatialNameSpace
+        from .namespaces import ExprGeoSpatialNameSpace
 
-        return SqlExprGeoSpatialNameSpace(self)
+        return ExprGeoSpatialNameSpace(self)
+
+    @property
+    def name(self) -> nm.ExprNameNameSpace:
+        """Access name functions."""
+        from .namespaces import ExprNameNameSpace
+
+        return ExprNameNameSpace(self)
 
     def fill_null(
         self,
-        value: pc.Option[IntoExpr],
-        strategy: pc.Option[FillNullStrategy],
-        limit: pc.Option[int],
+        value: IntoExpr = None,
+        strategy: FillNullStrategy | None = None,
+        limit: int | None = None,
     ) -> Self:
-        def _get_strat() -> pc.Result[SqlExpr | Self, ValueError]:  # noqa: PLR0911
+        def _get_strat() -> pc.Result[Expr | Self, ValueError]:  # noqa: PLR0911
             from ._funcs import coalesce
 
-            match (value, strategy, limit):
+            match (pc.Option(value), pc.Option(strategy), pc.Option(limit)):
                 case (pc.Some(_), pc.Some(_), _):
                     msg = "cannot specify both `value` and `strategy`"
                     return pc.Err(ValueError(msg))
@@ -536,7 +542,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
                     iterator = pc.Iter(range(1, lim + 1))
                     match strat.value:
                         case "forward":
-                            exprs: pc.Iter[SqlExpr] = iterator.map(self.shift)
+                            exprs: pc.Iter[Expr] = iterator.map(self.shift)
                         case _:
                             exprs = iterator.map(lambda offset: self.shift(-offset))
                     return pc.Ok(exprs.insert(self).reduce(coalesce))
@@ -546,7 +552,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
                 case (pc.Some(val), pc.NONE, pc.NONE):
                     return pc.Ok(self.coalesce(val))
                 case (_, pc.Some(strat), pc.NONE):
-                    return pc.Ok(self.pipe(_FILL_STRATEGY[strat]))
+                    return pc.Ok(self.pipe(_FILL_STRATEGY[strat]))  # pyright: ignore[reportArgumentType]
                 case _:
                     msg = "must specify either a fill `value` or `strategy`"
                     return pc.Err(ValueError(msg))
@@ -593,14 +599,14 @@ class SqlExpr(Fns):  # noqa: PLW1641
         """
         return self.max()._reversed(reverse=reverse)
 
-    def var(self, ddof: int) -> Self:
+    def var(self, ddof: int = 1) -> Self:
         match ddof:
             case 0:
                 return self.var_pop()
             case _:
                 return self.var_samp()
 
-    def std(self, ddof: int) -> Self:
+    def std(self, ddof: int = 1) -> Self:
         match ddof:
             case 0:
                 return self.stddev_pop()
@@ -781,8 +787,6 @@ class SqlExpr(Fns):  # noqa: PLW1641
         Returns:
             Self: A boolean expression indicating whether the value is the last occurrence.
         """
-        from .._meta import Marker
-
         row_idx = Marker.TEMP.to_expr()
         return (
             self
@@ -813,8 +817,6 @@ class SqlExpr(Fns):  # noqa: PLW1641
 
     def arg_sort(self, *, descending: bool = False, nulls_last: bool = False) -> Self:
         """Return indices that would sort the expression."""
-        from .._meta import Marker
-
         row_idx = Marker.TEMP.to_expr()
         return self._cls(
             row_idx
@@ -1082,7 +1084,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
             Self: A new expression that evaluates to the rank of values according to the specified method.
         """
 
-        def _peer_count() -> SqlExpr:
+        def _peer_count() -> Expr:
             from ._funcs import all
 
             return all().count().window(pc.Some(self.inner))
@@ -1140,6 +1142,11 @@ class SqlExpr(Fns):  # noqa: PLW1641
                 fn_nulls_last=nulls_last,
             )
         )
+
+    def __xor__(
+        self, right: IntoExprColumn | bytes | bytearray | memoryview | int
+    ) -> Self:
+        return self.xor(right)
 
     def xor(self, right: IntoExprColumn | bytes | bytearray | memoryview | int) -> Self:
         """Bitwise XOR.
@@ -1216,7 +1223,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
         """
         return self._cls(self.str.hash(seed).inner)
 
-    def coalesce(self, exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> SqlExpr:
+    def coalesce(self, exprs: TryIter[IntoExpr], *more_exprs: IntoExpr) -> Expr:
         """Create a `COALESCE` expression.
 
         Args:
@@ -1224,7 +1231,7 @@ class SqlExpr(Fns):  # noqa: PLW1641
             *more_exprs (IntoExpr): Additional expressions to coalesce.
 
         Returns:
-            SqlExpr: An expression representing the `COALESCE` operation.
+            Expr: An expression representing the `COALESCE` operation.
         """
         exprs_lst = try_iter(exprs).chain(more_exprs).into(args_into_glot, as_col=True)
         return self._cls(exp.Coalesce(this=self.inner, expressions=exprs_lst))

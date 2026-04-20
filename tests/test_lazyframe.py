@@ -6,8 +6,8 @@ import pytest
 from sqlglot import exp
 
 import pql
-import pql._meta as m  # noqa: PLC2701
 import pql._typing as t  # noqa: PLC2701
+import pql.sql._meta as m  # noqa: PLC2701
 
 from ._utils import assert_lf_eq
 

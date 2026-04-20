@@ -6,19 +6,18 @@ from typing import TYPE_CHECKING, final
 import pyochain as pc
 from sqlglot import exp
 
-from ._expr import Expr
-from ._funcs import col, len
-from ._meta import ExprPlan
+from .sql._expr import Expr
+from .sql._funcs import col, len
+from .sql._meta import ExprPlan
 
 if TYPE_CHECKING:
     from ._frame import LazyFrame
     from ._typing import GroupByClause
-    from .sql import SqlExpr
     from .sql.typing import IntoExpr
     from .sql.utils import TryIter
 
 
-def _root_column_name(expr: SqlExpr) -> pc.Option[str]:
+def _root_column_name(expr: Expr) -> pc.Option[str]:
     match expr.inner:
         case exp.Column() as column:
             return pc.Some(column.output_name)
@@ -31,7 +30,7 @@ class LazyGroupBy:
     __slots__ = ("_cols", "_frame", "_keys", "_strategy")
 
     def __init__(
-        self, frame: LazyFrame, keys: pc.Seq[SqlExpr], strategy: GroupByClause | None
+        self, frame: LazyFrame, keys: pc.Seq[Expr], strategy: GroupByClause | None
     ) -> None:
         self._frame = frame
         self._keys = keys

@@ -4507,30 +4507,6 @@ class ListFns[T: Fns](NameSpaceHandler[T]):
         """
         return self._cls(func("LIST_SLICE", self.inner, begin, end, step))
 
-    def sort(
-        self, col1: IntoExprColumn | None = None, col2: IntoExprColumn | None = None
-    ) -> T:
-        """Sorts the elements of the list.
-
-        **SQL name**: *list_sort*
-
-        See Also:
-            array_sort
-
-        Args:
-            col1 (IntoExprColumn | None): `VARCHAR` expression
-            col2 (IntoExprColumn | None): `VARCHAR` expression
-
-        Examples:
-            ```sql
-            list_sort([3, 6, 1, 2])
-            ```
-
-        Returns:
-            T
-        """
-        return self._cls(func("LIST_SORT", self.inner, col1, col2))
-
     def stddev_pop(self) -> T:
         """SQL list_stddev_pop function.
 
@@ -8742,30 +8718,6 @@ class ArrayFns[T: Fns](NameSpaceHandler[T]):
             T
         """
         return self._cls(func("ARRAY_SLICE", self.inner, begin, end, step))
-
-    def sort(
-        self, col1: IntoExprColumn | None = None, col2: IntoExprColumn | None = None
-    ) -> T:
-        """Sorts the elements of the list.
-
-        **SQL name**: *array_sort*
-
-        See Also:
-            list_sort
-
-        Args:
-            col1 (IntoExprColumn | None): `VARCHAR` expression
-            col2 (IntoExprColumn | None): `VARCHAR` expression
-
-        Examples:
-            ```sql
-            array_sort([3, 6, 1, 2])
-            ```
-
-        Returns:
-            T
-        """
-        return self._cls(func("ARRAY_SORT", self.inner, col1, col2))
 
     def to_json(self, *args: IntoExpr) -> T:
         """SQL array_to_json function.
