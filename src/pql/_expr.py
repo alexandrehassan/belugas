@@ -419,7 +419,7 @@ class Expr(sql.CoreHandler[SqlExpr]):
         Returns:
             Self: A new expression that evaluates to the approximate number of unique values.
         """
-        return self._cls(self.inner.approx_count_distinct())
+        return self._cls(self.inner.approx_n_unique())
 
     def product(self) -> Self:
         """Compute the product.
@@ -864,7 +864,7 @@ class Expr(sql.CoreHandler[SqlExpr]):
         Returns:
             Self
         """
-        return self._cls(self.inner.atan())
+        return self._cls(self.inner.arctan())
 
     def arccos(self) -> Self:
         """Compute the arc cosine.
@@ -872,7 +872,7 @@ class Expr(sql.CoreHandler[SqlExpr]):
         Returns:
             Self
         """
-        return self._cls(self.inner.acos())
+        return self._cls(self.inner.arccos())
 
     def arccosh(self) -> Self:
         """Compute the inverse hyperbolic cosine.
@@ -880,7 +880,7 @@ class Expr(sql.CoreHandler[SqlExpr]):
         Returns:
             Self
         """
-        return self._cls(self.inner.acosh())
+        return self._cls(self.inner.arccosh())
 
     def arcsin(self) -> Self:
         """Compute the arc sine.
@@ -888,7 +888,7 @@ class Expr(sql.CoreHandler[SqlExpr]):
         Returns:
             Self
         """
-        return self._cls(self.inner.asin())
+        return self._cls(self.inner.arcsin())
 
     def arcsinh(self) -> Self:
         """Compute the inverse hyperbolic sine.
@@ -896,7 +896,7 @@ class Expr(sql.CoreHandler[SqlExpr]):
         Returns:
             Self
         """
-        return self._cls(self.inner.asinh())
+        return self._cls(self.inner.arcsinh())
 
     def arctanh(self) -> Self:
         """Compute the inverse hyperbolic tangent.
@@ -904,7 +904,7 @@ class Expr(sql.CoreHandler[SqlExpr]):
         Returns:
             Self
         """
-        return self._cls(self.inner.atanh())
+        return self._cls(self.inner.arctanh())
 
     def cot(self) -> Self:
         """Compute the cotangent.

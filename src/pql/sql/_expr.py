@@ -1234,3 +1234,51 @@ class SqlExpr(Fns):  # noqa: PLW1641
         """
         exprs_lst = try_iter(exprs).chain(more_exprs).into(args_into_glot, as_col=True)
         return self._cls(exp.Coalesce(this=self.inner, expressions=exprs_lst))
+
+    def arctan(self) -> Self:
+        """Compute the arc tangent.
+
+        Returns:
+            Self
+        """
+        return self.atan()
+
+    def arccos(self) -> Self:
+        """Compute the arc cosine.
+
+        Returns:
+            Self
+        """
+        return self.acos()
+
+    def arccosh(self) -> Self:
+        """Compute the inverse hyperbolic cosine.
+
+        Returns:
+            Self
+        """
+        return self.acosh()
+
+    def arcsin(self) -> Self:
+        """Compute the arc sine.
+
+        Returns:
+            Self
+        """
+        return self.asin()
+
+    def arcsinh(self) -> Self:
+        """Compute the inverse hyperbolic sine.
+
+        Returns:
+            Self
+        """
+        return self.asinh()
+
+    def arctanh(self) -> Self:
+        """Compute the inverse hyperbolic tangent.
+
+        Returns:
+            Self
+        """
+        return self.atanh()
