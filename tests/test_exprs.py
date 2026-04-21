@@ -3,7 +3,7 @@ from typing import Protocol
 
 import polars as pl
 import pytest
-from pyochain import Seq
+from pyochain import Iter, Seq
 
 import pql
 
@@ -27,6 +27,10 @@ pl_nan_vals = pl.col("nan_vals")
 pl_float_vals = pl.col("float_vals")
 desc_param = pytest.mark.parametrize("descending", [True, False])
 type Fns = tuple[Callable[[], pql.Expr], Callable[[], pl.Expr]]
+
+
+def _ids(fns: Seq[tuple[Callable[..., pql.Expr], Callable[..., pl.Expr]]]) -> Iter[str]:
+    return fns.iter().map_star(lambda f1, _f2: f1.__name__)
 
 
 def test_rand() -> None:
@@ -206,9 +210,7 @@ _SIMPLE_FNS = Seq((
 ))
 
 
-@pytest.mark.parametrize(
-    "fn", _SIMPLE_FNS, ids=_SIMPLE_FNS.iter().map_star(lambda f1, _f2: f1.__name__)
-)
+@pytest.mark.parametrize("fn", _SIMPLE_FNS, ids=_SIMPLE_FNS.into(_ids))
 def test_simple_methods_on_x(fn: Fns) -> None:
     assert_eq(fn[0](), fn[1]())
 
@@ -219,11 +221,7 @@ _SIMPLE_FN_AGE = Seq((
 ))
 
 
-@pytest.mark.parametrize(
-    "fn",
-    _SIMPLE_FN_AGE,
-    ids=_SIMPLE_FN_AGE.iter().map_star(lambda f1, _f2: f1.__name__),
-)
+@pytest.mark.parametrize("fn", _SIMPLE_FN_AGE, ids=_SIMPLE_FN_AGE.into(_ids))
 def test_simple_methods_on_age(fn: Fns) -> None:
     assert_eq(fn[0](), fn[1]())
 
@@ -360,20 +358,17 @@ def test_last() -> None:
     assert_eq(pql_n.last(), pl_n.last())
 
 
-def test_max_by() -> None:
-    assert_eq(pql_x.max_by("age"), pl_x.max_by("age"))
-    assert_eq(
-        pql_salary.max_by(pql_x.neg()),
-        pl_salary.max_by(pl_x.neg()),
-    )
+_MIN_MAX_BY_FNS = Seq(((pql_x.min_by, pl_x.min_by), (pql_x.max_by, pl_x.max_by)))
 
 
-def test_min_by() -> None:
-    assert_eq(pql_x.min_by("age"), pl_x.min_by("age"))
-    assert_eq(
-        pql_salary.min_by(pql_x.neg()),
-        pl_salary.min_by(pl_x.neg()),
-    )
+@pytest.mark.parametrize("fns", _MIN_MAX_BY_FNS, ids=_MIN_MAX_BY_FNS.into(_ids))
+def test_min_max_by(
+    fns: tuple[
+        Callable[[str | pql.Expr], pql.Expr], Callable[[str | pl.Expr], pl.Expr]
+    ],
+) -> None:
+    assert_eq(fns[0]("age"), fns[1]("age"))
+    assert_eq(fns[0]("age"), fns[1]("age"))
 
 
 def test_implode() -> None:
@@ -421,11 +416,7 @@ class RollingFn[T: pql.Expr | pl.Expr](Protocol):
 @pytest.mark.parametrize("center", [True, False])
 @pytest.mark.parametrize("window_size", [2, 4])
 @pytest.mark.parametrize("min_samples", [None, 1, 2])
-@pytest.mark.parametrize(
-    "method",
-    _ROLLING_FNS,
-    ids=_ROLLING_FNS.iter().map_star(lambda f1, _f2: f1.__name__),
-)
+@pytest.mark.parametrize("method", _ROLLING_FNS, ids=_ROLLING_FNS.into(_ids))
 def test_rolling(
     method: tuple[RollingFn[pql.Expr], RollingFn[pl.Expr]],
     window_size: int,
