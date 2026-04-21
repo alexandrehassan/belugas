@@ -870,7 +870,23 @@ class ExprListNameSpace(ListFns[Expr]):
             )
         )
 
-    unique = ListFns[Expr].distinct
+    def unique(self) -> Expr:
+        """Removes all duplicates and NULL values from a list.
+
+        Does not preserve the original order.
+
+        **SQL name**: *list_distinct*
+
+        See Also:
+            array_distinct
+
+        Examples:
+            list_distinct([1, 1, NULL, -3, 1, 5])
+
+        Returns:
+            Expr
+        """
+        return self.distinct()
 
 
 @final
@@ -1097,20 +1113,32 @@ class ExprArrayNameSpace(ArrayFns[Expr]):
             )
         )
 
-    unique = ArrayFns[Expr].distinct
+    def unique(self) -> Expr:
+        """Removes all duplicates and NULL values from a list.
+
+        Does not preserve the original order.
+
+        **SQL name**: *array_distinct*
+
+        See Also:
+            list_distinct
+
+        Examples:
+            array_distinct([1, 1, NULL, -3, 1, 5])
+
+        Returns:
+            Expr
+        """
+        return self.distinct()
 
 
 @dataclass(slots=True)
 class ExprNameNameSpace(NameSpaceHandler[Expr]):
-    """Name operations namespace (equivalent to pl.Expr.name).
-
-    Returns:
-        Expr
-    """
+    """Name operations namespace (equivalent to pl.Expr.name)."""
 
     def _with_alias_mapper(self, mapper: Aliaser) -> Expr:
-        meta = self.inner.meta.with_alias_mapper(mapper)
-        return self.inner.inner.pipe(Expr, meta)
+        expr = self.inner
+        return expr.inner.pipe(Expr, expr.meta.with_alias_mapper(mapper))
 
     def keep(self) -> Expr:
         """Keep the original name of the expression, even if it gets aliased.
