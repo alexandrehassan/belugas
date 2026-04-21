@@ -275,10 +275,10 @@ class Expr(Fns):
         return self.__gt__(other)
 
     def __invert__(self) -> Self:
-        return self._cls(exp.Not(this=self.inner))
+        return self.not_()
 
     def not_(self) -> Self:
-        return self.__invert__()
+        return self._cls(exp.Not(this=self.inner))
 
     def __le__(self, other: IntoExpr) -> Self:
         return self._binop(exp.LTE, other)
