@@ -860,9 +860,7 @@ class ExprListNameSpace(ListFns[Expr]):
         Returns:
             T
         """
-        nulls_pos = "NULLS LAST" if nulls_last else "NULLS FIRST"
-        order = "DESC" if descending else "ASC"
-        return self._cls(func("LIST_SORT", self.inner, order, nulls_pos))
+        return self._cls(_sort_expr(self.inner, desc=descending, nulls_last=nulls_last))
 
     def unique(self) -> Expr:
         """Removes all duplicates and NULL values from a list.
@@ -1098,9 +1096,7 @@ class ExprArrayNameSpace(ArrayFns[Expr]):
         Returns:
             T
         """
-        nulls_pos = "NULLS LAST" if nulls_last else "NULLS FIRST"
-        order = "DESC" if descending else "ASC"
-        return self._cls(func("ARRAY_SORT", self.inner, order, nulls_pos))
+        return self._cls(_sort_expr(self.inner, desc=descending, nulls_last=nulls_last))
 
     def unique(self) -> Expr:
         """Removes all duplicates and NULL values from a list.
@@ -1223,3 +1219,11 @@ class ExprEnumNameSpace(EnumFns[Expr]):
 @dataclass(slots=True)
 class ExprGeoSpatialNameSpace(GeoSpatialFns[Expr]):
     """Geospatial function namespace for SQL expressions."""
+
+
+def _sort_expr(expr: Expr, *, desc: bool, nulls_last: bool) -> exp.SortArray:
+    return exp.SortArray(
+        this=expr.inner,
+        asc=exp.Boolean(this=not desc),
+        nulls_first=exp.Boolean(this=not nulls_last),
+    )
