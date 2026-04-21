@@ -96,6 +96,8 @@ SPECIAL_CASES = pc.Set({
     "xor",  # Actual match casing logic gives it `XOR` when really it should be `BitwiseXor`
     # overrides
     "quantile",  # Allow to make quantile a parametrizable method
+    "array_sort",  # We need to handle specifically the arguments
+    "list_sort",  # We need to handle specifically the arguments
 })
 """Function to exclude by name, either because they require special handling or because they conflict with existing names."""
 PREFIXES = pc.Set((
