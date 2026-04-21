@@ -4226,6 +4226,24 @@ class ListFns[T: Fns](NameSpaceHandler[T]):
         """
         return self._cls(anon("list_mode", self.inner))
 
+    def n_unique(self) -> T:
+        """Counts the unique elements of a `list`.
+
+        **SQL name**: *list_unique*
+
+        See Also:
+            array_unique
+
+        Examples:
+            ```sql
+            list_unique([1, 1, NULL, -3, 1, 5])
+            ```
+
+        Returns:
+            T
+        """
+        return self._cls(anon("list_unique", self.inner))
+
     def negative_dot_product(self, list2: IntoExprColumn | SeqLiteral[float]) -> T:
         """Computes the negative inner product between two same-sized lists.
 
@@ -4569,24 +4587,6 @@ class ListFns[T: Fns](NameSpaceHandler[T]):
             T
         """
         return self._cls(func("LIST_TRANSFORM", self.inner, lambda_arg))
-
-    def unique(self) -> T:
-        """Counts the unique elements of a `list`.
-
-        **SQL name**: *list_unique*
-
-        See Also:
-            array_unique
-
-        Examples:
-            ```sql
-            list_unique([1, 1, NULL, -3, 1, 5])
-            ```
-
-        Returns:
-            T
-        """
-        return self._cls(anon("list_unique", self.inner))
 
     def unpivot_list(self, *args: IntoExpr) -> T:
         """Identical to list_value, but generated as part of unpivot for better error messages.
@@ -8456,6 +8456,24 @@ class ArrayFns[T: Fns](NameSpaceHandler[T]):
         """
         return self._cls(func("ARRAY_LENGTH", self.inner, dimension))
 
+    def n_unique(self) -> T:
+        """Counts the unique elements of a `list`.
+
+        **SQL name**: *array_unique*
+
+        See Also:
+            list_unique
+
+        Examples:
+            ```sql
+            array_unique([1, 1, NULL, -3, 1, 5])
+            ```
+
+        Returns:
+            T
+        """
+        return self._cls(anon("array_unique", self.inner))
+
     def negative_dot_product(self, array2: IntoExprColumn | float) -> T:
         """Computes the negative inner product between two arrays of the same size.
 
@@ -8781,24 +8799,6 @@ class ArrayFns[T: Fns](NameSpaceHandler[T]):
         """
         return self._cls(func("ARRAY_TRANSFORM", self.inner, lambda_arg))
 
-    def unique(self) -> T:
-        """Counts the unique elements of a `list`.
-
-        **SQL name**: *array_unique*
-
-        See Also:
-            list_unique
-
-        Examples:
-            ```sql
-            array_unique([1, 1, NULL, -3, 1, 5])
-            ```
-
-        Returns:
-            T
-        """
-        return self._cls(anon("array_unique", self.inner))
-
     def value(self, *args: IntoExpr) -> T:
         """Creates an `ARRAY` containing the argument values.
 
@@ -8881,7 +8881,7 @@ class JsonFns[T: Fns](NameSpaceHandler[T]):
         Returns:
             T
         """
-        return self._cls(anon("json_array", self.inner, *args))
+        return self._cls(func("JSON_ARRAY", self.inner, *args))
 
     def array_length(self, col1: IntoExprColumn | SeqLiteral[str] | None = None) -> T:
         """SQL json_array_length function.

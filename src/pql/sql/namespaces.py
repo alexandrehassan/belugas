@@ -688,9 +688,11 @@ class ExprDateTimeNameSpace(DateTimeFns[Expr]):
         return self.isoyear()
 
 
-@dataclass(slots=True)
+@final
 class ExprListNameSpace(ListFns[Expr]):
     """List function namespace for SQL expressions."""
+
+    __slots__ = ()
 
     def explode(self) -> Expr:
         """Explode lists into multiple rows.
@@ -788,10 +790,6 @@ class ExprListNameSpace(ListFns[Expr]):
                     .otherwise(joined)
                 )
 
-    def n_unique(self) -> Expr:
-        """Return the number of unique values in each array."""
-        return self.distinct().list.length()
-
     def count_matches(self, elem: IntoExpr) -> Expr:
         """Count matches in each array.
 
@@ -872,10 +870,14 @@ class ExprListNameSpace(ListFns[Expr]):
             )
         )
 
+    unique = ListFns[Expr].distinct
 
-@dataclass(slots=True)
+
+@final
 class ExprArrayNameSpace(ArrayFns[Expr]):
     """Array function namespace for SQL expressions."""
+
+    __slots__ = ()
 
     def explode(self) -> Expr:
         """Explode array into multiple rows.
@@ -942,10 +944,6 @@ class ExprArrayNameSpace(ArrayFns[Expr]):
                     .then(Lit.NONE)
                     .otherwise(joined)
                 )
-
-    def n_unique(self) -> Expr:
-        """Return the number of unique values in each array."""
-        return self.distinct().arr.length()
 
     def count_matches(self, elem: IntoExpr) -> Expr:
         """Count matches in each array.
@@ -1098,6 +1096,8 @@ class ExprArrayNameSpace(ArrayFns[Expr]):
                 lit(NullsClause.order(last=nulls_last)),
             )
         )
+
+    unique = ArrayFns[Expr].distinct
 
 
 @dataclass(slots=True)
