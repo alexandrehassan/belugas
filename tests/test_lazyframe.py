@@ -184,7 +184,7 @@ def test_limit(lf: pql.LazyFrame) -> None:
     assert_lf_eq(lf.collect().lazy().sort("id").limit(3), lf.sort("id").limit(3))
 
 
-@pytest.mark.parametrize("offset", [1, -2, -4])
+@pytest.mark.parametrize("offset", [1, -2, -4, -10])
 @pytest.mark.parametrize("length", [2, None, 4, 0])
 def test_slice(lf: pql.LazyFrame, offset: int, length: int | None) -> None:
     assert_lf_eq(
