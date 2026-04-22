@@ -4,15 +4,6 @@ import pytest
 import pql
 
 
-def _check_slots(obj: object) -> pc.Result[None, str]:
-    try:
-        _ = obj.__dict__
-        msg = f"{obj.__class__.__name__} has __dict__, but should have __slots__"
-        return pc.Err(msg)
-    except AttributeError:
-        return pc.Ok(None)
-
-
 _OBJS = [
     pql.col(""),
     pql.sql.col(""),
@@ -31,3 +22,12 @@ _OBJS = [
 @pytest.mark.parametrize("obj", _OBJS)
 def test_slots(obj: object) -> None:
     assert _check_slots(obj).is_ok()
+
+
+def _check_slots(obj: object) -> pc.Result[None, str]:
+    try:
+        _ = obj.__dict__
+        msg = f"{obj.__class__.__name__} has __dict__, but should have __slots__"
+        return pc.Err(msg)
+    except AttributeError:
+        return pc.Ok(None)

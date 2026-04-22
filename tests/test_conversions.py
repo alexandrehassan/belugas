@@ -16,26 +16,6 @@ assert_eq = partial(assert_frame_equal, check_dtypes=False, check_row_order=Fals
 type TestData = dict[str, Any]  # pyright: ignore[reportExplicitAny]
 
 
-def _get_data() -> TestData:
-    return {
-        "id": [1, 2, 3, 4, 5],
-        "name": ["Alice", "Bob", "Charlie", "David", "Eve"],
-        "sex": ["F", "M", "M", "M", "F"],
-        "age": [25, 30, 35, 28, 22],
-        "salary": [50000.0, 60000.0, 75000.0, 55000.0, 45000.0],
-        "department": [
-            "Engineering",
-            "Sales",
-            "Engineering",
-            "Sales",
-            "Engineering",
-        ],
-        "is_active": [True, True, False, True, True],
-        "value": [10.0, None, 30.0, None, 50.0],
-        "category": ["A", "B", None, "A", "B"],
-    }
-
-
 @pytest.fixture
 def data() -> TestData:
     return _get_data()
@@ -141,6 +121,26 @@ def test_from_seq_of_dicts() -> None:
     assert_eq(pql.LazyFrame(dicts).collect(), pl.DataFrame(dicts))
     assert_eq(pql.from_records(dicts).collect(), pl.from_records(dicts))
     assert_eq(pql.from_dicts(dicts).collect(), pl.from_dicts(dicts))
+
+
+def _get_data() -> TestData:
+    return {
+        "id": [1, 2, 3, 4, 5],
+        "name": ["Alice", "Bob", "Charlie", "David", "Eve"],
+        "sex": ["F", "M", "M", "M", "F"],
+        "age": [25, 30, 35, 28, 22],
+        "salary": [50000.0, 60000.0, 75000.0, 55000.0, 45000.0],
+        "department": [
+            "Engineering",
+            "Sales",
+            "Engineering",
+            "Sales",
+            "Engineering",
+        ],
+        "is_active": [True, True, False, True, True],
+        "value": [10.0, None, 30.0, None, 50.0],
+        "category": ["A", "B", None, "A", "B"],
+    }
 
 
 def test_from_seq_of_seqs() -> None:

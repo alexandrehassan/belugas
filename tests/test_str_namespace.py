@@ -113,19 +113,6 @@ _LF = pql.LazyFrame({
 })
 
 
-def sample_df() -> pql.LazyFrame:
-    return _LF
-
-
-def assert_eq(pql_expr: pql.Expr, polars_expr: pl.Expr) -> None:
-    assert_frame_equal(
-        sample_df().select(pql_expr).lazy(),
-        sample_df().lazy().select(polars_expr),
-        check_dtypes=False,
-        check_row_order=False,
-    )
-
-
 def test_to_uppercase() -> None:
     assert_eq(pql_text.str.to_uppercase(), pl_text.str.to_uppercase())
 
@@ -405,3 +392,16 @@ def test_zfill(length: int) -> None:
 @pytest.mark.parametrize("encoding", ["base64", "hex"])
 def test_encode(encoding: pql.sql.typing.TransferEncoding) -> None:
     assert_eq(pql_text.str.encode(encoding), pl_text.str.encode(encoding))
+
+
+def assert_eq(pql_expr: pql.Expr, polars_expr: pl.Expr) -> None:
+    assert_frame_equal(
+        sample_df().select(pql_expr).lazy(),
+        sample_df().lazy().select(polars_expr),
+        check_dtypes=False,
+        check_row_order=False,
+    )
+
+
+def sample_df() -> pql.LazyFrame:
+    return _LF

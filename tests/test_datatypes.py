@@ -94,6 +94,15 @@ def sample_data() -> pql.LazyFrame:
     return _DATA
 
 
+@pytest.fixture(scope="session")
+def cast_schema(sample_data: pql.LazyFrame) -> pql.Schema:
+    return _create_schema(sample_data)
+
+
+def _create_schema(sample_data: pql.LazyFrame) -> pql.Schema:
+    return sample_data.select(_exprs()).schema
+
+
 def _exprs() -> tuple[pql.Expr, ...]:
     numeric = pql.col("numeric")
     return (
@@ -137,15 +146,6 @@ def _exprs() -> tuple[pql.Expr, ...]:
         pql.col("uuid_data").cast(pql.UUID()),
         pql.col("geometry").cast(pql.Geometry()),
     )
-
-
-def _create_schema(sample_data: pql.LazyFrame) -> pql.Schema:
-    return sample_data.select(_exprs()).schema
-
-
-@pytest.fixture(scope="session")
-def cast_schema(sample_data: pql.LazyFrame) -> pql.Schema:
-    return _create_schema(sample_data)
 
 
 def test_geometry(cast_schema: pc.Dict[str, pql.DataType]) -> None:

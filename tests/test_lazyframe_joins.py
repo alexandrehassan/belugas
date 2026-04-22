@@ -11,10 +11,6 @@ LEFT = pl.DataFrame({"id1": [1, 2, 3], "id2": ["a", "b", "c"], "a": [10, 20, 30]
 RIGHT = pl.DataFrame({"id1": [2, 3, 4], "id2": ["b", "c", "d"], "b": [200, 300, 400]})
 
 
-def _pl_how(how: t.JoinStrategy) -> PlJoinStrategy:
-    return "full" if how == "outer" else how
-
-
 @pytest.mark.parametrize("on", [["id1", "id2"], ["id1"]])
 @pytest.mark.parametrize("how", t.JoinStrategy.__args__)
 def test_join_on(on: list[str], how: t.JoinStrategy) -> None:
@@ -33,6 +29,10 @@ def test_join_left_on_right_on(on: list[str], how: t.JoinStrategy) -> None:
             pql.LazyFrame(RIGHT), left_on=on, right_on=on, how=how
         ),
     )
+
+
+def _pl_how(how: t.JoinStrategy) -> PlJoinStrategy:
+    return "full" if how == "outer" else how
 
 
 def test_join_cross() -> None:

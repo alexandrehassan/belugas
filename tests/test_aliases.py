@@ -9,10 +9,6 @@ from ._utils import ExprPair
 _LF = pql.LazyFrame({"x": [1], "y": [4]})
 
 
-def _slct(*exprs: pql.Expr) -> Vec[str]:
-    return _LF.select(*exprs).columns
-
-
 pql_x = pql.col("x")
 pql_y = pql.col("y")
 pl_x = pl.col("x")
@@ -54,3 +50,7 @@ def test_when_alias(exprs: ExprPair) -> None:
     pl_cols = _LF.collect().select(exprs.pl_expr).columns
     pql_cols = _slct(exprs.pql_expr).into(list)
     assert pql_cols == pl_cols
+
+
+def _slct(*exprs: pql.Expr) -> Vec[str]:
+    return _LF.select(*exprs).columns
