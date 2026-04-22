@@ -149,8 +149,6 @@ def into_expr(value: IntoExpr, *, as_col: bool = True) -> exp.Expr:
     Returns:
         exp.Expr: The resulting sqlglot expression.
     """
-    from ._core import DuckHandler
-
     match value:
         case DuckHandler():
             return value.inner
