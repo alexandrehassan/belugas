@@ -6,7 +6,7 @@ applyTo: '*'
 
 ## Project mission
 
-`pql` aims to expose DuckDB capabilities through a Polars-like API (close to Narwhals semantics when practical, but not constrained by multi-backend compromises).
+`pql` exposes DuckDB through a Polars-like lazy API built on `sqlglot`.
 
 Primary objective:
 
@@ -18,159 +18,176 @@ Secondary objective:
 
 ---
 
+## Current public surface
+
+`pql` currently exposes:
+
+- `LazyFrame` in `src/pql/_frame.py`.
+- `Expr` in `src/pql/sql/_expr.py`, re-exported from `src/pql/__init__.py`.
+- Public scan constructors in `src/pql/_scans.py` and at package root (`from_df`, `from_dict`, `from_query`, `from_table`, `from_table_function`, ...).
+- Module-level expression helpers in `src/pql/sql/_funcs.py` (`col`, `lit`, `when`, `coalesce`, scalar aggs, horizontal aggs, `element`, `row_number`, ...).
+- `selectors`, `sql`, `meta`, and datatype objects re-exported from the package root.
+- `Expr` lives in `src/pql/sql/_expr.py` and the public frame type is `LazyFrame`.
+- Relation handling is organized around `LazyFrame` plus `ScanSource`.
+
+---
+
 ## Architecture (must understand before changing code)
 
 ### 1) Public API layer
 
-- `src/pql/_expr.py`: public `Expr` API + namespaces (`.str`, `.list`, `.struct`).
 - `src/pql/_frame.py`: public `LazyFrame` API.
+- `src/pql/_scans.py`: public constructors for turning Python/native data into `LazyFrame`.
 - `src/pql/__init__.py`: exported user-facing symbols.
+- `src/pql/sql/_expr.py`: public `Expr` API, re-exported at the package root.
 
 This layer should remain Polars-like and user ergonomic.
 
-### 2) SQL core layer (internal wrapper)
+### 2) Frame/query layer
 
-#### Core concepts
+#### `LazyFrame` (`src/pql/_frame.py`)
 
-The SQL core layer provides two main abstractions that wrap DuckDB objects:
+`LazyFrame` is the main query builder.
 
-1. **`SqlExpr`**: Wraps `duckdb.Expression` to provide a method chained interface, and a signifcant amount of additionals methods from code generation (e.g., `.str`, `.list`, `.dt` namespaces, and all DuckDB functions as methods). This is the core building block for expression manipulation.
-2. **`Relation`**: Wraps `duckdb.DuckDBPyRelation`. Don't provide additional methods "yet" but internally handles SqlExpr inputs and fix some of the stubs errors. This is the core building block for relation manipulation.
+- Inherits from `sql.CoreHandler[ScanSource]`.
+- Stores `_inner: ScanSource` and `_ast: sqlglot.exp.Select`.
+- Builds query context for expressions (`select`, `with_columns`, `filter`, `group_by`, `join`, `pivot`, `sort`, ...).
+- Executes through `ScanSource.from_query(...)`.
+- Converts back to Polars through DuckDB relation interop in `lazy()` and `collect()`.
 
-Both use a **composition-based design** (wrapper pattern): they store an underlying DuckDB object (`.inner()`) and delegate operations to it, managing automatic conversion between pql wrappers and DuckDB native types.
+`LazyFrame` plus `ScanSource` form the relation/query abstraction.
 
-#### Handler hierarchy (`src/pql/sql/_core.py`)
+### 3) Expression layer
 
-The handler system is built on three base classes:
+#### `Expr` (`src/pql/sql/_expr.py`)
 
-1. **`CoreHandler[T]`** (generic base)
-  - Generic wrapper for any value of type `T`
-  - Provides interface: `.pipe(func, ...)`, `.inner()`, `._new(T) -> Self`
-  - `._new(expr)` is critical for method chaining: internally creates a new instance of the current subclass with a transformed expression
-  - Used everywhere to maintain fluent style
+`Expr` is the public expression object.
 
-2. **`DuckHandler(CoreHandler[duckdb.Expression])`**
-  - Specialization for `duckdb.Expression`
-  - Base for all expression-based functionality
-  - No functionality of its own; exists for type clarity
+- Extends the generated `Fns` mixin from `src/pql/sql/_code_gen/_fns.py`.
+- Wraps a `sqlglot.exp.Expr` through `DuckHandler`/`CoreHandler`.
+- Carries `meta: ExprMeta` to preserve naming, aliasing, and context-sensitive behavior.
+- Uses `Expr.new(...)` as the normal coercion entrypoint.
+- Exposes namespaces such as `.str`, `.list`, `.struct`, `.dt`, `.arr`, `.json`, `.re`, `.map`, `.enum`, `.geo`, and `.name`.
 
-3. **`RelHandler(CoreHandler[duckdb.DuckDBPyRelation])`**
-  - Specialization for `duckdb.DuckDBPyRelation`
-  - Handles initialization logic: converts various input types (Polars DF/LazyFrame, SQL strings, table functions) to DuckDB relations
-  - `__init__` performs matching on input type (see `FrameInit` union)
+The expression layer is where most feature work happens.
 
-4. **`NameSpaceHandler[T]`** (for namespaces like `.str`, `.list`, etc.)
-  - Wraps a parent expression namespace handler
-  - `._parent: T` stores the parent
-  - `._new(expr)` creates a new parent instance with transformed expression
+Important sharp edge:
 
-#### `SqlExpr` class hierarchy (`src/pql/sql/_expr.py`)
+- Reverse literal operators rely on `Marker.LITERAL` aliasing to preserve Polars-like output names. Be careful when touching reverse arithmetic/logical operators or alias/meta handling.
 
-```
-CoreHandler[duckdb.Expression]
-  ↓
-DuckHandler
-  ↓
-Fns (auto-generated, from _code_gen/_fns.py) + Expression (auto-generated, from _code_gen/_core.py)
-  ↓
-SqlExpr(Expression, Fns)
-  + namespaces: SqlExprStringNameSpace, SqlExprListNameSpace, etc.
-  + window functions
-  + a few other methods with special casing (see scripts/fns_generator/_rules.py for details)
-```
+### 4) SQL core layer
 
-```
+#### Core abstractions (`src/pql/sql/_core.py`)
 
-#### `Relation` class hierarchy (`src/pql/sql/_code_gen/_core.py`)
+The current SQL core layer is centered on `sqlglot` AST composition plus a DuckDB conversion boundary.
 
-```
-CoreHandler[duckdb.DuckDBPyRelation]
-  ↓
-RelHandler
-  ↓
-Relation (auto-generated wrapper methods)
-  + aggregate, project, filter, order_by, etc.
-```
+- **`CoreHandler[T]`**
+  - Generic wrapper base shared by `Expr`, `LazyFrame`, and namespace handlers.
+  - Provides `.pipe(...)`, `._cls(...)`, and `.inner`.
 
-#### Converter functions (`src/pql/sql/_expr.py` + `_core.py`)
+- **`DuckHandler(CoreHandler[sqlglot.exp.Expr])`**
+  - Specialization for `sqlglot` expressions.
+  - Base for expression-side fluent behavior.
 
-- **`into_expr(value, as_col=False) -> SqlExpr`**
-  - Converts: `SqlExpr` (passthrough), `Expr` (public API), `str` (optional column name), any other value (literal)
-  - Used everywhere to normalize inputs
-  
-- **`into_duckdb(value) -> T | duckdb.Expression`**
-  - Inverse: `DuckHandler` → `.inner()`, otherwise passthrough
-  - Used at boundary when passing to DuckDB methods
+- **`NameSpaceHandler[T: DuckHandler]`**
+  - Wraps a parent expression and returns the parent type from namespace methods.
 
-- **`args_into_exprs(exprs, named_exprs=None) -> pc.Iter[SqlExpr]`**
-  - Multi-arg converter: flattens iterables, converts all to `SqlExpr`
-  - Handles positional + keyword arguments (adds aliases to keyword args)
-  - Returns `pc.Iter[SqlExpr]` for chaining
+- **`anon(name, *args)` / `anon_agg(name, *args)` / `func(name, *args)`**
+  - Low-level expression builders used throughout the expression layer.
 
-- **`func(name, *args) -> duckdb.Expression`**
-  - Creates `duckdb.FunctionExpression(name, *args)`
-  - Filters `None` args
-  - Converts all args via `into_duckdb()` before passing to DuckDB
-  - Is used in generated function wrappers, and anywhere else a raw function call is needed (note that this shouldn't be the case usually, as most functions already exist as `SqlExpr` methods via codegen)
+#### Conversion boundary (`src/pql/sql/_conversions.py`)
 
-#### Helper utilities
+- **`into_glot(value, as_col=True) -> sqlglot.exp.Expr`**
+  - Normalizes `Expr`, strings, and Python literals into `sqlglot` expressions.
 
-- **`try_iter(val) -> pc.Iter[T]`**: Convert any value to `pc.Iter` (handles strings/bytes as single items)
-- **`try_flatten(vals) -> pc.Iter[T]`**: Flatten one or two levels of iterables
+- **`args_into_glot(args, as_col=False) -> list[sqlglot.exp.Expr]`**
+  - Bulk conversion helper for function arguments.
 
-#### File manifest (`src/pql/sql/`)
+- **`into_duckdb(expr) -> duckdb.Expression`**
+  - Converts the relevant `sqlglot` AST nodes to native DuckDB expressions.
+  - Centralizes conversion logic for aliases, columns, lambdas, ordered expressions, and generic SQL fragments.
 
-- `src/pql/sql/_expr.py`: `SqlExpr` wrapper + converters (`into_expr`, `lit`, `col`, `when`, `coalesce`, etc.).
-- `src/pql/sql/_core.py`: shared handlers (`CoreHandler`, `RelHandler`, `DuckHandler`, `NameSpaceHandler`), `try_iter`, `try_flatten`, `func`, `into_duckdb`.
-- `src/pql/sql/_window.py`: window SQL builder (`over_expr`, ordering/null handling, bounds).
-- `src/pql/sql/_raw.py`: SQL keyword helpers + query prettify/sanitize (`QueryHolder`).
-- `src/pql/sql/datatypes.py`: dtype aliases and precision mapping.
+- **`PQLConversionError`**
+  - Raised when `sqlglot` to DuckDB conversion fails.
 
-### 3) Auto-generated wrappers (do not edit manually)
+#### Relation/input wrapper (`src/pql/sql/_scans.py`)
 
-- `src/pql/sql/_code_gen/_fns.py`: DuckDB function wrappers.
-- `src/pql/sql/_code_gen/_core.py`: `Relation` wrapper methods.
+`ScanSource` is the current wrapper around `duckdb.DuckDBPyRelation` plus column metadata.
+
+- Holds `relation: duckdb.DuckDBPyRelation` and `columns: pc.Vec[str]`.
+- Normalizes input sources through `build(...)`.
+- Supports relation construction from `LazyFrame`, DuckDB relations, `sqlglot` expressions, `Expr`, mappings, sequences, NumPy arrays, Narwhals/Polars frames, SQL queries, tables, and table functions.
+- `from_query(...)` is the main bridge from AST query nodes to executable DuckDB relations.
+
+### 5) Supporting modules
+
+- `src/pql/sql/_funcs.py`: public module-level expression helpers (`col`, `lit`, `reduce`, `coalesce`, horizontal aggs, `unnest`, ...).
+- `src/pql/sql/_when.py`: fluent `when(...).then(...).otherwise(...)` builder.
+- `src/pql/sql/_window.py`: window specification helpers and rolling/window plumbing.
+- `src/pql/sql/_meta.py`: expression metadata, markers, and planning helpers used by context methods.
+- `src/pql/sql/namespaces.py`: handwritten namespace behavior and Polars-compat shims.
+- `src/pql/sql/selectors.py`: selectors API.
+- `src/pql/sql/datatypes.py`: `pql` datatype objects and conversions.
+
+### 6) Auto-generated code (do not edit manually)
+
+- `src/pql/sql/_code_gen/_fns.py`: generated DuckDB function wrappers and generated namespace mixins.
+- `src/pql/sql/_code_gen/meta.py`: generated `duckdb_*` module-level meta helpers.
 
 Generated from scripts in `scripts/`.
 
-### 4) Code generation + analysis scripts
+Edit generator pipelines and regenerate instead of patching generated files by hand.
 
-- `scripts/fn_generator/*`: generate function wrappers from DuckDB catalog.
-- `scripts/core_generator/*`: generate relation wrapper from DuckDB stubs.
-- `scripts/comparator/*`: build API comparison report.
-- `scripts/__main__.py`: CLI entrypoint.
+### 7) Code generation and analysis scripts
+
+- `scripts/fn_generator/*`: generate DuckDB SQL function wrappers.
+- `scripts/meta_generator/*`: generate DuckDB meta table functions.
+- `scripts/comparator/*`: build `API_COVERAGE.md`.
+- `scripts/_theme_generator.py`: generate SQL theme literals.
+- `scripts/_check_missing_sqlglot.py`: compare DuckDB function coverage with sqlglot parser support.
+- `scripts/__main__.py`: Typer CLI entrypoint.
 
 ---
 
 ## Non-negotiable implementation rules
 
-1. Prefer native wrappers over raw SQL:
-
-- Always attempt `SqlExpr`/`Relation` methods first.
-- Use raw SQL only if impossible with wrappers, and keep it minimal and justified.
+1. Prefer `Expr`, `sqlglot`, and `ScanSource` over raw SQL strings
+- Raw SQL strings are not needed AT ALL, since sqlglot can express any SQL construct we need. If you think you need raw SQL, check if sqlglot can do it first, and if it can't, either create an anonymous Expr, or patch it in the `_sqlglot_patch.py` module. Note that this should only be the case for SQL functions. Other relational nodes are all supported by sqlglot, and if you don't know how to do it, it's a documentation fetching issue from your part.
 
 2. Do not patch generated files directly:
 
-- Never hand-edit `src/pql/sql/_code_gen/*`.
-- Modify generator logic in `scripts/*` and regenerate.
+- Never hand-edit `src/pql/sql/_code_gen/_fns.py` or `src/pql/sql/_code_gen/meta.py`.
+- Modify generator logic in `scripts/fn_generator/*` or `scripts/meta_generator/*` and regenerate.
+- Note that 90% of the time, a few modifications in the `_rules.py` module are all of what is needed to fix a generator issue or add an exception. Always check the rules before considering a generator code patch.
 
 3. Preserve DuckDB semantics:
 
 - Do not “hack” DuckDB behavior to mimic Polars exactly when semantics differ.
 - Null ordering/handling differences are acceptable if explicit and consistent.
+- Note that this is the tricky part of this library. Handling tests and documenting the behavior is a human-level decision. DON'T hack your way out of this if you find yourself in a situation like this. Instead, acknowledge it, explain it in the chat, and wait for feedback.
 
-4. Keep generated SQL/relations efficient:
+4. Preserve expression metadata and naming behavior:
+
+- Changes around `ExprMeta`, `Marker`, aliasing, reverse operators, and output names can easily break `select()` and `with_columns()` parity.
+- Treat naming regressions as real behavior regressions.
+
+5. Keep generated SQL/relations efficient:
 
 - Avoid unnecessary projections/materialization.
 - Keep expression composition compact.
 
-5. Maintain fluent style:
+6. Maintain fluent style:
 
 - Prefer method chaining.
-- Reuse existing helpers (`args_into_exprs`, `try_iter`, `try_flatten`, `into_expr`).
+- Reuse existing helpers (`Expr.new`, `into_glot`, `args_into_glot`, `into_duckdb`, `func`, `when`, `ScanSource.build`).
 
-6. Don't hack the arguments:
+7. Don't hack the arguments:
 - Avoid adding arguments who are not used or raise NotImplementedErrors for "API compatibility". If it don't work, then it don't exist.
+
+8. Stay within the current abstractions:
+
+- Build features around `Expr`, `LazyFrame`, `ScanSource`, namespace classes, and the active generator/comparator pipelines.
+- When in doubt, verify the current code before introducing a new abstraction layer.
 
 ---
 
@@ -181,14 +198,15 @@ Generated from scripts in `scripts/`.
 - Python version target: `>=3.13`.
 - Full typing is required (params, returns, key variables, generics).
 - Use `match` where it improves branch clarity.
-- Avoid broad/naked exceptions.
+- Avoid broad/naked exceptions. `pyochain.Result` is ALWAYS preferred. Even if we want to raise immediatly, use an helper, and then unwrap it at call site.
+- Don't introduce useless helpers that are used once. IF an helper is needed, but only for one call site (e.g code duplication in one method that can have a few logical branches depending on input), prefer closures rather than module-level private functions/class-level private methods. 
+This often allow to reuse the arguments already in-scope, and improve "code locality" (`LazyFrame` methods are a good example of this pattern).
 
 ### Pyochain style (mandatory in this repo)
 
-- Prefer `pyochain` pipelines over imperative loops.
+- imperative loops are forbidden. Keep iterable transformations chain-based (`map/filter/fold/filter_map/map_star/...`).
 - Avoid ad-hoc Python container churn when `pc.Iter/Seq/Vec/Dict/Set` fits.
-- Prefer `Option`/`Result`-oriented handling over manual `None` and ad-hoc checks.
-- Keep iterable transformations chain-based (`map/filter/fold/filter_map/map_star/...`).
+- Prefer `Option`/`Result`-oriented handling over manual `None` and ad-hoc checks. NOTE that this don't apply when we are at the public level, as we expect users to prefer passing arguments as it is rather than `Some(x)`. However, inside the implementation, for closure helpers, etc... we want to convert those ASAP to pyochain constructs.
 
 ---
 
@@ -198,14 +216,11 @@ Goal:
 
 - 100% coverage target for public API behavior.
 
-Current testing layout:
+Current helpers and conventions:
 
-- `tests/test_exprs.py`
-- `tests/test_lazyframe.py`
-- `tests/test_str_namespace.py`
-- `tests/test_list_namespace.py`
-- `tests/test_struct_namespace.py`
-- `tests/test_files.py`
+- `tests/_utils.py` provides `assert_eq`, `assert_lf_eq`, and `FnsCat`.
+- `assert_eq` validates expression behavior through both `select()` and `with_columns()` by default.
+- Tests heavily use parametrized pql/polars function pairs and identical call chains.
 
 Rules for any new/updated tests:
 
@@ -228,6 +243,11 @@ Rules for any new/updated tests:
 
 - Fix them immediately as part of the same change scope.
 
+1. If you change expression naming/alias behavior:
+
+- Cover both expression-level and frame-context behavior.
+- Regressions often only appear once the expression is run through `select()` or `with_columns()`.
+
 ---
 
 ## API parity workflow
@@ -236,10 +256,11 @@ Use `API_COVERAGE.md` as tracking input, not as a strict blocker.
 
 When implementing a missing/mismatched method:
 
-1. Check if a `SqlExpr`/`Relation` capability already exists (including generated mixins).
+1. Check if the capability already exists in `Expr`, `LazyFrame`, a namespace class, module-level helpers, selectors, or generated mixins.
 2. Validate naming and signature alignment against project intent (Polars-like + DuckDB-centric).
 3. Add/adjust tests with identical pql vs reference chains.
-4. Regenerate coverage report if API surface changed.
+4. Check `scripts/comparator/_rules.py` before deciding a mismatch is a bug.
+5. Regenerate coverage report if API surface changed.
 
 ---
 
@@ -247,12 +268,21 @@ When implementing a missing/mismatched method:
 
 Use `uv` commands:
 
-- Generate relation wrapper:
-  - `uv run -m scripts gen-rel`
+- Fetch DuckDB function metadata cache:
+  - `uv run -m scripts fns-to-parquet`
 - Generate function wrappers:
   - `uv run -m scripts gen-fns`
+- Generate DuckDB meta helpers:
+  - `uv run -m scripts gen-meta`
+- Generate SQL theme literal:
+  - `uv run -m scripts gen-themes`
 - Rebuild API coverage:
   - `uv run -m scripts compare`
+- Analyze cached function metadata:
+  - `uv run -m scripts analyze-funcs`
+- Check sqlglot DuckDB function coverage:
+  - `uv run -m scripts check-sqlglot`
+- `gen-fns` depends on the parquet cache produced by `fns-to-parquet`.
 
 After generation, run Ruff on touched files.
 
@@ -261,11 +291,11 @@ After generation, run Ruff on touched files.
 ## Validation checklist before opening/merging changes
 
 1. Did you avoid editing `_code_gen` manually?
-2. Did you use `SqlExpr`/`Relation` before raw SQL?
-3. Did you preserve DuckDB semantics (especially null/order behavior)?
+2. Did you implement the change in the correct layer (`LazyFrame`, `Expr`, namespace, `ScanSource`, generator, comparator)?
+3. Did you preserve DuckDB and `sqlglot` semantics (especially null/order behavior and expression naming)?
 4. Are tests using comparison helpers and identical call chains where required?
-5. Did you run Ruff and tests relevant to your change?
-6. If API changed, did you refresh/report coverage implications?
+5. If API changed, did you refresh/report coverage implications in `API_COVERAGE.md`?
+6. Did you run Ruff and the relevant tests for the touched area?
 
 ---
 
@@ -277,18 +307,19 @@ Installed Narwhals implementation in `.venv` (notably `narwhals/sql.py`, `narwha
 <https://narwhals-dev.github.io/narwhals/generating_sql/>
 <https://narwhals-dev.github.io/narwhals/api-completeness/>
 
-### SqlFrame
+### DuckDB
 
-SQLFrame as conceptual reference for SQL/DataFrame translation patterns.
-<https://github.com/eakmanrq/sqlframe>
+DuckDB Python API and DuckDB SQL functions are the execution targets.
+<https://duckdb.org/docs/stable/clients/python/overview>
+<https://duckdb.org/docs/stable/sql/functions/overview>
 
-### Duckdb Experimental Spark API
+### sqlglot
 
-DuckDB experimental Spark API as DuckDB-centric interoperability reference.
-<https://github.com/duckdb/duckdb-python/tree/main/duckdb/experimental/spark>
-Use these as guidance, but keep `pql` decisions aligned with this repository’s own architecture and constraints.
+`sqlglot` is the AST layer used to model queries and expressions before conversion to DuckDB.
+DuckDB dialect behavior matters when changing expression generation.
+<https://github.com/tobymao/sqlglot>
 
 ### Polars API
 
-Polars API as user ergonomics reference, but not a strict template.
-venv available for search, and MCP server tool.
+Polars API is the ergonomics and parity reference.
+Keep `pql` decisions aligned with DuckDB semantics and the current repository architecture.
