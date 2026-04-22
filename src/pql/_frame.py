@@ -87,17 +87,12 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         qry = ScanSource.from_query(expr, **kwargs).relation
         return self.__class__(qry)
 
-    def _iter_slct(self, func: Callable[[str], Expr]) -> Self:
-        return self.columns.iter().map(func).into(self.select)
-
-    def _iter_agg(self, func: Callable[[Expr], Expr]) -> Self:
+    def _iter_slct(self, func: Callable[[Expr], Expr]) -> Self:
         return (
             self.columns
             .iter()
             .map(lambda c: sql.col(c).pipe(func).alias(c).inner)
-            .into(lambda agg_exprs: exp.select(*agg_exprs))
-            .from_("src")
-            .pipe(self._execute, src=self.inner)
+            .into(self.select)
         )
 
     @overload
@@ -512,10 +507,11 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the renamed columns.
         """
-        rename_map = pc.Dict(mapping)
-
-        return self._iter_slct(
-            lambda c: sql.col(c).alias(rename_map.get_item(c).unwrap_or(c))
+        return (
+            self.columns
+            .iter()
+            .map(lambda c: sql.col(c).alias(mapping.get(c, c)))
+            .into(self.select)
         )
 
     def sql_query(self) -> ParsedQuery:
@@ -571,7 +567,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
 
     def count(self) -> Self:
         """Return the count of each column."""
-        return self._iter_agg(Expr.count)
+        return self._iter_slct(Expr.count)
 
     def describe(self) -> Self:
         """Return descriptive statistics."""
@@ -583,7 +579,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the sum of each column.
         """
-        return self._iter_agg(Expr.sum)
+        return self._iter_slct(Expr.sum)
 
     def mean(self) -> Self:
         """Aggregate the mean of each column.
@@ -591,7 +587,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the mean of each column.
         """
-        return self._iter_agg(Expr.mean)
+        return self._iter_slct(Expr.mean)
 
     def median(self) -> Self:
         """Aggregate the median of each column.
@@ -599,7 +595,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the median of each column.
         """
-        return self._iter_agg(Expr.median)
+        return self._iter_slct(Expr.median)
 
     def min(self) -> Self:
         """Aggregate the minimum of each column.
@@ -607,7 +603,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the minimum of each column.
         """
-        return self._iter_agg(Expr.min)
+        return self._iter_slct(Expr.min)
 
     def max(self) -> Self:
         """Aggregate the maximum of each column.
@@ -615,7 +611,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the maximum of each column.
         """
-        return self._iter_agg(Expr.max)
+        return self._iter_slct(Expr.max)
 
     def std(self, ddof: int = 1) -> Self:
         """Aggregate the standard deviation of each column.
@@ -627,7 +623,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             Self: A new LazyFrame with the standard deviation of each column.
         """
         fn = partial(Expr.std, ddof=ddof)
-        return self._iter_agg(fn)
+        return self._iter_slct(fn)
 
     def var(self, ddof: int = 1) -> Self:
         """Aggregate the variance of each column.
@@ -639,11 +635,11 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             Self: A new LazyFrame with the variance of each column.
         """
         fn = partial(Expr.var, ddof=ddof)
-        return self._iter_agg(fn)
+        return self._iter_slct(fn)
 
     def null_count(self) -> Self:
         """Return the null count of each column."""
-        return self._iter_agg(lambda c: c.is_null().count_if())
+        return self._iter_slct(Expr.null_count)
 
     def quantile(self, quantile: float) -> Self:
         """Compute quantile for each column.
@@ -654,7 +650,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the computed quantile for each column.
         """
-        return self._iter_agg(lambda c: c.quantile_cont(quantile))
+        return self._iter_slct(lambda c: c.quantile_cont(quantile))
 
     def fill_nan(self, value: float | Expr | None) -> Self:
         """Fill NaN values.
@@ -665,9 +661,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with NaNs filled.
         """
-        return self._iter_slct(
-            lambda c: sql.when(sql.col(c).is_nan()).then(value).otherwise(c).alias(c)
-        )
+        return self._iter_slct(lambda c: c.fill_nan(value))
 
     def fill_null(
         self,
@@ -685,9 +679,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with nulls filled.
         """
-        return self._iter_slct(
-            lambda c: sql.col(c).fill_null(value, strategy, limit).alias(c)
-        )
+        return self._iter_slct(lambda c: c.fill_null(value, strategy, limit))
 
     def shift(self, n: int = 1, *, fill_value: IntoExpr = None) -> Self:
         """Shift values by n positions.
@@ -699,9 +691,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with shifted values.
         """
-        return self._iter_slct(
-            lambda c: sql.col(c).shift(n).coalesce(fill_value).alias(c)
-        )
+        return self._iter_slct(lambda c: c.shift(n).coalesce(fill_value))
 
     def clone(self) -> Self:
         """Create a copy of the LazyFrame.
@@ -1260,13 +1250,13 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                 return self._iter_slct(
                     lambda c: (
                         dtype_map
-                        .get_item(c)
-                        .map(lambda dtype: sql.col(c).cast(dtype.raw).alias(c))
-                        .unwrap_or_else(lambda: sql.col(c))
+                        .get_item(c.inner.output_name)
+                        .map(lambda dtype: c.cast(dtype.raw))
+                        .unwrap_or(c)
                     )
                 )
             case _:
-                return self._iter_slct(lambda c: sql.col(c).cast(dtypes.raw).alias(c))
+                return self._iter_slct(lambda c: c.cast(dtypes.raw))
 
     def sink_parquet(
         self, path: str | Path, *, compression: ParquetCompression = "zstd"
