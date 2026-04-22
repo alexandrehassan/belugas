@@ -23,7 +23,7 @@ from ._code_gen import (
     StringFns,
     StructFns,
 )
-from ._core import DuckHandler, NameSpaceHandler, func
+from ._core import DuckHandler, NameSpaceHandler, func, into_expr
 from ._expr import Expr
 from ._funcs import element, lit
 from ._meta import ExprPlan
@@ -798,7 +798,7 @@ class ExprListNameSpace(ListFns[Expr]):
         Returns:
             Expr: A new expression that evaluates to the number of matches in each array.
         """
-        return self.filter(element().eq(Expr.new(elem))).list.length()
+        return self.filter(element().eq(into_expr(elem, as_col=False))).list.length()
 
     def drop_nulls(self) -> Expr:
         """Drop null values in each list.
@@ -962,7 +962,7 @@ class ExprArrayNameSpace(ArrayFns[Expr]):
         Returns:
             Expr: A new expression that evaluates to the number of matches in each array.
         """
-        return self.filter(element().eq(Expr.new(elem))).arr.length()
+        return self.filter(element().eq(into_expr(elem, as_col=False))).arr.length()
 
     def drop_nulls(self) -> Expr:
         """Drop null values in each array.

@@ -15,6 +15,7 @@ from sqlglot import exp
 from . import sql
 from ._joins import JoinBuilder, JoinKeys
 from .sql import Expr, ScanSource
+from .sql._core import into_expr
 from .sql._meta import ExprPlan, Marker
 from .sql.datatypes import DataType
 from .sql.utils import TryIter, TrySeq, check_by_arg, try_iter, try_seq
@@ -179,7 +180,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         """
 
         def _constraint(k: str, val: IntoExpr) -> Expr:
-            return sql.col(k).eq(Expr.new(val))
+            return sql.col(k).eq(into_expr(val, as_col=False))
 
         condition = (
             try_iter(predicates)

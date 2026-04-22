@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Self, final, overload, override
 import pyochain as pc
 
 from . import _funcs as fn  # pyright: ignore[reportPrivateUsage]
+from ._core import into_expr
 from ._expr import Expr
 from ._meta import MultiMeta
 from .utils import TryIter, try_iter
@@ -63,7 +64,7 @@ class Resolver:
         return exclude.map(
             lambda exc: (
                 try_iter(exc)
-                .map(lambda value: Expr.new(value, as_col=True).inner.name)
+                .map(lambda value: into_expr(value, as_col=True).name)
                 .collect(pc.Set)
                 .into(cls.exclude)
             )

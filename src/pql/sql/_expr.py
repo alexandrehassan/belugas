@@ -10,8 +10,7 @@ import pyochain as pc
 from sqlglot import exp
 
 from ._code_gen import Fns
-from ._conversions import into_expr, into_expr_list
-from ._core import func
+from ._core import func, into_expr, into_expr_list
 from ._meta import ExprMeta, Marker
 from ._window import (
     BoundsValues,
@@ -1309,7 +1308,7 @@ class Expr(Fns):
         Returns:
             Self
         """
-        return self._cls(func("MAX_BY", self.inner, self.new(by, as_col=True), col2))
+        return self._cls(func("MAX_BY", self.inner, into_expr(by, as_col=True), col2))
 
     def min_by(self, by: IntoExpr, col2: IntoExprColumn | int | None = None) -> Self:
         """Finds the row with the minimum val.
@@ -1333,4 +1332,4 @@ class Expr(Fns):
         Returns:
             Self
         """
-        return self._cls(func("MIN_BY", self.inner, self.new(by, as_col=True), col2))
+        return self._cls(func("MIN_BY", self.inner, into_expr(by, as_col=True), col2))

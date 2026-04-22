@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, NamedTuple, Self, TypedDict, Unpack
 import pyochain as pc
 from sqlglot import exp
 
-from ._conversions import into_expr
+from ._core import into_expr
 from .utils import TryIter, UpperStrEnum, try_iter
 
 if TYPE_CHECKING:

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from sqlglot import exp
 
-from ._conversions import into_expr
+from ._core import into_expr
 from ._expr import Expr
 from ._funcs import reduce
 from .utils import try_iter

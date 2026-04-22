@@ -4,7 +4,7 @@ from typing import final
 import pyochain as pc
 from sqlglot import exp
 
-from ._conversions import into_expr, into_expr_list
+from ._core import into_expr, into_expr_list
 from ._expr import Expr
 from .typing import IntoExpr, IntoExprColumn, PythonLiteral
 from .utils import TryIter, try_iter
