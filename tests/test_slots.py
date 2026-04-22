@@ -3,7 +3,6 @@ import pytest
 
 import pql
 
-
 _OBJS = [
     pql.col(""),
     pql.sql.col(""),

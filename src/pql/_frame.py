@@ -322,7 +322,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             Self: A new LazyFrame with the sliced rows.
         """
 
-        def _filter_lf(
+        def _qry(
             lf_length: pc.Option[int], offset: int
         ) -> pc.Result[exp.Select, ValueError]:
             match (lf_length, offset):
@@ -330,42 +330,59 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                     msg = f"negative slice lengths ({length}) are invalid for LazyFrame"
                     return pc.Err(ValueError(msg))
                 case (len_val, offset) if offset >= 0:
-                    lf = (
+                    return pc.Ok(
                         _slct_all()
                         .from_("src")
                         .limit(len_val.unwrap_or(MAX_I64))
                         .offset(offset)
                     )
-                    return pc.Ok(lf)
                 case (pc.Some(0), _):
                     return pc.Ok(_slct_all().from_("src").limit(0))
-                case (_, offset):
-                    count_expr = Expr(
-                        exp.select(sql.lit(1).count().inner).from_("src").subquery()
-                    )
-                    start_expr = count_expr.add(offset).greatest(0)
-                    qry = _slct_all().from_("src").offset(start_expr.inner)
-
-                    match lf_length:
-                        case pc.Some(length):
-                            return pc.Ok(
-                                qry.limit(
-                                    count_expr
-                                    .add(offset)
-                                    .add(length)
-                                    .least(count_expr)
-                                    .sub(start_expr)
-                                    .greatest(0)
-                                    .inner
-                                )
+                case (pc.Some(length), offset):
+                    slice_len_expr = sql.col("slice_len")
+                    stats = exp.select(
+                        sql.lit(1).count().alias("slice_len").inner
+                    ).from_("src")
+                    start_expr = slice_len_expr.add(offset).greatest(0).inner
+                    return pc.Ok(
+                        _slct_all()
+                        .from_("src")
+                        .with_("stats", as_=stats)
+                        .limit(
+                            exp
+                            .select(
+                                slice_len_expr
+                                .add(offset)
+                                .add(length)
+                                .least(slice_len_expr)
+                                .sub(start_expr)
+                                .greatest(0)
+                                .inner
                             )
-                        case _:
-                            return pc.Ok(qry)
+                            .from_("stats")
+                            .subquery()
+                        )
+                        .offset(exp.select(start_expr).from_("stats").subquery())
+                    )
+                case (_, offset):
+                    return pc.Ok(
+                        _slct_all()
+                        .from_("src")
+                        .offset(
+                            Expr(
+                                exp
+                                .select(sql.lit(1).count().inner)
+                                .from_("src")
+                                .subquery()
+                            )
+                            .add(offset)
+                            .greatest(0)
+                            .inner
+                        )
+                    )
 
         return (
-            _filter_lf(pc.Option(length), offset)
-            .map(self._execute, src=self.inner)
-            .unwrap()
+            _qry(pc.Option(length), offset).map(self._execute, src=self.inner).unwrap()
         )
 
     def tail(self, n: int = 5) -> Self:
