@@ -6,23 +6,24 @@ Run with: `uv run -m scripts`
 from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, final
 
 import typer
 from rich.console import Console
 from rich.text import Text
 
-SELF_PATH = Path(__file__).relative_to(Path().cwd())
-PQL = Path("src", "pql")
-CODE_GEN = PQL.joinpath("sql", "_code_gen")
 
-FNS_OUTPUT = CODE_GEN.joinpath("_fns.py")
-REL_OUTPUT = CODE_GEN.joinpath("_core.py")
-META_OUTPUT = CODE_GEN.joinpath("meta.py")
+@final
+class _Paths:
+    SELF = Path(__file__).relative_to(Path().cwd())
+    PQL = Path("src", "pql")
+    FNS = PQL.joinpath("_code_gen", "_fns.py")
+    META = PQL.joinpath("meta.py")
+    TYPING = PQL.joinpath("typing.py")
 
-DATA_PATH = Path("scripts", "data", "functions.parquet")
-STUB_PATH = Path(".venv", "Lib", "site-packages", "_duckdb-stubs", "__init__.pyi")
-TYPING_PATH = PQL.joinpath("_typing.py")
+    DATA = Path("scripts", "data", "functions.parquet")
+    STUB = Path(".venv", "Lib", "site-packages", "_duckdb-stubs", "__init__.pyi")
+
 
 InputPath = Annotated[Path, typer.Option("--input-path", "-ip")]
 OutputPath = Annotated[Path, typer.Option("--output-path", "-op")]
@@ -36,8 +37,8 @@ console = Console()
 
 @app.command()
 def gen_fns(
-    data_path: InputPath = DATA_PATH,
-    output: OutputPath = FNS_OUTPUT,
+    data_path: InputPath = _Paths.DATA,
+    output: OutputPath = _Paths.FNS,
     *,
     check_only: CheckArg = False,
     profile: Annotated[
@@ -48,7 +49,7 @@ def gen_fns(
     from .fn_generator import run_pipeline
 
     console.print("Fetching functions from DuckDB...")
-    content = run_pipeline(SELF_PATH, data_path, profile=profile)
+    content = run_pipeline(_Paths.SELF, data_path, profile=profile)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     res = output.write_text(content, encoding="utf-8")
@@ -58,11 +59,11 @@ def gen_fns(
 
 
 @app.command()
-def gen_themes(path: InputPath = TYPING_PATH) -> None:
+def gen_themes(path: InputPath = _Paths.TYPING) -> None:
     """Generate a `Literal` of all available styles for pretty-printing of the `LazyFrame.sql_query` method."""
     from ._theme_generator import generate_themes
 
-    res = generate_themes(SELF_PATH, path)
+    res = generate_themes(_Paths.SELF, path)
     _run_ruff(check_only=False, dest=path)
     console.print(
         Text("Generated themes Literal in ").append(path.as_posix(), style="cyan")
@@ -71,7 +72,7 @@ def gen_themes(path: InputPath = TYPING_PATH) -> None:
 
 
 @app.command()
-def fns_to_parquet(path: InputPath = DATA_PATH) -> None:
+def fns_to_parquet(path: InputPath = _Paths.DATA) -> None:
     """Fetch function metadata from DuckDB and store as parquet at `scripts/generator/functions.parquet`."""
     from .fn_generator import get_data
 
@@ -82,8 +83,8 @@ def fns_to_parquet(path: InputPath = DATA_PATH) -> None:
 
 @app.command()
 def gen_meta(
-    data_path: InputPath = DATA_PATH,
-    output: OutputPath = META_OUTPUT,
+    data_path: InputPath = _Paths.DATA,
+    output: OutputPath = _Paths.META,
     *,
     check_only: CheckArg = False,
 ) -> None:
@@ -91,7 +92,7 @@ def gen_meta(
     from .meta_generator import run_pipeline
 
     console.print("Generating meta table functions...")
-    content = run_pipeline(SELF_PATH, data_path)
+    content = run_pipeline(_Paths.SELF, data_path)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     res = output.write_text(content, encoding="utf-8")
@@ -113,7 +114,7 @@ def compare() -> int:
 
 
 @app.command()
-def analyze_funcs(path: InputPath = DATA_PATH) -> None:
+def analyze_funcs(path: InputPath = _Paths.DATA) -> None:
     """Run analysis of the functions metadata and print results in console."""
     from ._func_table_analysis import analyze
 

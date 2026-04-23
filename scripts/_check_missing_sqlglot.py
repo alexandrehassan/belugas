@@ -31,7 +31,7 @@ def _run_qry() -> str:
 
     original = Dict(DuckDBParser.FUNCTIONS)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportUnknownVariableType]
     import pql
-    from pql.sql._sqlglot_patch import DUCKDB_FUNCTIONS  # noqa: PLC2701
+    from pql._sqlglot_patch import DUCKDB_FUNCTIONS  # noqa: PLC2701
 
     from .fn_generator._query import (
         DuckCols,  # pyright: ignore[reportPrivateLocalImportUsage]
