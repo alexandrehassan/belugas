@@ -6,17 +6,17 @@ from typing import TYPE_CHECKING, NamedTuple
 
 import pyochain as pc
 
-from . import sql
+from ._funcs import col
 
 if TYPE_CHECKING:
     from pyochain.traits import PyoCollection
 
-    from ._typing import JoinKeysRes, JoinStrategy
-    from .sql import Expr
+    from ._expr import Expr
+    from .typing import JoinKeysRes, JoinStrategy
 type OptSeq = pc.Option[pc.Seq[str]]
 
-_RHS = partial(sql.col, table="rhs")
-_LHS = partial(sql.col, table="lhs")
+_RHS = partial(col, table="rhs")
+_LHS = partial(col, table="lhs")
 
 
 @dataclass(slots=True)

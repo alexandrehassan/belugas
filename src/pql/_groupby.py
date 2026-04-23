@@ -6,15 +6,14 @@ from typing import TYPE_CHECKING, final
 import pyochain as pc
 from sqlglot import exp
 
-from .sql._expr import Expr
-from .sql._funcs import col, len
-from .sql._meta import ExprPlan
+from ._expr import Expr
+from ._funcs import col, len
+from ._meta import ExprPlan
 
 if TYPE_CHECKING:
     from ._frame import LazyFrame
-    from ._typing import GroupByClause
-    from .sql.typing import IntoExpr
-    from .sql.utils import TryIter
+    from .typing import GroupByClause, IntoExpr
+    from .utils import TryIter
 
 
 def _root_column_name(expr: Expr) -> pc.Option[str]:

@@ -5,7 +5,7 @@ import pyochain as pc
 import pytest
 
 import pql
-import pql._typing as t  # noqa: PLC2701
+import pql.typing as t
 
 from ._utils import assert_lf_eq
 

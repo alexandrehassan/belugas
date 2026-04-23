@@ -6,6 +6,7 @@ import pytest
 from pyochain import Iter, Seq
 
 import pql
+import pql.typing as t
 
 from ._utils import assert_eq
 
@@ -245,8 +246,8 @@ def test_col_getattr() -> None:
     assert_eq(pql.col.a, pl.col.a)
 
 
-@pytest.mark.parametrize("mode", pql.sql.typing.RoundMode.__args__)
-def test_round(mode: pql.sql.typing.RoundMode) -> None:
+@pytest.mark.parametrize("mode", t.RoundMode.__args__)
+def test_round(mode: t.RoundMode) -> None:
     assert_eq(pql_float_vals.round(2, mode=mode), pl_float_vals.round(2, mode=mode))
 
 
@@ -337,8 +338,8 @@ def test_pct_change(n: int) -> None:
     assert_eq(pql_x.pct_change(n), pl_x.pct_change(n))
 
 
-@pytest.mark.parametrize("closed", pql.sql.typing.ClosedInterval.__args__)
-def test_is_between(closed: pql.sql.typing.ClosedInterval) -> None:
+@pytest.mark.parametrize("closed", t.ClosedInterval.__args__)
+def test_is_between(closed: t.ClosedInterval) -> None:
     assert_eq(
         pql_x.is_between(2, 10, closed=closed),
         pl_x.is_between(2, 10, closed=closed),
@@ -501,15 +502,15 @@ def test_over_with_nulls_last(*, nulls_last: bool) -> None:
     )
 
 
-@pytest.mark.parametrize("strategy", pql.sql.typing.FillNullStrategy.__args__)
-def test_fill_null(strategy: pql.sql.typing.FillNullStrategy) -> None:
+@pytest.mark.parametrize("strategy", t.FillNullStrategy.__args__)
+def test_fill_null(strategy: t.FillNullStrategy) -> None:
     assert_eq(pql_age.fill_null(0), pl_age.fill_null(0))
     assert_eq(pql_age.fill_null(strategy=strategy), pl_age.fill_null(strategy=strategy))
 
 
 @pytest.mark.parametrize("limit", [0, 1])
 @pytest.mark.parametrize("strategy", ["forward", "backward"])
-def test_fill_null_limit(strategy: pql.sql.typing.FillNullStrategy, limit: int) -> None:
+def test_fill_null_limit(strategy: t.FillNullStrategy, limit: int) -> None:
     assert_eq(
         pql_age.fill_null(strategy=strategy, limit=limit),
         pl_age.fill_null(strategy=strategy, limit=limit),
@@ -568,8 +569,8 @@ def test_any() -> None:
 
 
 @desc_param
-@pytest.mark.parametrize("method", pql.sql.typing.RankMethod.__args__)
-def test_rank(method: pql.sql.typing.RankMethod, descending: bool) -> None:
+@pytest.mark.parametrize("method", t.RankMethod.__args__)
+def test_rank(method: t.RankMethod, descending: bool) -> None:
     assert_eq(
         pql_x.rank(method, descending=descending),
         pl_x.rank(method, descending=descending),

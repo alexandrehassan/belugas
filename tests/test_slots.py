@@ -5,16 +5,12 @@ import pql
 
 _OBJS = [
     pql.col(""),
-    pql.sql.col(""),
     pql.LazyFrame({"a": [1]}),
     pql.when(1),
     pql.when(1).then(2),
     pql.when(1).then(2).when(3).then(4),
-    pql.sql.when(1),
-    pql.sql.when(1).then(2),
-    pql.sql.when(1).then(2).when(3).then(4),
     pql.selectors.all(),
-    *pql.sql.datatypes.NON_NESTED_MAP.values(),
+    *pql.datatypes.NON_NESTED_MAP.values(),
 ]
 
 

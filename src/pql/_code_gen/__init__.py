@@ -1,4 +1,3 @@
-from . import meta as meta
 from ._fns import (
     ArrayFns,
     DateTimeFns,
@@ -25,5 +24,4 @@ __all__ = [
     "RegexFns",
     "StringFns",
     "StructFns",
-    "meta",
 ]

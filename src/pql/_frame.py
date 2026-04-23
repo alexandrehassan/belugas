@@ -12,14 +12,14 @@ from typing import TYPE_CHECKING, Any, Literal, Self, SupportsInt, overload
 import pyochain as pc
 from sqlglot import exp
 
-from . import sql
+from ._core import CoreHandler, into_expr
+from ._expr import Expr
+from ._funcs import all, col, lit, row_number, unnest
 from ._joins import JoinBuilder, JoinKeys
+from ._meta import ExprPlan, Marker
 from ._scans import ScanSource
-from .sql import Expr
-from .sql._core import into_expr
-from .sql._meta import ExprPlan, Marker
-from .sql.datatypes import DataType
-from .sql.utils import TryIter, TrySeq, check_by_arg, try_iter, try_seq
+from .datatypes import DataType
+from .utils import TryIter, TrySeq, check_by_arg, try_iter, try_seq
 
 if TYPE_CHECKING:
     import polars as pl
@@ -32,21 +32,19 @@ if TYPE_CHECKING:
 
     from ._groupby import LazyGroupBy
     from ._parser import ParsedQuery
-    from ._typing import (
+    from .typing import (
         AsofJoinStrategy,
-        GroupByClause,
-        JoinStrategy,
-        PivotAgg,
-        UniqueKeepStrategy,
-    )
-    from .sql.typing import (
         FillNullStrategy,
+        GroupByClause,
         IntoExpr,
         IntoExprColumn,
         IntoRel,
+        JoinStrategy,
         Orientation,
         ParquetCompression,
+        PivotAgg,
         PythonLiteral,
+        UniqueKeepStrategy,
     )
 
 MAX_I64 = 9_223_372_036_854_775_807
@@ -66,7 +64,7 @@ type Schema = pc.Dict[str, DataType]
 
 
 @dataclass(slots=True, init=False, repr=False)
-class LazyFrame(sql.CoreHandler[ScanSource]):
+class LazyFrame(CoreHandler[ScanSource]):
     """LazyFrame providing Polars-like API over DuckDB relations."""
 
     _inner: ScanSource
@@ -93,7 +91,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         return (
             self.columns
             .iter()
-            .map(lambda c: sql.col(c).pipe(func).alias(c).inner)
+            .map(lambda c: col(c).pipe(func).alias(c).inner)
             .into(self.select)
         )
 
@@ -187,7 +185,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         """
 
         def _constraint(k: str, val: IntoExpr) -> Expr:
-            return sql.col(k).eq(into_expr(val, as_col=False))
+            return col(k).eq(into_expr(val, as_col=False))
 
         condition = (
             try_iter(predicates)
@@ -346,10 +344,10 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                 case (pc.Some(0), _):
                     return pc.Ok(_slct_all().from_("src").limit(0))
                 case (pc.Some(length), offset):
-                    slice_len_expr = sql.col("slice_len")
-                    stats = exp.select(
-                        sql.lit(1).count().alias("slice_len").inner
-                    ).from_("src")
+                    slice_len_expr = col("slice_len")
+                    stats = exp.select(lit(1).count().alias("slice_len").inner).from_(
+                        "src"
+                    )
                     start_expr = slice_len_expr.add(offset).greatest(0).inner
                     return pc.Ok(
                         _slct_all()
@@ -377,10 +375,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                         .from_("src")
                         .offset(
                             Expr(
-                                exp
-                                .select(sql.lit(1).count().inner)
-                                .from_("src")
-                                .subquery()
+                                exp.select(lit(1).count().inner).from_("src").subquery()
                             )
                             .add(offset)
                             .greatest(0)
@@ -425,7 +420,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         Returns:
             Self: A new LazyFrame with the specified columns dropped.
         """
-        star_exclude = try_iter(columns).chain(more_columns).into(sql.all).inner
+        star_exclude = try_iter(columns).chain(more_columns).into(all).inner
         return exp.select(star_exclude).from_("src").pipe(self._execute, src=self.inner)
 
     def drop_nulls(self, subset: TryIter[str] = None) -> Self:
@@ -442,7 +437,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             .Option(subset)
             .map(try_iter)
             .unwrap_or_else(self.columns.iter)
-            .map(lambda name: sql.col(name).is_not_null())
+            .map(lambda name: col(name).is_not_null())
             .into(self.filter)
         )
 
@@ -465,15 +460,11 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             .map(lambda r: r.name)
             .collect()
         )
-        to_explode = to_explode_names.iter().map(sql.col).collect()
+        to_explode = to_explode_names.iter().map(col).collect()
         target = (
             to_explode.first()
             if to_explode.length() == 1
-            else (
-                to_explode.first().list.zip(
-                    *to_explode.iter().skip(1), sql.lit(1).eq(1)
-                )
-            )
+            else (to_explode.first().list.zip(*to_explode.iter().skip(1), lit(1).eq(1)))
         )
 
         zipped_index = (
@@ -485,8 +476,8 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         )
         is_single_explode = to_explode.length() == 1
 
-        def _project_col(name: str, *, unnest: bool, replace: Expr) -> Expr:
-            match (unnest, name in to_explode_names):
+        def _project_col(name: str, *, nested: bool, replace: Expr) -> Expr:
+            match (nested, name in to_explode_names):
                 case (True, True):
                     match is_single_explode:
                         case True:
@@ -495,14 +486,14 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                             field = zipped_index.get_item(name).unwrap()
                             return replace.struct.extract(field).alias(name)
                 case (False, True):
-                    return sql.lit(None).alias(name)
+                    return lit(None).alias(name)
                 case _:
-                    return sql.col(name)
+                    return col(name)
 
-        def _proj(*, unnest: bool) -> pc.Iter[Expr]:
-            replace = sql.unnest(target) if unnest else sql.lit(None)
+        def _proj(*, nested: bool) -> pc.Iter[Expr]:
+            replace = unnest(target) if nested else lit(None)
             return self.columns.iter().map(
-                lambda name: _project_col(name, unnest=unnest, replace=replace)
+                lambda name: _project_col(name, nested=nested, replace=replace)
             )
 
         cond = target.is_not_null().and_(target.list.length().gt(0))
@@ -510,8 +501,8 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         return (
             self
             .filter(cond)
-            .select(_proj(unnest=True))
-            .union(self.filter(cond.not_()).select(_proj(unnest=False)))
+            .select(_proj(nested=True))
+            .union(self.filter(cond.not_()).select(_proj(nested=False)))
         )
 
     def union(self, other: Self) -> Self:
@@ -532,7 +523,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         return (
             self.columns
             .iter()
-            .map(lambda c: sql.col(c).alias(mapping.get(c, c)))
+            .map(lambda c: col(c).alias(mapping.get(c, c)))
             .into(self.select)
         )
 
@@ -562,8 +553,8 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                 lambda unnest_cols: (
                     unnest_cols
                     .iter()
-                    .map(sql.unnest)
-                    .insert(sql.all(exclude=unnest_cols))
+                    .map(unnest)
+                    .insert(all(exclude=unnest_cols))
                     .map(lambda expr: expr.inner)
                 )
             )
@@ -960,7 +951,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                         _slct_all()
                         .from_("src")
                         .group_by("ALL")
-                        .having(sql.lit(1).count().eq(1).inner)
+                        .having(lit(1).count().eq(1).inner)
                     )
                 case ("any", _, pc.NONE):
                     return pc.Ok(_slct_all().from_("src").distinct())
@@ -973,7 +964,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                         .select(*subset_exprs)
                         .from_("src")
                         .group_by(*subset_exprs)
-                        .having(sql.lit(1).count().eq(1).inner)
+                        .having(lit(1).count().eq(1).inner)
                         .subquery("rhs")
                     )
                     condition = (
@@ -981,8 +972,8 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                         .iter()
                         .map(
                             lambda name: exp.NullSafeEQ(
-                                this=sql.col(name, table="lhs").inner,
-                                expression=sql.col(name, table="rhs").inner,
+                                this=col(name, table="lhs").inner,
+                                expression=col(name, table="rhs").inner,
                             )
                         )
                         .map(Expr)
@@ -1026,10 +1017,10 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             order_exprs = (
                 subset_names
                 .iter()
-                .map(sql.col)
+                .map(col)
                 .chain(
                     order_names.iter().map(
-                        lambda name: sql.col(name).set_order(
+                        lambda name: col(name).set_order(
                             desc=descending, nulls_last=nulls_last
                         )
                     )
@@ -1096,9 +1087,9 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
         multi = val_cols.length() > 1
         agg = PIVOT_AGG[aggregate_function]
 
-        def _aliased(col: str) -> Expr:
-            expr = sql.col(col).pipe(agg)
-            return expr.alias(col) if multi else expr
+        def _aliased(name: str) -> Expr:
+            expr = col(name).pipe(agg)
+            return expr.alias(name) if multi else expr
 
         def _pivoted() -> Self:
 
@@ -1147,14 +1138,14 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
                         def _swap(on_val: str) -> Expr:
                             in_ = f"{on_val}_{val_col}"
                             out = f"{val_col}{separator}{on_val}"
-                            return sql.col(in_).alias(out)
+                            return col(in_).alias(out)
 
                         return on_values.iter().map(_swap)
 
                     return (
                         idx_cols
                         .iter()
-                        .map(sql.col)
+                        .map(col)
                         .chain(val_cols.iter().flat_map(_rename_col))
                         .into(lf.select)
                     )
@@ -1227,8 +1218,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             Self: A new LazyFrame with the row index added.
         """
         return (
-            sql
-            .row_number()
+            row_number()
             .window(order_by=order_by)
             .sub(1)
             .alias(name)
@@ -1323,7 +1313,7 @@ class LazyFrame(sql.CoreHandler[ScanSource]):
             .Option(subset)
             .map(try_iter)
             .unwrap_or_else(self.columns.iter)
-            .map(lambda name: sql.col(name).is_nan().not_())
+            .map(lambda name: col(name).is_nan().not_())
             .into(self.filter)
         )
 

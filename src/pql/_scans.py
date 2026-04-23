@@ -8,15 +8,15 @@ from typing import TYPE_CHECKING, Any, Self, cast
 import duckdb
 from pyochain import Dict, Iter, Seq, Vec
 
-from . import sql
-from .sql.typing import FrameLike, LitSeq, NestedSeq, NPArrayLike
+from ._funcs import unnest
+from .typing import FrameLike, LitSeq, NestedSeq, NPArrayLike
 
 if TYPE_CHECKING:
     from narwhals.typing import IntoFrame
     from sqlglot import exp
 
     from ._frame import LazyFrame
-    from .sql.typing import (
+    from .typing import (
         AnyArray,
         IntoDict,
         IntoRel,
@@ -80,7 +80,7 @@ def _to_expr(k: str, v: PythonLiteral) -> duckdb.Expression:
 
 
 def _unnest(k: str) -> duckdb.Expression:
-    return duckdb.SQLExpression(sql.unnest(k).alias(k).inner.sql(dialect="duckdb"))
+    return duckdb.SQLExpression(unnest(k).alias(k).inner.sql(dialect="duckdb"))
 
 
 class PQLConversionError(ValueError):
@@ -273,7 +273,7 @@ class ScanSource:
 
     @classmethod
     def from_none(cls) -> Self:
-        from .sql._meta import Marker
+        from ._meta import Marker
 
         return cls.from_dict({Marker.TEMP: ()})
 

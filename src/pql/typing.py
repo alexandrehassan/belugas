@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal, Protocol, Self, runtime_checkable
 
+from pyochain import Result, Seq
 from sqlglot import exp
 
 if TYPE_CHECKING:
@@ -21,9 +22,10 @@ if TYPE_CHECKING:
     )
     from narwhals.typing import IntoFrame
 
-    from .._scans import ScanSource
     from ._core import DuckHandler
     from ._expr import Expr
+    from ._joins import JoinKeys
+    from ._scans import ScanSource
     from .datatypes import DataType
 
 
@@ -150,3 +152,70 @@ RankMethod = Literal["average", "min", "max", "dense", "ordinal"]
 type IntoDataType = exp.DataType | DataType
 """Types that can be converted into a `DataType` instance."""
 type TransferEncoding = Literal["hex", "base64"]
+JoinStrategy = Literal["inner", "left", "right", "outer", "semi", "anti"]
+AsofJoinStrategy = Literal["backward", "forward"]
+UniqueKeepStrategy = Literal["any", "none", "first", "last"]
+PivotAgg = Literal[
+    "min", "max", "first", "last", "sum", "mean", "median", "len", "count"
+]
+type JoinKeysRes[T: Seq[str] | str] = Result[JoinKeys[T], ValueError]
+type GroupByClause = Literal["ROLLUP", "CUBE"]
+
+# theme marker START
+Themes = Literal[
+    "abap",
+    "algol",
+    "algol_nu",
+    "arduino",
+    "autumn",
+    "bw",
+    "borland",
+    "coffee",
+    "colorful",
+    "default",
+    "dracula",
+    "emacs",
+    "friendly_grayscale",
+    "friendly",
+    "fruity",
+    "github-dark",
+    "gruvbox-dark",
+    "gruvbox-light",
+    "igor",
+    "inkpot",
+    "lightbulb",
+    "lilypond",
+    "lovelace",
+    "manni",
+    "material",
+    "monokai",
+    "murphy",
+    "native",
+    "nord-darker",
+    "nord",
+    "one-dark",
+    "paraiso-dark",
+    "paraiso-light",
+    "pastie",
+    "perldoc",
+    "rainbow_dash",
+    "rrt",
+    "sas",
+    "solarized-dark",
+    "solarized-light",
+    "staroffice",
+    "stata-dark",
+    "stata-light",
+    "tango",
+    "trac",
+    "vim",
+    "vs",
+    "xcode",
+    "zenburn",
+]
+"""Themes available for SQL syntax highlighting in the `sql_query` method.
+
+Dynamically generated from the available styles in the `pygments` library by `scripts/__main__.py`.
+
+Do NOT edit manually."""
+# theme marker END

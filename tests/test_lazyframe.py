@@ -6,8 +6,8 @@ import pytest
 from sqlglot import exp
 
 import pql
-import pql._typing as t  # noqa: PLC2701
-import pql.sql._meta as m  # noqa: PLC2701
+import pql._meta as m  # noqa: PLC2701
+import pql.typing as t
 
 from ._utils import assert_lf_eq
 
@@ -328,8 +328,8 @@ def test_fill_null_with_value(lf: pql.LazyFrame) -> None:
     )
 
 
-@pytest.mark.parametrize("strategy", pql.sql.typing.FillNullStrategy.__args__)
-def test_fill_null_with_strategy(strategy: pql.sql.typing.FillNullStrategy) -> None:
+@pytest.mark.parametrize("strategy", t.FillNullStrategy.__args__)
+def test_fill_null_with_strategy(strategy: t.FillNullStrategy) -> None:
     df = pql.LazyFrame({"a": [1.0, None, None, 4.0, None]})
     assert_lf_eq(
         df.lazy().fill_null(strategy=strategy), df.fill_null(strategy=strategy)
@@ -337,9 +337,7 @@ def test_fill_null_with_strategy(strategy: pql.sql.typing.FillNullStrategy) -> N
 
 
 @pytest.mark.parametrize("strategy", ["forward", "backward"])
-def test_fill_null_with_strategy_limit(
-    strategy: pql.sql.typing.FillNullStrategy,
-) -> None:
+def test_fill_null_with_strategy_limit(strategy: t.FillNullStrategy) -> None:
     df = pql.LazyFrame({"a": [1, None, None, 4, None]})
     assert_lf_eq(
         df.lazy().fill_null(strategy=strategy, limit=1),
@@ -355,7 +353,7 @@ def test_fill_null_with_value_limit_error() -> None:
 
 @pytest.mark.parametrize("strategy", ["min", "max", "mean", "zero", "one"])
 def test_fill_null_with_non_directional_strategy_limit_error(
-    strategy: pql.sql.typing.FillNullStrategy,
+    strategy: t.FillNullStrategy,
 ) -> None:
     df = pql.LazyFrame({"a": [1.0, None, None, 4.0]})
     with pytest.raises(ValueError, match="can only specify `limit`"):

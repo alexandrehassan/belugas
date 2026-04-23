@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     )
 
     from ._frame import LazyFrame
-    from ._typing import Themes
+    from .typing import Themes
 
 CONSOLE = Console()
 DUCK_PYGMENT_MAP = pc.Dict.from_ref({
@@ -73,7 +73,8 @@ class DuckDbSqlLexer(SqlLexer):
 def _get_kwords() -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
     from sqlparse.tokens import Keyword
 
-    from .sql import col, lit, when
+    from ._funcs import col, lit
+    from ._when import when
 
     name = col("keyword_name")
 

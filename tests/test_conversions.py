@@ -10,6 +10,7 @@ import sqlglot
 from polars.testing import assert_frame_equal
 
 import pql
+import pql.typing as t
 
 assert_eq = partial(assert_frame_equal, check_dtypes=False, check_row_order=False)
 
@@ -81,7 +82,7 @@ def test_from_numpy_1d() -> None:
 
 
 @pytest.mark.parametrize("orient", ["row", "col"])
-def test_from_numpy_2d(orient: pql.sql.typing.Orientation) -> None:
+def test_from_numpy_2d(orient: t.Orientation) -> None:
 
     data = [1, 2, 3, 4]
     arr2d = np.array([data, data, data, data, data, data, data, data])
@@ -95,7 +96,7 @@ def test_from_numpy_2d(orient: pql.sql.typing.Orientation) -> None:
 
 
 @pytest.mark.parametrize("orient", ["row", "col"])
-def test_from_numpy_3d(orient: pql.sql.typing.Orientation) -> None:
+def test_from_numpy_3d(orient: t.Orientation) -> None:
 
     arr3d = np.arange(2 * 3 * 4).reshape(2, 3, 4)
     expected = arr3d if orient == "row" else arr3d.T
@@ -106,7 +107,7 @@ def test_from_numpy_3d(orient: pql.sql.typing.Orientation) -> None:
 
 
 @pytest.mark.parametrize("orient", ["row", "col"])
-def test_from_numpy_4d(orient: pql.sql.typing.Orientation) -> None:
+def test_from_numpy_4d(orient: t.Orientation) -> None:
 
     arr4d = np.arange(2 * 2 * 3 * 4).reshape(2, 2, 3, 4)
     expected = arr4d if orient == "row" else arr4d.T
@@ -150,7 +151,7 @@ def test_from_seq_of_seqs() -> None:
 
 
 @pytest.mark.parametrize("orient", ["row", "col"])
-def test_from_seq_of_seqs_orient(orient: pql.sql.typing.Orientation) -> None:
+def test_from_seq_of_seqs_orient(orient: t.Orientation) -> None:
     seqs = ((1, 2, 3), (4, 5, 6))
     assert_eq(
         pql.LazyFrame(seqs, orient=orient).collect(),

@@ -5,7 +5,7 @@ import pytest
 from pyochain import Seq
 
 import pql
-import pql.sql.typing as t
+import pql.typing as t
 
 from ._utils import assert_eq
 
