@@ -1,6 +1,6 @@
 import polars as pl
 import pytest
-from pyochain import Vec
+from pyochain import Seq
 
 import pql
 
@@ -52,5 +52,5 @@ def test_when_alias(exprs: ExprPair) -> None:
     assert pql_cols == pl_cols
 
 
-def _slct(*exprs: pql.Expr) -> Vec[str]:
+def _slct(*exprs: pql.Expr) -> Seq[str]:
     return _LF.select(*exprs).columns

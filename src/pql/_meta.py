@@ -461,6 +461,35 @@ class ExprPlan:
             .group_by("ALL")
         )
 
+    def _proj_names(self, proj: ResolvedExpr) -> pc.Iter[str]:
+        match proj.is_multi:
+            case False:
+                return pc.Iter.once(proj.name)
+            case True:
+                excluded = (
+                    pc
+                    .Iter(proj.expr.inner.args.get("except_") or ())
+                    .map(lambda c: c.name)
+                    .collect(pc.Set)
+                )
+                return self.cols.iter().filter(lambda c: c not in excluded)
+
+    def select_names(self) -> pc.Seq[str]:
+        return self.projections.iter().flat_map(self._proj_names).collect()
+
+    def with_columns_names(self) -> pc.Seq[str]:
+        appended = (
+            self.projections
+            .iter()
+            .filter(lambda p: not p.is_multi)
+            .map(lambda p: p.name)
+            .filter(lambda n: n not in self.cols)
+        )
+        return self.cols.iter().chain(appended).collect()
+
+    def dropped_names(self) -> pc.Set[str]:
+        return self.projections.iter().map(lambda r: r.name).collect(pc.Set)
+
     def aliased_sql(self, *, broadcast_agg: bool) -> pc.Iter[exp.Expr]:
         def _into_expr(resolved: ResolvedExpr) -> exp.Expr:
             return resolved.as_aliased(broadcast_agg=broadcast_agg).inner

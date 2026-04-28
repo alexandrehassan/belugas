@@ -62,8 +62,8 @@ def from_records(data: SeqIntoVals, orient: Orientation = "col") -> LazyFrame:
 COL0 = "column_0"
 
 
-def _single_col(name: str = COL0) -> Vec[str]:
-    return Vec.from_ref([name])
+def _single_col(name: str = COL0) -> Seq[str]:
+    return Seq((name,))
 
 
 def _named(j: object) -> str:
@@ -103,7 +103,7 @@ error:
 @dataclass(slots=True)
 class ScanSource:
     relation: DuckDBPyRelation
-    columns: Vec[str]
+    columns: Seq[str]
 
     @classmethod
     def from_query(cls, query: exp.Expr, **relations: IntoRel) -> Self:
@@ -165,7 +165,7 @@ class ScanSource:
         return LazyFrame(self.relation)
 
     def copy(self) -> Self:
-        return self.__class__(self.relation, self.columns.into(Vec))
+        return self.__class__(self.relation, self.columns)
 
     @classmethod
     def from_records(cls, data: SeqIntoVals, orient: Orientation = "col") -> Self:
@@ -257,7 +257,7 @@ class ScanSource:
 
                 axis, arr_getter = _array_strategy()
                 names_nb: int = arr.shape[axis]  # pyright: ignore[reportAny]
-                cols = Iter(range(names_nb)).map(_named).collect(Vec)
+                cols = Iter(range(names_nb)).map(_named).collect()
                 return cls(cols.into(_named_array), cols)
 
     @classmethod
@@ -284,4 +284,4 @@ class ScanSource:
 
         raw_vals = data.items().iter().map_star(_to_expr).collect(tuple)
         rel = duckdb.values(raw_vals).select(*data.iter().map(_unnest))
-        return cls(rel, data.keys().into(Vec))
+        return cls(rel, data.keys().into(Seq))

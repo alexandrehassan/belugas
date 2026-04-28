@@ -41,6 +41,15 @@ class JoinBuilder:
             case _:
                 return pc.Some(self.rhs(name))
 
+    def name_for_inner_left(self, name: str) -> pc.Option[str]:
+        match (name in self.left, name in self.right):
+            case (_, True):
+                return pc.NONE
+            case (True, False):
+                return pc.Some(f"{name}{self.suffix}")
+            case _:
+                return pc.Some(name)
+
     def for_outer(self, name: str) -> Expr:
         match name in self.left:
             case True:
@@ -48,12 +57,22 @@ class JoinBuilder:
             case False:
                 return self.rhs(name)
 
+    def name_for_outer(self, name: str) -> str:
+        return f"{name}{self.suffix}" if name in self.left else name
+
     def for_right(self, name: str) -> Expr:
         match (name in self.left, name in self.right):
             case (True, False):
                 return self._aliased(name)
             case _:
                 return self.rhs(name)
+
+    def name_for_right(self, name: str) -> str:
+        match (name in self.left, name in self.right):
+            case (True, False):
+                return f"{name}{self.suffix}"
+            case _:
+                return name
 
     def _aliased(self, name: str) -> Expr:
         return self.rhs(name).alias(f"{name}{self.suffix}")
