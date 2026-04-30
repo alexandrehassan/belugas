@@ -1174,33 +1174,6 @@ class LazyFrame(CoreHandler[exp.Expr]):
                 )
                 return group.unwrap() if group.is_some() else None
 
-            def _pivot_node() -> exp.Pivot:
-                exprs = (
-                    val_cols.iter().map(_aliased).map(lambda c: c.inner).collect(list)
-                )
-                columns = (
-                    _pivoted_cols()
-                    .iter()
-                    .skip(idx_cols.length())
-                    .map(_case_sensitive_id)
-                    .collect(list)
-                )
-                return exp.Pivot(
-                    expressions=exprs,
-                    fields=[_field()],
-                    group=_group(),
-                    columns=columns,
-                )
-
-            table = exp.Table(this=exp.to_identifier("src"), pivots=[_pivot_node()])
-
-            select_cols = (
-                _pivoted_cols()
-                .iter()
-                .map(lambda n: exp.column(_case_sensitive_id(n)))
-                .collect(list)
-            )
-
             def _case_sensitive_id(name: str) -> exp.Identifier:
                 """Build a quoted identifier that survives `qualify` normalization.
 
@@ -1241,6 +1214,33 @@ class LazyFrame(CoreHandler[exp.Expr]):
                 ident = exp.to_identifier(name, quoted=True)
                 ident.meta["case_sensitive"] = True
                 return ident
+
+            def _pivot_node() -> exp.Pivot:
+                exprs = (
+                    val_cols.iter().map(_aliased).map(lambda c: c.inner).collect(list)
+                )
+                columns = (
+                    _pivoted_cols()
+                    .iter()
+                    .skip(idx_cols.length())
+                    .map(_case_sensitive_id)
+                    .collect(list)
+                )
+                return exp.Pivot(
+                    expressions=exprs,
+                    fields=[_field()],
+                    group=_group(),
+                    columns=columns,
+                )
+
+            table = exp.Table(this=exp.to_identifier("src"), pivots=[_pivot_node()])
+
+            select_cols = (
+                _pivoted_cols()
+                .iter()
+                .map(lambda n: exp.column(_case_sensitive_id(n)))
+                .collect(list)
+            )
 
             return (
                 try_iter(idx_cols if maintain_order else None)
@@ -1485,7 +1485,7 @@ def _compute_schema(ast: exp.Expr, sources: Dict[str, ScanSource]) -> Schema:
                     v.schema
                     .items()
                     .iter()
-                    .map_star(lambda c, dt: (c, dt.raw.sql(dialect="duckdb")))
+                    .map_star(lambda c, dt: (c, dt.raw))
                     .collect(dict)
                 ),
                 dialect="duckdb",
