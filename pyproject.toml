@@ -80,6 +80,7 @@
             "PLR0913",
             "PLW1641",
         ]
+        "src/pql/meta.py" = ["FBT001"]
         "t.py" = ["ANN201", "D100", "D101", "D103"]
         "tests/*" = ["D100", "D101", "D102", "D103", "D104", "DTZ001", "FBT001"]
     [tool.ruff.lint.isort]
