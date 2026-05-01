@@ -23,11 +23,11 @@ Secondary objective:
 `pql` currently exposes:
 
 - `LazyFrame` in `src/pql/_frame.py`.
-- `Expr` in `src/pql/sql/_expr.py`, re-exported from `src/pql/__init__.py`.
+- `Expr` in `src/pql/_expr.py`, re-exported from `src/pql/__init__.py`.
 - Public scan constructors in `src/pql/_scans.py` and at package root (`from_df`, `from_dict`, `from_query`, `from_table`, `from_table_function`, ...).
-- Module-level expression helpers in `src/pql/sql/_funcs.py` (`col`, `lit`, `when`, `coalesce`, scalar aggs, horizontal aggs, `element`, `row_number`, ...).
-- `selectors`, `sql`, `meta`, and datatype objects re-exported from the package root.
-- `Expr` lives in `src/pql/sql/_expr.py` and the public frame type is `LazyFrame`.
+- Module-level expression helpers in `src/pql/_funcs.py` (`col`, `lit`, `when`, `coalesce`, scalar aggs, horizontal aggs, `element`, `row_number`, ...).
+- `selectors`, `meta`, and datatype objects re-exported from the package root.
+- `Expr` lives in `src/pql/_expr.py` and the public frame type is `LazyFrame`.
 - Relation handling is organized around `LazyFrame` plus `ScanSource`.
 
 ---
@@ -39,7 +39,7 @@ Secondary objective:
 - `src/pql/_frame.py`: public `LazyFrame` API.
 - `src/pql/_scans.py`: public constructors for turning Python/native data into `LazyFrame`.
 - `src/pql/__init__.py`: exported user-facing symbols.
-- `src/pql/sql/_expr.py`: public `Expr` API, re-exported at the package root.
+- `src/pql/_expr.py`: public `Expr` API, re-exported at the package root.
 
 This layer should remain Polars-like and user ergonomic.
 
@@ -49,8 +49,8 @@ This layer should remain Polars-like and user ergonomic.
 
 `LazyFrame` is the main query builder.
 
-- Inherits from `sql.CoreHandler[ScanSource]`.
-- Stores `_inner: ScanSource` and `_ast: sqlglot.exp.Select`.
+- Inherits from `CoreHandler[sqlglot.exp.Query]`.
+- Stores `_inner: sqlglot.exp.Query`, `_sources`, and `_schema`.
 - Builds query context for expressions (`select`, `with_columns`, `filter`, `group_by`, `join`, `pivot`, `sort`, ...).
 - Executes through `ScanSource.from_query(...)`.
 - Converts back to Polars through DuckDB relation interop in `lazy()` and `collect()`.
@@ -59,12 +59,12 @@ This layer should remain Polars-like and user ergonomic.
 
 ### 3) Expression layer
 
-#### `Expr` (`src/pql/sql/_expr.py`)
+#### `Expr` (`src/pql/_expr.py`)
 
 `Expr` is the public expression object.
 
-- Extends the generated `Fns` mixin from `src/pql/sql/_code_gen/_fns.py`.
-- Wraps a `sqlglot.exp.Expr` through `DuckHandler`/`CoreHandler`.
+- Extends the generated `Fns` mixin from `src/pql/_code_gen/_fns.py`.
+- Wraps a `sqlglot.exp.Expr` through `ExprHandler`/`CoreHandler`.
 - Carries `meta: ExprMeta` to preserve naming, aliasing, and context-sensitive behavior.
 - Uses `Expr.new(...)` as the normal coercion entrypoint.
 - Exposes namespaces such as `.str`, `.list`, `.struct`, `.dt`, `.arr`, `.json`, `.re`, `.map`, `.enum`, `.geo`, and `.name`.
@@ -77,7 +77,7 @@ Important sharp edge:
 
 ### 4) SQL core layer
 
-#### Core abstractions (`src/pql/sql/_core.py`)
+#### Core abstractions (`src/pql/_core.py`)
 
 The current SQL core layer is centered on `sqlglot` AST composition plus a DuckDB conversion boundary.
 
@@ -85,54 +85,50 @@ The current SQL core layer is centered on `sqlglot` AST composition plus a DuckD
   - Generic wrapper base shared by `Expr`, `LazyFrame`, and namespace handlers.
   - Provides `.pipe(...)`, `._cls(...)`, and `.inner`.
 
-- **`DuckHandler(CoreHandler[sqlglot.exp.Expr])`**
+- **`ExprHandler(CoreHandler[sqlglot.exp.Expr])`**
   - Specialization for `sqlglot` expressions.
   - Base for expression-side fluent behavior.
 
-- **`NameSpaceHandler[T: DuckHandler]`**
+- **`NameSpaceHandler[T: ExprHandler]`**
   - Wraps a parent expression and returns the parent type from namespace methods.
 
 - **`anon(name, *args)` / `anon_agg(name, *args)` / `func(name, *args)`**
   - Low-level expression builders used throughout the expression layer.
 
-#### Conversion boundary (`src/pql/sql/_conversions.py`)
+#### Conversion helpers (`src/pql/_core.py`)
 
-- **`into_glot(value, as_col=True) -> sqlglot.exp.Expr`**
+- **`into_expr(value, as_col=True) -> sqlglot.exp.Expr`**
   - Normalizes `Expr`, strings, and Python literals into `sqlglot` expressions.
 
-- **`args_into_glot(args, as_col=False) -> list[sqlglot.exp.Expr]`**
+- **`into_expr_list(args, as_col=False) -> list[sqlglot.exp.Expr]`**
   - Bulk conversion helper for function arguments.
 
-- **`into_duckdb(expr) -> duckdb.Expression`**
-  - Converts the relevant `sqlglot` AST nodes to native DuckDB expressions.
-  - Centralizes conversion logic for aliases, columns, lambdas, ordered expressions, and generic SQL fragments.
-
 - **`PQLConversionError`**
-  - Raised when `sqlglot` to DuckDB conversion fails.
+  - Raised from `src/pql/_scans.py` when SQL generation cannot be parsed by DuckDB.
 
-#### Relation/input wrapper (`src/pql/sql/_scans.py`)
+#### Relation/input wrapper (`src/pql/_scans.py`)
 
 `ScanSource` is the current wrapper around `duckdb.DuckDBPyRelation` plus column metadata.
 
-- Holds `relation: duckdb.DuckDBPyRelation` and `columns: pc.Vec[str]`.
+- Holds `relation: duckdb.DuckDBPyRelation` and `schema`.
 - Normalizes input sources through `build(...)`.
-- Supports relation construction from `LazyFrame`, DuckDB relations, `sqlglot` expressions, `Expr`, mappings, sequences, NumPy arrays, Narwhals/Polars frames, SQL queries, tables, and table functions.
+- Supports relation construction from `LazyFrame`, DuckDB relations, mappings, sequences, NumPy arrays, Narwhals/Polars frames, SQL queries, tables, and table functions.
 - `from_query(...)` is the main bridge from AST query nodes to executable DuckDB relations.
 
 ### 5) Supporting modules
 
-- `src/pql/sql/_funcs.py`: public module-level expression helpers (`col`, `lit`, `reduce`, `coalesce`, horizontal aggs, `unnest`, ...).
-- `src/pql/sql/_when.py`: fluent `when(...).then(...).otherwise(...)` builder.
-- `src/pql/sql/_window.py`: window specification helpers and rolling/window plumbing.
-- `src/pql/sql/_meta.py`: expression metadata, markers, and planning helpers used by context methods.
-- `src/pql/sql/namespaces.py`: handwritten namespace behavior and Polars-compat shims.
-- `src/pql/sql/selectors.py`: selectors API.
-- `src/pql/sql/datatypes.py`: `pql` datatype objects and conversions.
+- `src/pql/_funcs.py`: public module-level expression helpers (`col`, `lit`, `reduce`, `coalesce`, horizontal aggs, `unnest`, ...).
+- `src/pql/_when.py`: fluent `when(...).then(...).otherwise(...)` builder.
+- `src/pql/_window.py`: window specification helpers and rolling/window plumbing.
+- `src/pql/_meta.py`: expression metadata, markers, and planning helpers used by context methods.
+- `src/pql/namespaces.py`: handwritten namespace behavior and Polars-compat shims.
+- `src/pql/selectors.py`: selectors API.
+- `src/pql/datatypes.py`: `pql` datatype objects and conversions.
 
 ### 6) Auto-generated code (do not edit manually)
 
-- `src/pql/sql/_code_gen/_fns.py`: generated DuckDB function wrappers and generated namespace mixins.
-- `src/pql/sql/_code_gen/meta.py`: generated `duckdb_*` module-level meta helpers.
+- `src/pql/_code_gen/_fns.py`: generated DuckDB function wrappers and generated namespace mixins.
+- `src/pql/meta.py`: generated `duckdb_*` module-level meta helpers.
 
 Generated from scripts in `scripts/`.
 
@@ -156,7 +152,7 @@ Edit generator pipelines and regenerate instead of patching generated files by h
 
 2. Do not patch generated files directly:
 
-- Never hand-edit `src/pql/sql/_code_gen/_fns.py` or `src/pql/sql/_code_gen/meta.py`.
+- Never hand-edit `src/pql/_code_gen/_fns.py` or `src/pql/meta.py`.
 - Modify generator logic in `scripts/fn_generator/*` or `scripts/meta_generator/*` and regenerate.
 - Note that 90% of the time, a few modifications in the `_rules.py` module are all of what is needed to fix a generator issue or add an exception. Always check the rules before considering a generator code patch.
 
@@ -179,7 +175,7 @@ Edit generator pipelines and regenerate instead of patching generated files by h
 6. Maintain fluent style:
 
 - Prefer method chaining.
-- Reuse existing helpers (`Expr.new`, `into_glot`, `args_into_glot`, `into_duckdb`, `func`, `when`, `ScanSource.build`).
+- Reuse existing helpers (`Expr.new`, `into_expr`, `into_expr_list`, `func`, `when`, `ScanSource.build`).
 
 7. Don't hack the arguments:
 - Avoid adding arguments who are not used or raise NotImplementedErrors for "API compatibility". If it don't work, then it don't exist.
