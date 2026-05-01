@@ -763,7 +763,6 @@ dev = [
     { name = "pytz" },
     { name = "ruff" },
     { name = "sdsort" },
-    { name = "sqlparse" },
     { name = "typer" },
 ]
 
@@ -793,7 +792,6 @@ dev = [
     { name = "pytz", specifier = ">=2025.2" },
     { name = "ruff", specifier = ">=0.14.14" },
     { name = "sdsort", specifier = ">=0.4.2" },
-    { name = "sqlparse", specifier = ">=0.5.5" },
     { name = "typer", specifier = ">=0.21.1" },
 ]
 
@@ -1031,15 +1029,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/06/7a/9455362e67d9d8706f329989ed5b1334e9e5b2406c23fdeee4c490e18b19/sqlglotc-30.6.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f0a37ad865b106005cb5d36efd537a412912477c83cbca1579ee45f17d73fe54", size = 13090460, upload-time = "2026-04-20T20:09:54.166Z" },
     { url = "https://files.pythonhosted.org/packages/0d/d5/0d8881ea5c17fcd873eebc4ca18f8e58c773960d65ad8012f1dca047fa92/sqlglotc-30.6.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e397befde3d08d870a8f1c7bd80d7abc68ee119c472143ab196709319e205af4", size = 13708198, upload-time = "2026-04-20T20:09:56.885Z" },
     { url = "https://files.pythonhosted.org/packages/c2/d8/9e991602bc2303b871c79ffffd8ef162d61f10f540a3dd25a31ed9cc8897/sqlglotc-30.6.0-cp314-cp314-win_amd64.whl", hash = "sha256:949f5d457c8c98998ed06d060873370d7553077ab3c2db9569acda5887cd6ce7", size = 8540325, upload-time = "2026-04-20T20:09:59.632Z" },
-]
-
-[[package]]
-name = "sqlparse"
-version = "0.5.5"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/90/76/437d71068094df0726366574cf3432a4ed754217b436eb7429415cf2d480/sqlparse-0.5.5.tar.gz", hash = "sha256:e20d4a9b0b8585fdf63b10d30066c7c94c5d7a7ec47c889a2d83a3caa93ff28e", size = 120815, upload-time = "2025-12-19T07:17:45.073Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/4b/359f28a903c13438ef59ebeee215fb25da53066db67b305c125f1c6d2a25/sqlparse-0.5.5-py3-none-any.whl", hash = "sha256:12a08b3bf3eec877c519589833aed092e2444e68240a3577e8e26148acc7b1ba", size = 46138, upload-time = "2025-12-19T07:17:46.573Z" },
 ]
 
 [[package]]

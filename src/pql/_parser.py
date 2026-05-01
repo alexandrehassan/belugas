@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
-from typing import TYPE_CHECKING, Any, Self, override
+from typing import TYPE_CHECKING, Self, override
 
 import duckdb
-import sqlparse
 from pygments import token
 from pygments.lexers.sql import SqlLexer  # pyright: ignore[reportMissingTypeStubs]
 from pyochain import Dict, Iter, Set, Some, Vec
 from rich.console import Console
 from rich.syntax import Syntax
-from sqlparse.lexer import Lexer
 
 from . import meta
 
@@ -19,6 +17,7 @@ if TYPE_CHECKING:
     from pygments.token import (
         _TokenType as TokenType,  # pyright: ignore[reportPrivateUsage]
     )
+    from sqlglot import exp
 
     from ._frame import LazyFrame
     from .typing import Themes
@@ -35,7 +34,6 @@ DUCK_PYGMENT_MAP = Dict.from_ref({
 
 
 def _get_names(lf: LazyFrame, col_name: str) -> Set[str]:
-
     return lf.select(col_name).fetch_all().iter().flatten().collect(Set)
 
 
@@ -70,30 +68,6 @@ class DuckDbSqlLexer(SqlLexer):
                 return (pos, tokentype, token_text)
 
 
-def _get_kwords() -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
-    from sqlparse.tokens import Keyword
-
-    from ._funcs import col, lit
-    from ._when import when
-
-    name = col("keyword_name")
-
-    return (
-        meta
-        .keywords()
-        .select(
-            when(col("keyword_category").is_in(lit("reserved"), lit("unreserved")))
-            .then(name.str.upper())
-            .otherwise(name)
-        )
-        .fetch_all()
-        .iter()
-        .flatten()
-        .map(lambda x: (x, Keyword))  # pyright: ignore[reportAny]
-        .collect(dict)
-    )
-
-
 DTYPES = (
     meta
     .types()
@@ -104,25 +78,22 @@ FUNCTIONS = meta.functions().pipe(_get_names, "function_name")
 
 SYNTAX = partial(Syntax, lexer=DuckDbSqlLexer(), background_color="default")
 
-Lexer.get_default_instance().add_keywords(_get_kwords())  # pyright: ignore[reportUnknownMemberType]
-FORMATTER = partial(
-    sqlparse.format,
-    indent_width=4,
-    reindent=True,
-    keyword_case="upper",
-    use_space_around_operators=True,
-)
-
 
 @dataclass(slots=True)
 class ParsedQuery:
-    raw: str
+    query: exp.Query
+    pretty: bool = field(default=False, init=False)
+
+    @property
+    def raw(self) -> str:
+        return self.query.sql(dialect="duckdb", pretty=self.pretty)
 
     def show(self, theme: Themes = "github-dark") -> None:
         return CONSOLE.print(SYNTAX(self.raw, theme=theme))
 
     def prettify(self) -> Self:
-        return self.__class__(FORMATTER(self.raw))
+        self.pretty = True
+        return self
 
     def tokenize(self) -> Vec[tuple[int, duckdb.token_type]]:
         return Vec.from_ref(duckdb.tokenize(self.raw))

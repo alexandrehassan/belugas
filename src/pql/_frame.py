@@ -592,7 +592,7 @@ class LazyFrame(CoreHandler[exp.Query]):
         """
         from ._parser import ParsedQuery
 
-        return ParsedQuery(self._materialize().sql_query())
+        return ParsedQuery(self._inner)
 
     def explain(self, kind: ExplainType | ExplainTypeLiteral = "standard") -> str:
         return self._materialize().explain(kind)

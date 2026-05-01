@@ -92,7 +92,9 @@ def test_clone(lf: pql.LazyFrame) -> None:
 
 
 def test_sql_query(lf: pql.LazyFrame) -> None:
-    parsed = lf.filter(pql_age.gt(25)).select("name", "age").sql_query()
+    query = lf.filter(pql_age.gt(25)).select("name", "age")
+    parsed = query.sql_query()
+    assert parsed.raw == query.inner.sql(dialect="duckdb")
     assert parsed.raw != parsed.prettify().raw
     assert parsed.tokenize() != parsed.prettify().tokenize()
     assert "SELECT" in parsed.raw
