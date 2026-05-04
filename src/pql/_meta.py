@@ -52,7 +52,7 @@ class Marker(StrEnum):
                 case _:
                     return node
 
-        return SqlExpr(template.inner().transform(_replacer))  # pyright: ignore[reportUnknownMemberType, reportAny]
+        return SqlExpr(template.inner().transform(_replacer))
 
     @classmethod
     def drop_marker(cls, result: IntoFrameT, cols: Collection[str]) -> IntoFrameT:

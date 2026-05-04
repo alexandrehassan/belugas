@@ -6,12 +6,8 @@ from typing import TYPE_CHECKING, Self
 
 import pyochain as pc
 from sqlglot import exp
-from sqlglot.optimizer.annotate_types import (
-    annotate_types,  # pyright: ignore[reportUnknownVariableType]
-)
-from sqlglot.optimizer.qualify import (
-    qualify,  # pyright: ignore[reportUnknownVariableType]
-)
+from sqlglot.optimizer.annotate_types import annotate_types
+from sqlglot.optimizer.qualify import qualify
 from sqlglot.schema import MappingSchema
 
 from ._datatypes import DataType
