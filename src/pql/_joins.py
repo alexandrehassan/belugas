@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import partial
 from typing import TYPE_CHECKING, NamedTuple
 
 from pyochain import NONE, Err, NoneOption as Null, Ok, Option, Seq, Some
@@ -15,9 +14,6 @@ if TYPE_CHECKING:
     from .typing import JoinKeysRes, JoinStrategy
 type OptSeq = Option[Seq[str]]
 
-_RHS = partial(col, table="rhs")
-_LHS = partial(col, table="lhs")
-
 
 @dataclass(slots=True)
 class JoinBuilder:
@@ -30,7 +26,11 @@ class JoinBuilder:
 
     @staticmethod
     def lhs(name: str) -> Expr:
-        return _LHS(name)
+        return col(name, table="lhs")
+
+    @staticmethod
+    def rhs(name: str) -> Expr:
+        return col(name, table="rhs")
 
     def for_inner_left(self, name: str) -> Option[Expr]:
         match (name in self.left, name in self.right):
@@ -76,10 +76,6 @@ class JoinBuilder:
 
     def _aliased(self, name: str) -> Expr:
         return self.rhs(name).alias(f"{name}{self.suffix}")
-
-    @staticmethod
-    def rhs(name: str) -> Expr:
-        return _RHS(name)
 
 
 class JoinKeys[T: Seq[str] | str](NamedTuple):
