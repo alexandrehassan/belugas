@@ -60,7 +60,7 @@ class DataType(ABC):
         Returns:
             DataType: The corresponding PQL DataType.
         """
-        return exp.DataType.build(str(dtype), dialect="duckdb").pipe(cls.from_sql)
+        return exp.DataType.from_str(str(dtype), dialect="duckdb").pipe(cls.from_sql)
 
     @classmethod
     def from_sql(cls, dtype: exp.DataType) -> DataType:

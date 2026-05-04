@@ -266,7 +266,7 @@ class ScanSource:
         schema = (
             Iter(relation.columns)
             .zip(relation.dtypes, strict=True)
-            .map_star(lambda k, d: (k, exp.DataType.build(str(d), dialect="duckdb")))
+            .map_star(lambda k, d: (k, exp.DataType.from_str(str(d), dialect="duckdb")))
             .collect(Dict)
         )
 
