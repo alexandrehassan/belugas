@@ -48,7 +48,7 @@ class Marker(StrEnum):
                 case _:
                     return node
 
-        return expr.__class__(expr.inner.transform(_replacer))  # pyright: ignore[reportUnknownMemberType, reportAny]
+        return expr.__class__(expr.inner.transform(_replacer))
 
     @classmethod
     def drop_marker(cls, result: IntoFrameT, cols: Collection[str]) -> IntoFrameT:
@@ -87,7 +87,7 @@ def _broadcast_reducers(expr: Expr) -> Expr:
             case _:
                 return node
 
-    return expr.__class__(expr.inner.transform(_window_agg))  # pyright: ignore[reportUnknownMemberType, reportAny]
+    return expr.__class__(expr.inner.transform(_window_agg))
 
 
 def _has_window_ancestor(node: exp.Expr) -> bool:
@@ -289,7 +289,7 @@ class ResolvedExpr(Pipeable):
                         case _:
                             return node
 
-                self.expr = expr.__class__(inner.transform(_strip))  # pyright: ignore[reportUnknownMemberType, reportAny]
+                self.expr = expr.__class__(inner.transform(_strip))
             case False:
                 self.expr = expr
 

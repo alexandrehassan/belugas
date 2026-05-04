@@ -148,7 +148,7 @@ class LazyFrame(CoreHandler[exp.Query]):
             .chain(self._sources.items())
             .collect(Dict)
         )
-        return self._make(ast.transform(_replacer), new_sources)  # pyright: ignore[reportUnknownMemberType, reportAny]
+        return self._make(ast.transform(_replacer), new_sources)  # pyright: ignore[reportArgumentType]
 
     def _materialize(self) -> DuckDBPyRelation:
         return self._inner.pipe(ScanSource.from_query, **self._sources).relation

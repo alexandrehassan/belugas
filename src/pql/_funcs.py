@@ -104,7 +104,7 @@ def fn_once(rhs: IntoExpr) -> Expr:
             case _:
                 return node
 
-    body: exp.Expr = into_expr(rhs).transform(_bind)  # pyright: ignore[reportUnknownMemberType, reportAny]
+    body = into_expr(rhs).transform(_bind)
     return Expr(exp.Lambda(this=body, expressions=[_ELEM_ID]))
 
 
