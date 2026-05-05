@@ -482,22 +482,21 @@ def test_group_by_all_named_exprs(sample_df: pl.DataFrame) -> None:
     )
 
 
-@pytest.mark.skip(reason="Temp deletion of selectors by dtype")
 def test_unique_exprs(sample_df: pl.DataFrame) -> None:
     dep = "department"
     assert_eq(
-        pql
-        .LazyFrame(sample_df)
-        .group_by(dep)
-        .agg(pql.col("sex").unique())
-        .explode(pql.selectors.by_dtype(pql.List))
-        .sort(dep)
-        .collect(),
         sample_df
         .lazy()
         .group_by(dep)
         .agg(pl.col("sex").unique())
         .explode(pl.selectors.by_dtype(pl.List))
+        .sort(dep)
+        .collect(),
+        pql
+        .LazyFrame(sample_df)
+        .group_by(dep)
+        .agg(pql.col("sex").unique())
+        .explode(pql.selectors.by_dtype(pql.List))
         .sort(dep)
         .collect(),
     )
