@@ -15,9 +15,6 @@ pl_dt = pl.col(dt).dt
 
 
 _SIMPLE_FNS = Seq((
-    (pql_dt.microsecond, pl_dt.microsecond),
-    (pql_dt.nanosecond, pl_dt.nanosecond),
-    (pql_dt.millisecond, pl_dt.millisecond),
     (pql_dt.second, pl_dt.second),
     (pql_dt.minute, pl_dt.minute),
     (pql_dt.hour, pl_dt.hour),
@@ -41,6 +38,36 @@ _SIMPLE_FNS = Seq((
 @pytest.mark.parametrize("fn", _SIMPLE_FNS, ids=_SIMPLE_FNS.into(into_ids))
 def test_simple_fns(fn: tuple[Callable[[], pql.Expr], Callable[[], pl.Expr]]) -> None:
     assert_eq(fn[0](), fn[1]())
+
+
+_DUCKDB_SUBSECOND_FNS = Seq((
+    (
+        pql_dt.microsecond(),
+        pl_dt.second().cast(pl.Int64).mul(1_000_000).add(pl_dt.microsecond()),
+    ),
+    (
+        pql_dt.nanosecond(),
+        pl_dt
+        .second()
+        .cast(pl.Int64)
+        .mul(1_000_000_000)
+        .add(pl_dt.nanosecond().cast(pl.Int64)),
+    ),
+    (
+        pql_dt.millisecond(),
+        pl_dt.second().cast(pl.Int64).mul(1_000).add(pl_dt.millisecond()),
+    ),
+))
+
+
+@pytest.mark.parametrize(
+    ("pql_expr", "pl_expr"),
+    _DUCKDB_SUBSECOND_FNS,
+    ids=("microsecond", "nanosecond", "millisecond"),
+)
+def test_subsecond_fns(pql_expr: pql.Expr, pl_expr: pl.Expr) -> None:
+    """The results of the subsecond methods differ between DuckDB and Polars, so we need to test them separately."""
+    assert_eq(pql_expr, pl_expr)
 
 
 @pytest.mark.parametrize("unit", t.EpochTimeUnit.__args__)
