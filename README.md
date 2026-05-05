@@ -64,7 +64,7 @@ print("---" * 10)
 sql.prettify().show()
 ```
 
-![alt text](docs\sql_highlight.png)
+![alt text](docs/sql_highlight.png)
 
 You can also inspect the DuckDB plan:
 
