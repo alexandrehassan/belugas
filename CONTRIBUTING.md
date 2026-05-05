@@ -5,6 +5,20 @@ Thank you for your interest in contributing to `pql`!
 
 Contributions are always welcome, whether it's a bug fix, a new feature, or just improving the documentation.
 
+## Testing Philosophy
+
+The project heavily compares `pql` behavior against reference Polars chains where parity is expected.
+
+Tests cover:
+
+- frame operations
+- expressions and alias behavior
+- joins, pivots, group-bys, and conversions
+- namespace behavior for strings, lists, arrays, structs, datetimes, and more
+- datatype handling and selectors
+
+This makes the repository useful both as a library and as a living parity tracker.
+
 ## Architecture
 
 `pql` exposes a Polars-like lazy API on top of DuckDB, with `sqlglot` used as the SQL AST layer.
