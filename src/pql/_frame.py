@@ -166,13 +166,11 @@ class LazyFrame(CoreHandler[exp.Query]):
     @overload
     def _into_pl(self, *, lazy: Literal[False]) -> pl.DataFrame: ...
     def _into_pl(self, *, lazy: bool) -> pl.LazyFrame | pl.DataFrame:
-        import narwhals as nw
-
         df = self._materialize().pl(lazy=lazy)
 
         match Marker.TEMP in self.columns:
             case True:
-                return nw.from_native(df).drop(Marker.TEMP).to_native()
+                return df.drop(Marker.TEMP)
             case False:
                 return df
 
