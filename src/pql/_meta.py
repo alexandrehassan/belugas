@@ -36,26 +36,16 @@ class Marker(StrEnum):
         return col(self.value)
 
 
-def _into_windowed(source: exp.Expr, cols: PyoIterable[ResolvedExpr]) -> exp.Expr:
+def _into_windowed(cols: PyoIterable[ResolvedExpr]) -> exp.Expr:
     from ._funcs import row_number
 
+    source = exp.to_table("src")
     match cols.any(lambda p: p.is_windowed(Marker.TEMP)):
         case True:
             row_nb = row_number().window().sub(1).alias(Marker.TEMP).inner
             return exp.select(row_nb, exp.Star()).from_(source).subquery("src")
         case False:
             return source
-
-
-def _broadcast_reducers(expr: Expr) -> Expr:
-    def _window_agg(node: exp.Expr) -> exp.Expr:
-        match node:
-            case exp.AggFunc() | exp.List() if not _has_window_ancestor(node):
-                return expr.__class__(node, expr.meta).window().inner
-            case _:
-                return node
-
-    return expr.inner.transform(_window_agg).pipe(expr.__class__)
 
 
 def _has_window_ancestor(node: exp.Expr) -> bool:
@@ -291,6 +281,16 @@ class ResolvedExpr(Pipeable):
         return expr.pipe(self.maybe_alias)
 
     def as_aliased(self, *, broadcast_agg: bool) -> Expr:
+        def _broadcast_reducers(expr: Expr) -> Expr:
+            def _window_agg(node: exp.Expr) -> exp.Expr:
+                match node:
+                    case exp.AggFunc() | exp.List() if not _has_window_ancestor(node):
+                        return expr.__class__(node, expr.meta).window().inner
+                    case _:
+                        return node
+
+            return expr.inner.transform(_window_agg).pipe(expr.__class__)
+
         return self.expr.pipe(
             lambda e: _broadcast_reducers(e) if broadcast_agg else e
         ).pipe(self.maybe_alias)
@@ -347,72 +347,71 @@ class ExprPlan:
             .collect()
         )
 
+    def _should_broadcast_agg(self, *, include_source_cols: bool) -> bool:
+        return include_source_cols or not self.projections.all(
+            lambda resolved: resolved.is_pure_reducer
+        )
+
     def select_ctx(self) -> Option[exp.Select]:
-        def _non_empty_slct(projs: Seq[ResolvedExpr], lf: exp.Expr) -> exp.Select:
-            match projs.all(lambda r: r.has_projection_distinct):
+        def _non_empty_slct(source: exp.Expr) -> exp.Select:
+            match self.projections.all(
+                lambda resolved: resolved.has_projection_distinct
+            ):
                 case True:
-                    return self.aliased_sql(broadcast_agg=False).from_(lf).distinct()
+                    return (
+                        self.aliased_sql(broadcast_agg=False).from_(source).distinct()
+                    )
                 case False:
-                    broadcast = projs.all(lambda r: r.is_pure_reducer)
-                    return self.aliased_sql(broadcast_agg=not broadcast).from_(lf)
+                    return self.aliased_sql(
+                        broadcast_agg=self._should_broadcast_agg(
+                            include_source_cols=False
+                        )
+                    ).from_(source)
 
         return self.projections.then(
-            lambda projs: _non_empty_slct(
-                projs, exp.to_table("src").pipe(_into_windowed, projs)
-            )
+            lambda _projs: _projs.into(_into_windowed).pipe(_non_empty_slct)
         )
 
     def with_columns_ctx(self) -> exp.Select:
-        def _resolve() -> Iter[exp.Expr]:
-            def _into_update(proj: ResolvedExpr) -> Option[tuple[str, Expr]]:
-                match proj.is_multi:
-                    case True:
-                        return NONE
-                    case False:
-                        expr = _broadcast_reducers(proj.expr)
-                        return Some((proj.name, expr))
-
-            def _resolved(updates: Dict[str, Expr]) -> Iter[exp.Expr]:
-
-                match updates.any(lambda name: name in self.schema):
-                    case False:
-                        return (
-                            updates
-                            .items()
-                            .iter()
-                            .map_star(lambda name, e: e.alias(name).inner)
-                            .insert(exp.Star())
-                        )
-                    case True:
-                        return (
-                            self.schema
-                            .iter()
-                            .map(
-                                lambda name: updates.get_item(name).map_or(
-                                    exp.column(name), lambda c: c.alias(name).inner
-                                )
-                            )
-                            .chain(
-                                updates
-                                .items()
-                                .iter()
-                                .filter_star(
-                                    lambda name, _expr: name not in self.schema
-                                )
-                                .map_star(lambda name, e: e.alias(name).inner)
+        def _resolved(updates: Dict[str, Expr]) -> Iter[exp.Expr]:
+            update_iter = updates.items().iter()
+            match updates.any(lambda name: name in self.schema):
+                case False:
+                    return update_iter.map_star(lambda _name, expr: expr.inner).insert(
+                        exp.Star()
+                    )
+                case True:
+                    return (
+                        self.schema
+                        .iter()
+                        .map(
+                            lambda name: updates.get_item(name).map_or(
+                                exp.column(name), lambda expr: expr.inner
                             )
                         )
+                        .chain(
+                            update_iter.filter_star(
+                                lambda name, _expr: name not in self.schema
+                            ).map_star(lambda _name, expr: expr.inner)
+                        )
+                    )
 
-            return (
-                self.projections
-                .iter()
-                .filter_map(_into_update)
-                .collect(Dict)
-                .into(_resolved)
+        broadcast_agg = self._should_broadcast_agg(include_source_cols=True)
+        updates = (
+            self.projections
+            .iter()
+            .filter(lambda proj: not proj.is_multi)
+            .map(
+                lambda proj: (
+                    proj.name,
+                    proj.as_aliased(broadcast_agg=broadcast_agg),
+                )
             )
-
-        source = exp.to_table("src").pipe(_into_windowed, self.projections)
-        return exp.select(*_resolve()).from_(source)
+            .collect(Dict)
+        )
+        return exp.select(*updates.into(_resolved)).from_(
+            self.projections.into(_into_windowed)
+        )
 
     def with_fields_ctx(self, expr: Expr) -> Expr:
         return (
