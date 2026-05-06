@@ -1070,7 +1070,9 @@ class LazyFrame(CoreHandler[exp.Selectable]):
                 _slct_all().from_("src").distinct(*subset_names).order_by(*order_exprs)
             )
 
-        return _query().unwrap().pipe(self._from_ast, src=self)
+        return (
+            _query().unwrap().pipe(self._from_ast, src=self, schema=Some(self._schema))
+        )
 
     def pivot(  # noqa: C901, PLR0913
         self,
