@@ -8,23 +8,23 @@ from pyochain import Iter, Seq
 from pyochain.traits import PyoIterable
 from rich.traceback import install
 
-import pql
+import belouga as bl
 
-from ._data import sample_lf, sample_pql
+from ._data import sample_bl, sample_lf
 
 _ = install(show_locals=True)
 type PlFn = Callable[..., pl.Expr]
-type PqlFn = Callable[..., pql.Expr]
+type PqlFn = Callable[..., bl.Expr]
 
 
 class Fns(NamedTuple):
     """Tuple used for parametrized tests."""
 
-    pql_fn: PqlFn
+    bl_fn: PqlFn
     pl_fn: PlFn
 
-    def call(self, *args: object, **kwargs: object) -> tuple[pql.Expr, pl.Expr]:
-        return self.pql_fn(*args, **kwargs), self.pl_fn(*args, **kwargs)
+    def call(self, *args: object, **kwargs: object) -> tuple[bl.Expr, pl.Expr]:
+        return self.bl_fn(*args, **kwargs), self.pl_fn(*args, **kwargs)
 
 
 def into_ids(fns: Seq[tuple[Callable[..., Any], Callable[..., Any]]]) -> Iter[str]:  # pyright: ignore[reportExplicitAny]
@@ -32,7 +32,7 @@ def into_ids(fns: Seq[tuple[Callable[..., Any], Callable[..., Any]]]) -> Iter[st
 
 
 class ExprPair(NamedTuple):
-    pql_expr: pql.Expr
+    bl_expr: bl.Expr
     pl_expr: pl.Expr
 
 
@@ -48,22 +48,22 @@ class FnsCat(PyoIterable[Fns]):
         return self.fns.iter()
 
     def into_ids(self) -> Iter[str]:
-        return self.fns.iter().map(lambda x: x.pql_fn.__name__)
+        return self.fns.iter().map(lambda x: x.bl_fn.__name__)
 
 
 def assert_eq(
-    pql_expr: pql.Expr, polars_expr: pl.Expr, *, with_cols: bool = True
+    bl_expr: bl.Expr, polars_expr: pl.Expr, *, with_cols: bool = True
 ) -> None:
-    _assert(sample_lf().select(polars_expr), sample_pql().select(pql_expr).collect())
+    _assert(sample_lf().select(polars_expr), sample_bl().select(bl_expr).collect())
     if with_cols:
         _assert(
             sample_lf().with_columns(polars_expr),
-            sample_pql().with_columns(pql_expr).collect(),
+            sample_bl().with_columns(bl_expr).collect(),
         )
 
 
-def assert_lf_eq(polars_lf: pl.LazyFrame, pql_lf: pql.LazyFrame) -> None:
-    _assert(polars_lf, pql_lf.collect())
+def assert_lf_eq(polars_lf: pl.LazyFrame, bl_lf: bl.LazyFrame) -> None:
+    _assert(polars_lf, bl_lf.collect())
 
 
 def _assert(

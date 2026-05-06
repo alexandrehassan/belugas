@@ -10,8 +10,8 @@ import sqlglot
 from polars.testing import assert_frame_equal
 from pyochain import Iter
 
-import pql
-import pql.typing as t
+import belouga as bl
+import belouga.typing as t
 
 assert_eq = partial(assert_frame_equal, check_dtypes=False, check_row_order=False)
 DATA = Path("tests", "data", "foo")
@@ -63,36 +63,36 @@ def test_protocols() -> None:
 def test_from_query() -> None:
     df = PL_DF  # pyright: ignore[reportUnusedVariable]  # noqa: F841
     qry = sqlglot.select("*").from_("df")
-    pql_df = pql.from_query(qry, df=PL_DF).collect()
+    bl_df = bl.from_query(qry, df=PL_DF).collect()
     pl_df = duckdb.from_query(qry.sql(dialect="duckdb")).pl()
-    assert_eq(pql_df, pl_df)
+    assert_eq(bl_df, pl_df)
 
 
 def test_from_duckdb_relation() -> None:
-    assert_eq(pql.LazyFrame(REL).collect(), REL.pl())
+    assert_eq(bl.LazyFrame(REL).collect(), REL.pl())
 
 
 def test_from_arrow() -> None:
-    assert_eq(pql.from_arrow(PL_DF).collect(), REL.pl())
+    assert_eq(bl.from_arrow(PL_DF).collect(), REL.pl())
 
 
 def test_from_table_function() -> None:
     assert_eq(
-        pql.from_table_function("duckdb_functions").collect(),
+        bl.from_table_function("duckdb_functions").collect(),
         duckdb.table_function("duckdb_functions").pl(),
     )
 
 
 def test_from_table() -> None:
     REL.create("test_table")
-    assert_eq(pql.from_table("test_table").collect(), PL_DF)
+    assert_eq(bl.from_table("test_table").collect(), PL_DF)
 
 
 def test_from_polars() -> None:
-    assert_eq(pql.LazyFrame(PL_DF.lazy()).collect(), PL_DF)
-    assert_eq(pql.LazyFrame(PL_DF).collect(), PL_DF)
-    assert_eq(pql.from_polars(PL_DF.lazy()).collect(), PL_DF)
-    assert_eq(pql.from_polars(PL_DF).collect(), PL_DF)
+    assert_eq(bl.LazyFrame(PL_DF.lazy()).collect(), PL_DF)
+    assert_eq(bl.LazyFrame(PL_DF).collect(), PL_DF)
+    assert_eq(bl.from_polars(PL_DF.lazy()).collect(), PL_DF)
+    assert_eq(bl.from_polars(PL_DF).collect(), PL_DF)
 
 
 def test_from_pd_dataframe(data: TestData) -> None:
@@ -100,19 +100,19 @@ def test_from_pd_dataframe(data: TestData) -> None:
 
     pd_df = pd.DataFrame(data)
 
-    assert_eq(pql.LazyFrame(pd_df).collect(), PL_DF)
-    assert_eq(pql.from_arrow(pd_df).collect(), PL_DF)
-    assert_eq(pql.from_pandas(pd_df).collect(), PL_DF)
+    assert_eq(bl.LazyFrame(pd_df).collect(), PL_DF)
+    assert_eq(bl.from_arrow(pd_df).collect(), PL_DF)
+    assert_eq(bl.from_pandas(pd_df).collect(), PL_DF)
 
 
 def test_from_pl_dataframe() -> None:
-    assert_eq(pql.LazyFrame(PL_DF).collect(), PL_DF)
-    assert_eq(pql.from_arrow(PL_DF).collect(), PL_DF)
+    assert_eq(bl.LazyFrame(PL_DF).collect(), PL_DF)
+    assert_eq(bl.from_arrow(PL_DF).collect(), PL_DF)
 
 
 def test_from_dict(data: TestData) -> None:
-    assert_eq(pql.LazyFrame(data).collect(), pl.DataFrame(data, orient="col"))
-    assert_eq(pql.from_dict(data).collect(), pl.from_dict(data))
+    assert_eq(bl.LazyFrame(data).collect(), pl.DataFrame(data, orient="col"))
+    assert_eq(bl.from_dict(data).collect(), pl.from_dict(data))
 
 
 def test_from_numpy_1d() -> None:
@@ -120,10 +120,8 @@ def test_from_numpy_1d() -> None:
     data = [1, 2, 3, 4]
 
     arr1d = np.array(data)
-    assert_eq(pql.LazyFrame(arr1d).collect(), pl.DataFrame(arr1d, orient="col"))
-    assert_eq(
-        pql.from_numpy(arr1d, "col").collect(), pl.from_numpy(arr1d, orient="col")
-    )
+    assert_eq(bl.LazyFrame(arr1d).collect(), pl.DataFrame(arr1d, orient="col"))
+    assert_eq(bl.from_numpy(arr1d, "col").collect(), pl.from_numpy(arr1d, orient="col"))
 
 
 @pytest.mark.parametrize("orient", ["row", "col"])
@@ -132,11 +130,11 @@ def test_from_numpy_2d(orient: t.Orientation) -> None:
     data = [1, 2, 3, 4]
     arr2d = np.array([data, data, data, data, data, data, data, data])
     assert_eq(
-        pql.LazyFrame(arr2d, orient=orient).collect(),
+        bl.LazyFrame(arr2d, orient=orient).collect(),
         pl.DataFrame(arr2d, orient=orient),
     )
     assert_eq(
-        pql.from_numpy(arr2d, orient).collect(), pl.from_numpy(arr2d, orient=orient)
+        bl.from_numpy(arr2d, orient).collect(), pl.from_numpy(arr2d, orient=orient)
     )
 
 
@@ -146,7 +144,7 @@ def test_from_numpy_3d(orient: t.Orientation) -> None:
     arr3d = np.arange(2 * 3 * 4).reshape(2, 3, 4)
     expected = arr3d if orient == "row" else arr3d.T
     assert_eq(
-        pql.from_numpy(arr3d, orient).collect(),
+        bl.from_numpy(arr3d, orient).collect(),
         pl.DataFrame(expected.tolist(), orient=orient),
     )
 
@@ -157,62 +155,62 @@ def test_from_numpy_4d(orient: t.Orientation) -> None:
     arr4d = np.arange(2 * 2 * 3 * 4).reshape(2, 2, 3, 4)
     expected = arr4d if orient == "row" else arr4d.T
     assert_eq(
-        pql.from_numpy(arr4d, orient).collect(),
+        bl.from_numpy(arr4d, orient).collect(),
         pl.DataFrame(expected.tolist(), orient=orient),  # pyright: ignore[reportAny]
     )
 
 
 def test_from_seq_of_dicts() -> None:
     dicts = Iter(range(10)).map(lambda _: _get_data()).collect()
-    assert_eq(pql.LazyFrame(dicts).collect(), pl.DataFrame(dicts))
-    assert_eq(pql.from_records(dicts).collect(), pl.from_records(dicts))
-    assert_eq(pql.from_dicts(dicts).collect(), pl.from_dicts(dicts))
+    assert_eq(bl.LazyFrame(dicts).collect(), pl.DataFrame(dicts))
+    assert_eq(bl.from_records(dicts).collect(), pl.from_records(dicts))
+    assert_eq(bl.from_dicts(dicts).collect(), pl.from_dicts(dicts))
 
 
 def test_from_seq_of_seqs() -> None:
     seqs = Iter(range(10)).map(lambda _: tuple(range(5))).collect()
-    assert_eq(pql.LazyFrame(seqs).collect(), pl.DataFrame(seqs))
-    assert_eq(pql.from_records(seqs).collect(), pl.from_records(seqs))
+    assert_eq(bl.LazyFrame(seqs).collect(), pl.DataFrame(seqs))
+    assert_eq(bl.from_records(seqs).collect(), pl.from_records(seqs))
 
 
 @pytest.mark.parametrize("orient", ["row", "col"])
 def test_from_seq_of_seqs_orient(orient: t.Orientation) -> None:
     seqs = ((1, 2, 3), (4, 5, 6))
     assert_eq(
-        pql.LazyFrame(seqs, orient=orient).collect(),
+        bl.LazyFrame(seqs, orient=orient).collect(),
         pl.DataFrame(seqs, orient=orient),
     )
     assert_eq(
-        pql.from_records(seqs, orient=orient).collect(),
+        bl.from_records(seqs, orient=orient).collect(),
         pl.from_records(seqs, orient=orient),
     )
 
 
 def test_from_seq_of_vals() -> None:
     vals = Iter(range(10)).map(lambda _: 42).collect()
-    assert_eq(pql.LazyFrame(vals).collect(), pl.DataFrame(vals))
-    assert_eq(pql.from_records(vals).collect(), pl.from_records(vals))
+    assert_eq(bl.LazyFrame(vals).collect(), pl.DataFrame(vals))
+    assert_eq(bl.from_records(vals).collect(), pl.from_records(vals))
 
 
 def test_from_seq_of_str_vals() -> None:
     vals = ("x", "y", "z")
-    assert_eq(pql.LazyFrame(vals).collect(), pl.DataFrame(vals))
-    assert_eq(pql.from_records(vals).collect(), pl.from_records(vals))
+    assert_eq(bl.LazyFrame(vals).collect(), pl.DataFrame(vals))
+    assert_eq(bl.from_records(vals).collect(), pl.from_records(vals))
 
 
 def test_from_csv() -> None:
-    pql_df = pql.scan_csv(CSV).collect()
+    bl_df = bl.scan_csv(CSV).collect()
     pl_df = duckdb.from_csv_auto(CSV).pl()
-    assert_eq(pql_df, pl_df)
+    assert_eq(bl_df, pl_df)
 
 
 def test_from_json() -> None:
-    pql_df = pql.scan_json(JSON).collect()
+    bl_df = bl.scan_json(JSON).collect()
     pl_df = duckdb.read_json(JSON).pl()
-    assert_eq(pql_df, pl_df)
+    assert_eq(bl_df, pl_df)
 
 
 def test_from_parquet() -> None:
-    pql_df = pql.scan_parquet(PARQUET).collect()
+    bl_df = bl.scan_parquet(PARQUET).collect()
     pl_df = duckdb.read_parquet(str(PARQUET)).pl()
-    assert_eq(pql_df, pl_df)
+    assert_eq(bl_df, pl_df)

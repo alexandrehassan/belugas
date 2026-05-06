@@ -10,7 +10,7 @@ from enum import StrEnum, auto
 import duckdb
 from pyochain import Dict, Iter, Option, Seq, Set, Vec
 
-import pql
+import belouga as bl
 
 
 class KwordEnum(StrEnum):
@@ -80,7 +80,7 @@ class Dunders(KwordEnum):
 class Pql(KwordEnum):
     SELECTORS = auto()
     SQLEXPR = "SqlExpr"
-    EXPR = pql.Expr.__name__
+    EXPR = bl.Expr.__name__
     INTO_EXPR = "IntoExpr"
     BLOB_LITERAL = "BlobLiteral"
     INTO_EXPR_COLUMN = "IntoExprColumn"
@@ -92,7 +92,7 @@ class Pql(KwordEnum):
     CORE_HANDLER = "CoreHandler"
     REL_HANDLER = "RelHandler"
     EXPR_HANDLER = "ExprHandler"
-    LAZY_FRAME = pql.LazyFrame.__name__
+    LAZY_FRAME = bl.LazyFrame.__name__
     LAZY_GROUP_BY = "LazyGroupBy"
     EXPR_STR_NAME_SPACE = "ExprStrNameSpace"
     EXPR_LIST_NAME_SPACE = "ExprListNameSpace"

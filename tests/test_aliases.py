@@ -2,24 +2,24 @@ import polars as pl
 import pytest
 from pyochain.traits import PyoIterable
 
-import pql
+import belouga as bl
 
 from ._utils import ExprPair
 
-_LF = pql.LazyFrame({"x": [1], "y": [4]})
+_LF = bl.LazyFrame({"x": [1], "y": [4]})
 
 
-pql_x = pql.col("x")
-pql_y = pql.col("y")
+bl_x = bl.col("x")
+bl_y = bl.col("y")
 pl_x = pl.col("x")
 pl_y = pl.col("y")
 
 
 def test_alias_mutability() -> None:
-    prefixed = pql_x.name.prefix("pre_")
+    prefixed = bl_x.name.prefix("pre_")
     aliased = prefixed.alias("renamed")
 
-    assert _slct(pql_x).first() == "x"
+    assert _slct(bl_x).first() == "x"
     assert _slct(prefixed).first() == "pre_x"
     assert _slct(aliased).first() == "renamed"
 
@@ -28,15 +28,15 @@ def test_alias_mutability() -> None:
     "exprs",
     [
         ExprPair(
-            pql.when(pql_x.gt(0)).then(pql_y).otherwise(pql_x),
+            bl.when(bl_x.gt(0)).then(bl_y).otherwise(bl_x),
             pl.when(pl_x.gt(0)).then(pl_y).otherwise(pl_x),
         ),
         ExprPair(
-            pql.when(pql_x.gt(0)).then(1).otherwise(pql_x),
+            bl.when(bl_x.gt(0)).then(1).otherwise(bl_x),
             pl.when(pl_x.gt(0)).then(1).otherwise(pl_x),
         ),
         ExprPair(
-            pql.when(pql_x.gt(0)).then(pql_y.mul(2)).otherwise(pql_y),
+            bl.when(bl_x.gt(0)).then(bl_y.mul(2)).otherwise(bl_y),
             pl.when(pl_x.gt(0)).then(pl_y.mul(2)).otherwise(pl_y),
         ),
     ],
@@ -44,8 +44,8 @@ def test_alias_mutability() -> None:
 )
 def test_when_alias(exprs: ExprPair) -> None:
     pl_cols = _LF.collect().select(exprs.pl_expr).columns
-    pql_cols = _slct(exprs.pql_expr).into(list)
-    assert pql_cols == pl_cols
+    bl_cols = _slct(exprs.bl_expr).into(list)
+    assert bl_cols == pl_cols
 
 
 def test_when_alias_chained_then_lit() -> None:
@@ -55,11 +55,11 @@ def test_when_alias_chained_then_lit() -> None:
         .select(pl.when(pl_x.gt(0)).then(1).when(pl_y.gt(0)).then(pl_y).otherwise(pl_x))
         .columns
     )
-    pql_cols = _slct(
-        pql.when(pql_x.gt(0)).then(1).when(pql_y.gt(0)).then(pql_y).otherwise(pql_x)
+    bl_cols = _slct(
+        bl.when(bl_x.gt(0)).then(1).when(bl_y.gt(0)).then(bl_y).otherwise(bl_x)
     ).into(list)
-    assert pql_cols == pl_cols
+    assert bl_cols == pl_cols
 
 
-def _slct(*exprs: pql.Expr) -> PyoIterable[str]:
+def _slct(*exprs: bl.Expr) -> PyoIterable[str]:
     return _LF.select(*exprs).columns

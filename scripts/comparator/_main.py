@@ -4,9 +4,9 @@ import polars as pl
 from polars.lazyframe.group_by import LazyGroupBy as plLazyGroupBy
 from pyochain import Iter
 
-import pql
-from pql import typing as t
-from pql._groupby import LazyGroupBy as pqlLazyGroupBy  # noqa: PLC2701
+import belouga as bl
+from belouga import typing as t
+from belouga._groupby import LazyGroupBy as blLazyGroupBy  # noqa: PLC2701
 
 from .._utils import Pql
 from ._rules import IGNORED_MEMBERS
@@ -15,17 +15,17 @@ from ._text import ClassComparison, header, render_summary_table
 
 def get_comparisons() -> str:
     pl_col = pl.col("x")
-    pql_col = pql.col("x")
+    pql_col = bl.col("x")
     return (
         Iter((
             ClassComparison(
                 pl.LazyFrame,
-                pql.LazyFrame,
+                bl.LazyFrame,
                 Pql.LAZY_FRAME,
                 ignored_names=IGNORED_MEMBERS.get_item(Pql.LAZY_FRAME).unwrap(),
             ),
-            ClassComparison(pl.Expr, pql.Expr, Pql.EXPR),
-            ClassComparison(plLazyGroupBy, pqlLazyGroupBy, Pql.LAZY_GROUP_BY),
+            ClassComparison(pl.Expr, bl.Expr, Pql.EXPR),
+            ClassComparison(plLazyGroupBy, blLazyGroupBy, Pql.LAZY_GROUP_BY),
             ClassComparison(
                 pl_col.str.__class__, pql_col.str.__class__, Pql.EXPR_STR_NAME_SPACE
             ),
@@ -48,17 +48,17 @@ def get_comparisons() -> str:
             ),
             ClassComparison(
                 pl,
-                pql,
+                bl,
                 Pql.MODULE_FUNCTIONS,
                 ignored_names=IGNORED_MEMBERS.get_item(Pql.MODULE_FUNCTIONS).unwrap(),
             ),
             ClassComparison(
                 pl.selectors,
-                pql.selectors,
+                bl.selectors,
                 Pql.SELECTORS,
                 ignored_names=IGNORED_MEMBERS.get_item(Pql.SELECTORS).unwrap(),
             ),
-            ClassComparison(pl.DataType, pql.DataType, Pql.DATA_TYPE),
+            ClassComparison(pl.DataType, bl.DataType, Pql.DATA_TYPE),
             ClassComparison(pl.Schema, t.Schema, Pql.SCHEMA),
         ))
         .map(lambda comp: comp.to_report())

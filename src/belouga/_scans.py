@@ -462,7 +462,7 @@ class ScanSource:
 
     @property
     def identity(self) -> str:
-        return f"pql_scan_{id(self.relation)}"
+        return f"bl_scan_{id(self.relation)}"
 
     def set_alias(self) -> Self:
         self.relation = self.relation.set_alias(self.identity)

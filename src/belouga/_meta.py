@@ -28,7 +28,7 @@ class Marker(StrEnum):
 
     LITERAL = auto()
     LEN = auto()
-    TEMP = "__pql_temp__"
+    TEMP = "__bl_temp__"
 
     def to_expr(self) -> Expr:
         from ._funcs import col

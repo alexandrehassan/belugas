@@ -1,16 +1,16 @@
 import pytest
 from pyochain import Err, Ok, Result
 
-import pql
+import belouga as bl
 
 _OBJS = [
-    pql.col(""),
-    pql.LazyFrame({"a": [1]}),
-    pql.when(1),
-    pql.when(1).then(2),
-    pql.when(1).then(2).when(3).then(4),
-    pql.selectors.all(),
-    *pql.datatypes.NON_NESTED_MAP.values(),
+    bl.col(""),
+    bl.LazyFrame({"a": [1]}),
+    bl.when(1),
+    bl.when(1).then(2),
+    bl.when(1).then(2).when(3).then(4),
+    bl.selectors.all(),
+    *bl.datatypes.NON_NESTED_MAP.values(),
 ]
 
 

@@ -1,39 +1,39 @@
 import polars as pl
 import pytest
 
-import pql
+import belouga as bl
 
 from ._utils import assert_eq
 
-pql_x = pql.col("x")
-pql_s = pql.col("s")
-pql_salary = pql.col("salary").name
+bl_x = bl.col("x")
+bl_s = bl.col("s")
+bl_salary = bl.col("salary").name
 pl_x = pl.col("x")
 pl_s = pl.col("s")
 pl_salary = pl.col("salary").name
 
 
 def test_name_keep_after_alias() -> None:
-    assert_eq(pql_x.alias("renamed").name.keep(), pl_x.alias("renamed").name.keep())
+    assert_eq(bl_x.alias("renamed").name.keep(), pl_x.alias("renamed").name.keep())
 
 
 def test_name_map() -> None:
     assert_eq(
-        pql_x.name.map(lambda name: f"mapped_{name}"),
+        bl_x.name.map(lambda name: f"mapped_{name}"),
         pl_x.name.map(lambda name: f"mapped_{name}"),
     )
 
 
 def test_name_prefix_suffix() -> None:
     assert_eq(
-        pql_x.name.prefix("pre_").name.suffix("_suf"),
+        bl_x.name.prefix("pre_").name.suffix("_suf"),
         pl_x.name.prefix("pre_").name.suffix("_suf"),
     )
 
 
 def test_name_case_transform() -> None:
     assert_eq(
-        pql_x.name.to_uppercase().name.to_lowercase(),
+        bl_x.name.to_uppercase().name.to_lowercase(),
         pl_x.name.to_uppercase().name.to_lowercase(),
     )
 
@@ -45,26 +45,26 @@ case_skip = pytest.mark.skip(
 
 @case_skip
 def test_name_to_uppercase_all() -> None:
-    assert_eq(pql.all().name.to_uppercase(), pl.all().name.to_uppercase())
+    assert_eq(bl.all().name.to_uppercase(), pl.all().name.to_uppercase())
 
 
 @pytest.mark.parametrize("literal", [True, False])
 def test_name_replace(literal: bool) -> None:
     assert_eq(
-        pql_x.name.replace("x", "y", literal=literal),
+        bl_x.name.replace("x", "y", literal=literal),
         pl_x.name.replace("x", "y", literal=literal),
     )
     assert_eq(
-        pql_s.name.replace("s", "t", literal=literal),
+        bl_s.name.replace("s", "t", literal=literal),
         pl_s.name.replace("s", "t", literal=literal),
     )
     assert_eq(
-        pql_salary.replace("salary", "income", literal=literal),
+        bl_salary.replace("salary", "income", literal=literal),
         pl_salary.replace("salary", "income", literal=literal),
     )
 
     assert_eq(
-        pql_salary.replace("a", "b", literal=literal),
+        bl_salary.replace("a", "b", literal=literal),
         pl_salary.replace("a", "b", literal=literal),
     )
 
@@ -72,10 +72,10 @@ def test_name_replace(literal: bool) -> None:
 @case_skip
 def test_name_replace_case_sensitivity(literal: bool) -> None:
     assert_eq(
-        pql_salary.replace("l", "L", literal=literal),
+        bl_salary.replace("l", "L", literal=literal),
         pl_salary.replace("l", "L", literal=literal),
     )
     assert_eq(
-        pql_salary.replace("sal", "SAL", literal=literal),
+        bl_salary.replace("sal", "SAL", literal=literal),
         pl_salary.replace("sal", "SAL", literal=literal),
     )

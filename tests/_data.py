@@ -3,7 +3,7 @@ from datetime import date, datetime, time
 import duckdb
 import polars as pl
 
-import pql
+import belouga as bl
 
 nan = float("nan")
 
@@ -105,7 +105,7 @@ _SCHEMA = {
     "arr_num": pl.Array(pl.UInt16, shape=4),
 }
 _DF = pl.DataFrame(_DATA, schema_overrides=_SCHEMA).pipe(duckdb.from_arrow)
-_DF_PQL = pql.LazyFrame(_DF)
+_DF_PQL = bl.LazyFrame(_DF)
 _LF_PL = _DF.pl(lazy=True)
 
 
@@ -113,5 +113,5 @@ def sample_lf() -> pl.LazyFrame:
     return _LF_PL
 
 
-def sample_pql() -> pql.LazyFrame:
+def sample_bl() -> bl.LazyFrame:
     return _DF_PQL

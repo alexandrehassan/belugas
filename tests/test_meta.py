@@ -3,15 +3,15 @@ from collections.abc import Callable
 import pytest
 from pyochain import Iter, Seq
 
-import pql
-from pql import meta
+import belouga as bl
+from belouga import meta
 
 
-def _get_fn(name: str) -> Callable[..., pql.LazyFrame]:
+def _get_fn(name: str) -> Callable[..., bl.LazyFrame]:
     return getattr(meta, name)  # pyright: ignore[reportAny]
 
 
-_META_FNS: Seq[Callable[[], pql.LazyFrame]] = (
+_META_FNS: Seq[Callable[[], bl.LazyFrame]] = (
     Iter(dir(meta))
     .map(_get_fn)
     .filter(lambda fn: callable(fn) and fn.__name__ != "LazyFrame")
@@ -20,5 +20,5 @@ _META_FNS: Seq[Callable[[], pql.LazyFrame]] = (
 
 
 @pytest.mark.parametrize("fns", _META_FNS)
-def test_meta_fns(fns: Callable[..., pql.LazyFrame]) -> None:
-    assert isinstance(fns(), pql.LazyFrame)
+def test_meta_fns(fns: Callable[..., bl.LazyFrame]) -> None:
+    assert isinstance(fns(), bl.LazyFrame)

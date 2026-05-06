@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import duckdb
 import pytest
 
-import pql
+import belouga as bl
 
 if TYPE_CHECKING:
     from pyochain import Dict
@@ -18,7 +18,7 @@ class MyEnum(Enum):
     C = "C"
 
 
-_DATA = pql.LazyFrame({
+_DATA = bl.LazyFrame({
     "numeric": [1, 2, 3],
     "1d": [[1, 2], [3, 4], [5, 6]],
     "2d": [[[1, 2], [3, 4]], [[5, 6], [7, 8]], [[9, 10], [11, 12]]],
@@ -91,216 +91,216 @@ _DATA = pql.LazyFrame({
 
 
 @pytest.fixture(scope="session")
-def sample_data() -> pql.LazyFrame:
+def sample_data() -> bl.LazyFrame:
     return _DATA
 
 
 @pytest.fixture(scope="session")
-def cast_schema(sample_data: pql.LazyFrame) -> Dict[str, pql.DataType]:
+def cast_schema(sample_data: bl.LazyFrame) -> Dict[str, bl.DataType]:
     return _create_schema(sample_data)
 
 
-def _create_schema(sample_data: pql.LazyFrame) -> Dict[str, pql.DataType]:
+def _create_schema(sample_data: bl.LazyFrame) -> Dict[str, bl.DataType]:
     return sample_data.select(_exprs()).schema
 
 
-def _exprs() -> tuple[pql.Expr, ...]:
-    numeric = pql.col("numeric")
+def _exprs() -> tuple[bl.Expr, ...]:
+    numeric = bl.col("numeric")
     return (
-        numeric.cast(pql.Int8()).alias("i8"),
-        numeric.cast(pql.Int16()).alias("i16"),
-        numeric.cast(pql.Int32()).alias("i32"),
-        numeric.cast(pql.Int64()).alias("i64"),
-        numeric.cast(pql.Int128()).alias("i128"),
-        numeric.cast(pql.UInt8()).alias("u8"),
-        numeric.cast(pql.UInt16()).alias("u16"),
-        numeric.cast(pql.UInt32()).alias("u32"),
-        numeric.cast(pql.UInt64()).alias("u64"),
-        numeric.cast(pql.UInt128()).alias("u128"),
-        numeric.cast(pql.Float32()).alias("f32"),
-        numeric.cast(pql.Float64()).alias("f64"),
-        numeric.cast(pql.Boolean()).alias("bool"),
-        numeric.cast(pql.Decimal(10, 2)).alias("dec"),
-        numeric.cast(pql.String()).alias("s"),
-        numeric.cast(pql.Number()).alias("num"),
-        pql.col("time").cast(pql.Time()).alias("time"),
-        pql.col("time_tz").cast(pql.TimeTZ()).alias("time_tz"),
-        pql.col("dates").cast(pql.Date()).alias("dates"),
-        pql.col("hours").cast(pql.DatetimeTZ()).alias("hours"),
-        pql.col("seconds").cast(pql.Datetime(time_unit="s")).alias("datetime_s"),
-        pql.col("millis").cast(pql.Datetime(time_unit="ms")).alias("datetime_ms"),
-        pql.col("micros").cast(pql.Datetime(time_unit="us")).alias("datetime_us"),
-        pql.col("nanoseconds").cast(pql.Datetime(time_unit="ns")).alias("datetime_ns"),
-        pql.col("1d").cast(pql.List(pql.UInt16())).alias("lst"),
-        pql.col("1d").cast(pql.Array(pql.UInt16(), size=2)).alias("arr_1d"),
-        pql.col("2d").cast(pql.Array(pql.UInt16(), size=2).with_dim(2)).alias("arr_2d"),
-        pql.col("blobs").cast(pql.Binary()),
-        pql.col("duration").cast(pql.Duration()),
-        pql.col("enumerated").cast(pql.Enum(["A", "B", "C"])),
-        pql.col("enumerated").cast(pql.Enum(MyEnum)).alias("enumerated_enum"),
-        pql.col("mapped").cast(pql.Map(pql.String(), pql.Int32())),
-        pql.col("structured").cast(
-            pql.Struct({"a": pql.Int32(), "b": pql.String(), "c": pql.Boolean()})
+        numeric.cast(bl.Int8()).alias("i8"),
+        numeric.cast(bl.Int16()).alias("i16"),
+        numeric.cast(bl.Int32()).alias("i32"),
+        numeric.cast(bl.Int64()).alias("i64"),
+        numeric.cast(bl.Int128()).alias("i128"),
+        numeric.cast(bl.UInt8()).alias("u8"),
+        numeric.cast(bl.UInt16()).alias("u16"),
+        numeric.cast(bl.UInt32()).alias("u32"),
+        numeric.cast(bl.UInt64()).alias("u64"),
+        numeric.cast(bl.UInt128()).alias("u128"),
+        numeric.cast(bl.Float32()).alias("f32"),
+        numeric.cast(bl.Float64()).alias("f64"),
+        numeric.cast(bl.Boolean()).alias("bool"),
+        numeric.cast(bl.Decimal(10, 2)).alias("dec"),
+        numeric.cast(bl.String()).alias("s"),
+        numeric.cast(bl.Number()).alias("num"),
+        bl.col("time").cast(bl.Time()).alias("time"),
+        bl.col("time_tz").cast(bl.TimeTZ()).alias("time_tz"),
+        bl.col("dates").cast(bl.Date()).alias("dates"),
+        bl.col("hours").cast(bl.DatetimeTZ()).alias("hours"),
+        bl.col("seconds").cast(bl.Datetime(time_unit="s")).alias("datetime_s"),
+        bl.col("millis").cast(bl.Datetime(time_unit="ms")).alias("datetime_ms"),
+        bl.col("micros").cast(bl.Datetime(time_unit="us")).alias("datetime_us"),
+        bl.col("nanoseconds").cast(bl.Datetime(time_unit="ns")).alias("datetime_ns"),
+        bl.col("1d").cast(bl.List(bl.UInt16())).alias("lst"),
+        bl.col("1d").cast(bl.Array(bl.UInt16(), size=2)).alias("arr_1d"),
+        bl.col("2d").cast(bl.Array(bl.UInt16(), size=2).with_dim(2)).alias("arr_2d"),
+        bl.col("blobs").cast(bl.Binary()),
+        bl.col("duration").cast(bl.Duration()),
+        bl.col("enumerated").cast(bl.Enum(["A", "B", "C"])),
+        bl.col("enumerated").cast(bl.Enum(MyEnum)).alias("enumerated_enum"),
+        bl.col("mapped").cast(bl.Map(bl.String(), bl.Int32())),
+        bl.col("structured").cast(
+            bl.Struct({"a": bl.Int32(), "b": bl.String(), "c": bl.Boolean()})
         ),
-        pql.col("unioned").cast(pql.Union([pql.Int32(), pql.String(), pql.Float64()])),
-        pql.col("bits").cast(pql.BitString()),
-        pql.col("uuid_data").cast(pql.UUID()),
-        pql.col("geometry").cast(pql.Geometry()),
+        bl.col("unioned").cast(bl.Union([bl.Int32(), bl.String(), bl.Float64()])),
+        bl.col("bits").cast(bl.BitString()),
+        bl.col("uuid_data").cast(bl.UUID()),
+        bl.col("geometry").cast(bl.Geometry()),
     )
 
 
-def test_geometry(cast_schema: Dict[str, pql.DataType]) -> None:
-    assert isinstance(cast_schema["geometry"], pql.Geometry)
+def test_geometry(cast_schema: Dict[str, bl.DataType]) -> None:
+    assert isinstance(cast_schema["geometry"], bl.Geometry)
 
 
-def test_signed_integer(cast_schema: Dict[str, pql.DataType]) -> None:
-    assert isinstance(cast_schema["i8"], pql.Int8)
-    assert isinstance(cast_schema["i16"], pql.Int16)
-    assert isinstance(cast_schema["i32"], pql.Int32)
-    assert isinstance(cast_schema["i64"], pql.Int64)
-    assert isinstance(cast_schema["i128"], pql.Int128)
-    assert pql.Int32().is_signed_integer()
-    assert pql.Int32.is_integer()
-    assert pql.Int32.is_numeric()
-    assert pql.Int32().is_(pql.Int32())
-    assert not pql.Int32.is_(pql.Int64())
+def test_signed_integer(cast_schema: Dict[str, bl.DataType]) -> None:
+    assert isinstance(cast_schema["i8"], bl.Int8)
+    assert isinstance(cast_schema["i16"], bl.Int16)
+    assert isinstance(cast_schema["i32"], bl.Int32)
+    assert isinstance(cast_schema["i64"], bl.Int64)
+    assert isinstance(cast_schema["i128"], bl.Int128)
+    assert bl.Int32().is_signed_integer()
+    assert bl.Int32.is_integer()
+    assert bl.Int32.is_numeric()
+    assert bl.Int32().is_(bl.Int32())
+    assert not bl.Int32.is_(bl.Int64())
 
 
-def test_unsigned_integer(cast_schema: Dict[str, pql.DataType]) -> None:
-    assert isinstance(cast_schema["u8"], pql.UInt8)
-    assert isinstance(cast_schema["u16"], pql.UInt16)
-    assert isinstance(cast_schema["u32"], pql.UInt32)
-    assert isinstance(cast_schema["u64"], pql.UInt64)
-    assert isinstance(cast_schema["u128"], pql.UInt128)
-    assert pql.UInt16.is_unsigned_integer()
-    assert pql.UInt16.is_integer()
-    assert pql.UInt16.is_numeric()
+def test_unsigned_integer(cast_schema: Dict[str, bl.DataType]) -> None:
+    assert isinstance(cast_schema["u8"], bl.UInt8)
+    assert isinstance(cast_schema["u16"], bl.UInt16)
+    assert isinstance(cast_schema["u32"], bl.UInt32)
+    assert isinstance(cast_schema["u64"], bl.UInt64)
+    assert isinstance(cast_schema["u128"], bl.UInt128)
+    assert bl.UInt16.is_unsigned_integer()
+    assert bl.UInt16.is_integer()
+    assert bl.UInt16.is_numeric()
 
 
-def test_float(cast_schema: Dict[str, pql.DataType]) -> None:
-    assert isinstance(cast_schema["f32"], pql.Float32)
-    assert isinstance(cast_schema["f64"], pql.Float64)
-    assert pql.Float32.is_float()
-    assert pql.Float64.is_float()
-    assert pql.Float64.is_numeric()
+def test_float(cast_schema: Dict[str, bl.DataType]) -> None:
+    assert isinstance(cast_schema["f32"], bl.Float32)
+    assert isinstance(cast_schema["f64"], bl.Float64)
+    assert bl.Float32.is_float()
+    assert bl.Float64.is_float()
+    assert bl.Float64.is_numeric()
 
 
-def test_bool_str(cast_schema: Dict[str, pql.DataType]) -> None:
-    assert isinstance(cast_schema["bool"], pql.Boolean)
-    assert isinstance(cast_schema["s"], pql.String)
+def test_bool_str(cast_schema: Dict[str, bl.DataType]) -> None:
+    assert isinstance(cast_schema["bool"], bl.Boolean)
+    assert isinstance(cast_schema["s"], bl.String)
 
 
-def test_decimal(cast_schema: Dict[str, pql.DataType]) -> None:
-    dec: pql.Decimal = cast_schema["dec"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(dec, pql.Decimal)
+def test_decimal(cast_schema: Dict[str, bl.DataType]) -> None:
+    dec: bl.Decimal = cast_schema["dec"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(dec, bl.Decimal)
     assert dec.precision == 10
     assert dec.scale == 2
-    assert pql.Decimal.is_decimal()
-    assert pql.Decimal.is_numeric()
+    assert bl.Decimal.is_decimal()
+    assert bl.Decimal.is_numeric()
 
 
-def test_temporal(cast_schema: Dict[str, pql.DataType]) -> None:
-    assert isinstance(cast_schema["dates"], pql.Date)
-    assert isinstance(cast_schema["hours"], pql.DatetimeTZ)
-    assert isinstance(cast_schema["time"], pql.Time)
-    assert isinstance(cast_schema["duration"], pql.Duration)
-    assert pql.Date.is_temporal()
-    assert pql.Time.is_temporal()
-    assert pql.Duration.is_temporal()
+def test_temporal(cast_schema: Dict[str, bl.DataType]) -> None:
+    assert isinstance(cast_schema["dates"], bl.Date)
+    assert isinstance(cast_schema["hours"], bl.DatetimeTZ)
+    assert isinstance(cast_schema["time"], bl.Time)
+    assert isinstance(cast_schema["duration"], bl.Duration)
+    assert bl.Date.is_temporal()
+    assert bl.Time.is_temporal()
+    assert bl.Duration.is_temporal()
 
 
-def test_list(cast_schema: Dict[str, pql.DataType]) -> None:
-    lst: pql.List = cast_schema["lst"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(lst, pql.List)
-    assert isinstance(lst.inner, pql.UInt16)
-    assert pql.List.is_nested()
+def test_list(cast_schema: Dict[str, bl.DataType]) -> None:
+    lst: bl.List = cast_schema["lst"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(lst, bl.List)
+    assert isinstance(lst.inner, bl.UInt16)
+    assert bl.List.is_nested()
 
 
 def test_list_from_sql_dtype() -> None:
-    parsed = pql.DataType.from_duckdb(duckdb.list_type("varchar"))
-    assert isinstance(parsed, pql.List)
-    assert isinstance(parsed.inner, pql.String)
+    parsed = bl.DataType.from_duckdb(duckdb.list_type("varchar"))
+    assert isinstance(parsed, bl.List)
+    assert isinstance(parsed.inner, bl.String)
 
 
-def test_array(cast_schema: Dict[str, pql.DataType]) -> None:
-    arr_1d: pql.Array = cast_schema["arr_1d"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(arr_1d, pql.Array)
-    assert isinstance(arr_1d.inner, pql.UInt16)
+def test_array(cast_schema: Dict[str, bl.DataType]) -> None:
+    arr_1d: bl.Array = cast_schema["arr_1d"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(arr_1d, bl.Array)
+    assert isinstance(arr_1d.inner, bl.UInt16)
     assert arr_1d.shape == 2
 
-    arr_2d: pql.Array = cast_schema["arr_2d"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(arr_2d, pql.Array)
+    arr_2d: bl.Array = cast_schema["arr_2d"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(arr_2d, bl.Array)
     assert arr_2d.shape == 2
-    assert pql.Array.is_nested()
+    assert bl.Array.is_nested()
 
 
-def test_binary(cast_schema: Dict[str, pql.DataType]) -> None:
-    assert isinstance(cast_schema["blobs"], pql.Binary)
+def test_binary(cast_schema: Dict[str, bl.DataType]) -> None:
+    assert isinstance(cast_schema["blobs"], bl.Binary)
 
 
-def test_enum(cast_schema: Dict[str, pql.DataType]) -> None:
-    enumerated: pql.Enum = cast_schema["enumerated"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(enumerated, pql.Enum)
+def test_enum(cast_schema: Dict[str, bl.DataType]) -> None:
+    enumerated: bl.Enum = cast_schema["enumerated"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(enumerated, bl.Enum)
     assert tuple(enumerated.categories) == ("A", "B", "C")
 
-    enumerated_enum: pql.Enum = cast_schema["enumerated_enum"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(enumerated_enum, pql.Enum)
+    enumerated_enum: bl.Enum = cast_schema["enumerated_enum"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(enumerated_enum, bl.Enum)
     assert tuple(enumerated_enum.categories) == ("A", "B", "C")
 
 
-def test_map(cast_schema: Dict[str, pql.DataType]) -> None:
-    mapped: pql.Map = cast_schema["mapped"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(mapped, pql.Map)
-    assert isinstance(mapped.key, pql.String)
-    assert isinstance(mapped.value, pql.Int32)
+def test_map(cast_schema: Dict[str, bl.DataType]) -> None:
+    mapped: bl.Map = cast_schema["mapped"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(mapped, bl.Map)
+    assert isinstance(mapped.key, bl.String)
+    assert isinstance(mapped.value, bl.Int32)
 
 
-def test_struct(cast_schema: Dict[str, pql.DataType]) -> None:
-    struct: pql.Struct = cast_schema["structured"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(struct, pql.Struct)
-    assert isinstance(struct.fields["a"], pql.Int32)
-    assert isinstance(struct.fields["b"], pql.String)
-    assert isinstance(struct.fields["c"], pql.Boolean)
-    assert pql.Struct.is_nested()
+def test_struct(cast_schema: Dict[str, bl.DataType]) -> None:
+    struct: bl.Struct = cast_schema["structured"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(struct, bl.Struct)
+    assert isinstance(struct.fields["a"], bl.Int32)
+    assert isinstance(struct.fields["b"], bl.String)
+    assert isinstance(struct.fields["c"], bl.Boolean)
+    assert bl.Struct.is_nested()
 
 
-def test_union(cast_schema: Dict[str, pql.DataType]) -> None:
-    unioned: pql.Union = cast_schema["unioned"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(unioned, pql.Union)
-    assert isinstance(unioned.fields[0], pql.Int32)
-    assert isinstance(unioned.fields[1], pql.String)
-    assert isinstance(unioned.fields[2], pql.Float64)
+def test_union(cast_schema: Dict[str, bl.DataType]) -> None:
+    unioned: bl.Union = cast_schema["unioned"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(unioned, bl.Union)
+    assert isinstance(unioned.fields[0], bl.Int32)
+    assert isinstance(unioned.fields[1], bl.String)
+    assert isinstance(unioned.fields[2], bl.Float64)
 
 
-def test_time_tz(cast_schema: Dict[str, pql.DataType]) -> None:
-    assert isinstance(cast_schema["time_tz"], pql.TimeTZ)
+def test_time_tz(cast_schema: Dict[str, bl.DataType]) -> None:
+    assert isinstance(cast_schema["time_tz"], bl.TimeTZ)
 
 
-def test_datetime_all_time_units(cast_schema: Dict[str, pql.DataType]) -> None:
-    datetime_s: pql.Datetime = cast_schema["datetime_s"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(datetime_s, pql.Datetime)
+def test_datetime_all_time_units(cast_schema: Dict[str, bl.DataType]) -> None:
+    datetime_s: bl.Datetime = cast_schema["datetime_s"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(datetime_s, bl.Datetime)
     assert datetime_s.time_unit == "s"
 
-    datetime_ms: pql.Datetime = cast_schema["datetime_ms"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(datetime_ms, pql.Datetime)
+    datetime_ms: bl.Datetime = cast_schema["datetime_ms"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(datetime_ms, bl.Datetime)
     assert datetime_ms.time_unit == "ms"
 
-    datetime_us: pql.Datetime = cast_schema["datetime_us"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(datetime_us, pql.Datetime)
+    datetime_us: bl.Datetime = cast_schema["datetime_us"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(datetime_us, bl.Datetime)
     assert datetime_us.time_unit in {"us", "ns"}
 
-    datetime_ns: pql.Datetime = cast_schema["datetime_ns"]  # pyright: ignore[reportAssignmentType]
-    assert isinstance(datetime_ns, pql.Datetime)
+    datetime_ns: bl.Datetime = cast_schema["datetime_ns"]  # pyright: ignore[reportAssignmentType]
+    assert isinstance(datetime_ns, bl.Datetime)
     assert datetime_ns.time_unit == "ns"
 
 
-def test_bitstring(cast_schema: Dict[str, pql.DataType]) -> None:
-    assert isinstance(cast_schema["bits"], pql.BitString)
+def test_bitstring(cast_schema: Dict[str, bl.DataType]) -> None:
+    assert isinstance(cast_schema["bits"], bl.BitString)
 
 
-def test_uuid(cast_schema: Dict[str, pql.DataType]) -> None:
-    assert isinstance(cast_schema["uuid_data"], pql.UUID)
+def test_uuid(cast_schema: Dict[str, bl.DataType]) -> None:
+    assert isinstance(cast_schema["uuid_data"], bl.UUID)
 
 
-def test_number(cast_schema: Dict[str, pql.DataType]) -> None:
-    assert isinstance(cast_schema["num"], pql.Number)
+def test_number(cast_schema: Dict[str, bl.DataType]) -> None:
+    assert isinstance(cast_schema["num"], bl.Number)

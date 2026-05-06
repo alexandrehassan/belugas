@@ -4,8 +4,8 @@ import polars as pl
 import pytest
 from pyochain import Iter
 
-import pql
-import pql.typing as t
+import belouga as bl
+import belouga.typing as t
 
 from ._utils import assert_lf_eq
 
@@ -37,7 +37,7 @@ def test_unpivot() -> None:
     data = pl.DataFrame({"id": ["a", "b"], "x": [1, 3], "y": [2, 4]})
     assert_lf_eq(
         data.lazy().unpivot(on=["x", "y"], index="id"),
-        pql.LazyFrame(data).unpivot(on=["x", "y"], index="id"),
+        bl.LazyFrame(data).unpivot(on=["x", "y"], index="id"),
     )
 
 
@@ -49,7 +49,7 @@ def test_pivot_single_value_column(sample_df: pl.DataFrame) -> None:
             index="id",
             values="salary",
         ),
-        pql.LazyFrame(sample_df).pivot(
+        bl.LazyFrame(sample_df).pivot(
             "department",
             on_columns=["Engineering", "Sales"],
             index="id",
@@ -63,7 +63,7 @@ def test_pivot_multiple_value_columns(sample_df: pl.DataFrame) -> None:
         sample_df.lazy().pivot(
             "department", on_columns=["Engineering", "Sales"], index="id"
         ),
-        pql.LazyFrame(sample_df).pivot(
+        bl.LazyFrame(sample_df).pivot(
             "department", on_columns=["Engineering", "Sales"], index="id"
         ),
     )
@@ -85,7 +85,7 @@ def test_pivot_aggregate_fns(sample_df: pl.DataFrame, agg: t.PivotAgg) -> None:
             values="salary",
             aggregate_function="len" if agg == "count" else agg,
         ),
-        pql.LazyFrame(sample_df).pivot(
+        bl.LazyFrame(sample_df).pivot(
             "department",
             on_columns=["Engineering", "Sales"],
             index="sex",
@@ -105,7 +105,7 @@ def test_pivot_aggregate_sum(sample_df: pl.DataFrame) -> None:
             values="salary",
             aggregate_function="sum",
         ),
-        pql
+        bl
         .LazyFrame(sample_df)
         .pivot(
             "department",
@@ -114,7 +114,7 @@ def test_pivot_aggregate_sum(sample_df: pl.DataFrame) -> None:
             values="salary",
             aggregate_function="sum",
         )
-        .with_columns(pql.col("Sales").fill_null(0)),
+        .with_columns(bl.col("Sales").fill_null(0)),
     )
 
 
@@ -126,7 +126,7 @@ def test_pivot_custom_separator(sample_df: pl.DataFrame) -> None:
             index="id",
             separator="__",
         ),
-        pql.LazyFrame(sample_df).pivot(
+        bl.LazyFrame(sample_df).pivot(
             "department",
             on_columns=["Engineering", "Sales"],
             index="id",
@@ -140,7 +140,7 @@ def test_pivot_auto_detect_index(sample_df: pl.DataFrame) -> None:
         sample_df.lazy().pivot(
             "department", on_columns=["Engineering", "Sales"], values="salary"
         ),
-        pql.LazyFrame(sample_df).pivot(
+        bl.LazyFrame(sample_df).pivot(
             "department", on_columns=["Engineering", "Sales"], values="salary"
         ),
     )
@@ -155,7 +155,7 @@ def test_pivot_maintain_order(sample_df: pl.DataFrame) -> None:
             values="salary",
             maintain_order=True,
         ),
-        pql.LazyFrame(sample_df).pivot(
+        bl.LazyFrame(sample_df).pivot(
             "department",
             on_columns=["Engineering", "Sales"],
             index="id",
@@ -175,7 +175,7 @@ def test_pivot_integer_on_columns(sample_df: pl.DataFrame) -> None:
             values="salary",
             aggregate_function="first",
         ),
-        pql.LazyFrame(sample_df).pivot(
+        bl.LazyFrame(sample_df).pivot(
             "id",
             on_columns=cols,
             index="department",
@@ -187,6 +187,6 @@ def test_pivot_integer_on_columns(sample_df: pl.DataFrame) -> None:
 
 def test_pivot_no_index_no_values_error(sample_df: pl.DataFrame) -> None:
     with pytest.raises(ValueError, match=r"index.*or.*values"):
-        _ = pql.LazyFrame(sample_df).pivot(
+        _ = bl.LazyFrame(sample_df).pivot(
             "department", on_columns=["Engineering", "Sales"]
         )

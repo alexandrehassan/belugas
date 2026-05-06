@@ -9,12 +9,12 @@ from polars.lazyframe.group_by import LazyGroupBy as PlLazyGroupBy
 from polars.testing import assert_frame_equal
 from pyochain import Seq
 
-import pql
-from pql._groupby import LazyGroupBy  # noqa: PLC2701
+import belouga as bl
+from belouga._groupby import LazyGroupBy  # noqa: PLC2701
 
 from ._utils import into_ids
 
-pql_salary = pql.col("salary")
+bl_salary = bl.col("salary")
 pl_salary = pl.col("salary")
 assert_eq = partial(assert_frame_equal, check_dtypes=False, check_row_order=False)
 
@@ -44,10 +44,10 @@ def sample_df() -> pl.DataFrame:
 
 def test_agg(sample_df: pl.DataFrame) -> None:
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by("department")
-        .agg(pql_salary.mean())
+        .agg(bl_salary.mean())
         .sort("department")
         .collect(),
         sample_df
@@ -61,10 +61,10 @@ def test_agg(sample_df: pl.DataFrame) -> None:
 
 def test_agg_by_prefix(sample_df: pl.DataFrame) -> None:
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by("department")
-        .agg(pql_salary.mean().name.prefix("avg_"))
+        .agg(bl_salary.mean().name.prefix("avg_"))
         .sort("department")
         .collect(),
         sample_df
@@ -93,12 +93,12 @@ _GROUP_BY_METHODS = Seq((
 def test_lazygroupby_simple_computations(
     sample_df: pl.DataFrame,
     fns: tuple[
-        Callable[[LazyGroupBy], pql.LazyFrame], Callable[[PlLazyGroupBy], pl.LazyFrame]
+        Callable[[LazyGroupBy], bl.LazyFrame], Callable[[PlLazyGroupBy], pl.LazyFrame]
     ],
 ) -> None:
     selected = ("department", "age", "salary")
     result = (
-        (fns[0](pql.LazyFrame(sample_df).select(*selected).group_by("department")))
+        (fns[0](bl.LazyFrame(sample_df).select(*selected).group_by("department")))
         .sort("department")
         .collect()
     )
@@ -113,7 +113,7 @@ def test_lazygroupby_simple_computations(
 def test_len(sample_df: pl.DataFrame) -> None:
     selected = ("department", "age", "salary")
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .select(*selected)
         .group_by("department")
@@ -129,7 +129,7 @@ def test_len(sample_df: pl.DataFrame) -> None:
         .collect(),
     )
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .select(*selected)
         .group_by("department")
@@ -154,7 +154,7 @@ def test_quantile() -> None:
         "salary": [100.0, 300.0, 500.0, 50.0, 250.0, 450.0],
     })
     assert_eq(
-        pql
+        bl
         .LazyFrame(qdf)
         .group_by("department")
         .quantile(0.5, interpolation=True)
@@ -168,7 +168,7 @@ def test_quantile() -> None:
         .collect(),
     )
     assert_eq(
-        pql
+        bl
         .LazyFrame(qdf)
         .group_by("department")
         .quantile(0.5, interpolation=False)
@@ -186,10 +186,10 @@ def test_quantile() -> None:
 def test_agg_all_exclude(sample_df: pl.DataFrame) -> None:
     sep = ", "
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by("department")
-        .agg(pql.all(exclude="category"), pql.col("category").str.join(sep))
+        .agg(bl.all(exclude="category"), bl.col("category").str.join(sep))
         .sort("department")
         .collect(),
         sample_df
@@ -203,12 +203,12 @@ def test_agg_all_exclude(sample_df: pl.DataFrame) -> None:
 
 def test_agg_multi_key(sample_df: pl.DataFrame) -> None:
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by("department", "sex")
         .agg(
-            pql_salary.mean().alias("mean_salary"),
-            pql.col("age").max().alias("max_age"),
+            bl_salary.mean().alias("mean_salary"),
+            bl.col("age").max().alias("max_age"),
         )
         .sort("department", "sex")
         .collect(),
@@ -226,13 +226,13 @@ def test_agg_multi_key(sample_df: pl.DataFrame) -> None:
 
 def test_agg_multi_exprs(sample_df: pl.DataFrame) -> None:
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by("department")
         .agg(
-            pql_salary.mean().alias("mean_salary"),
-            pql_salary.sum().alias("sum_salary"),
-            pql.col("id").count().alias("n"),
+            bl_salary.mean().alias("mean_salary"),
+            bl_salary.sum().alias("sum_salary"),
+            bl.col("id").count().alias("n"),
         )
         .sort("department")
         .collect(),
@@ -251,10 +251,10 @@ def test_agg_multi_exprs(sample_df: pl.DataFrame) -> None:
 
 def test_agg_composed_reducer(sample_df: pl.DataFrame) -> None:
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by("department")
-        .agg(pql_salary.mean().add(1).alias("mean_plus"))
+        .agg(bl_salary.mean().add(1).alias("mean_plus"))
         .sort("department")
         .collect(),
         sample_df
@@ -268,12 +268,12 @@ def test_agg_composed_reducer(sample_df: pl.DataFrame) -> None:
 
 def test_agg_named_exprs(sample_df: pl.DataFrame) -> None:
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by("department")
         .agg(
-            mean_salary=pql_salary.mean(),
-            n=pql.col("id").count(),
+            mean_salary=bl_salary.mean(),
+            n=bl.col("id").count(),
         )
         .sort("department")
         .collect(),
@@ -292,10 +292,10 @@ def test_agg_named_exprs(sample_df: pl.DataFrame) -> None:
 def test_drop_null_keys(sample_df: pl.DataFrame) -> None:
     # category has one null row — drop_null_keys must exclude it before grouping
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by("category", drop_null_keys=True)
-        .agg(pql_salary.mean().alias("mean_salary"))
+        .agg(bl_salary.mean().alias("mean_salary"))
         .sort("category")
         .collect(),
         sample_df
@@ -311,12 +311,12 @@ def test_drop_null_keys(sample_df: pl.DataFrame) -> None:
 def test_agg_count_nulls(sample_df: pl.DataFrame) -> None:
     # count skips nulls (value has nulls); n_unique on null-free salary agrees across backends
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by("department")
         .agg(
-            pql.col("value").count().alias("n_values"),
-            pql_salary.n_unique().alias("n_unique_salary"),
+            bl.col("value").count().alias("n_values"),
+            bl_salary.n_unique().alias("n_unique_salary"),
         )
         .sort("department")
         .collect(),
@@ -334,12 +334,12 @@ def test_agg_count_nulls(sample_df: pl.DataFrame) -> None:
 
 def test_agg_std_var(sample_df: pl.DataFrame) -> None:
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by("department")
         .agg(
-            pql_salary.std().alias("std_salary"),
-            pql_salary.var().alias("var_salary"),
+            bl_salary.std().alias("std_salary"),
+            bl_salary.var().alias("var_salary"),
         )
         .sort("department")
         .collect(),
@@ -358,10 +358,10 @@ def test_agg_std_var(sample_df: pl.DataFrame) -> None:
 def test_group_by_rollup() -> None:
     df = pl.DataFrame({"dept": ["A", "A", "B"], "val": [10, 20, 30]})
     result = (
-        pql
+        bl
         .LazyFrame(df)
         .group_by("dept", strategy="ROLLUP")
-        .agg(pql.col("val").sum().alias("total"))
+        .agg(bl.col("val").sum().alias("total"))
         .sort("dept", nulls_last=True)
         .collect()
     )
@@ -379,10 +379,10 @@ def test_group_by_cube() -> None:
         "val": [10, 20, 30],
     })
     result = (
-        pql
+        bl
         .LazyFrame(df)
         .group_by("dept", "cat", strategy="CUBE")
-        .agg(pql.col("val").sum().alias("total"))
+        .agg(bl.col("val").sum().alias("total"))
         .collect()
     )
     # CUBE(dept, cat): (A,X), (A,None), (B,Y), (B,None), (None,X), (None,Y), (None,None)
@@ -403,9 +403,9 @@ def test_group_by_cube() -> None:
 def test_group_by_all_basic() -> None:
     df = pl.DataFrame({"dept": ["A", "A", "B"], "val": [10, 20, 30]})
     assert_eq(
-        pql
+        bl
         .LazyFrame(df)
-        .group_by_all("dept", pql.col("val").sum().alias("total"))
+        .group_by_all("dept", bl.col("val").sum().alias("total"))
         .sort("dept")
         .collect(),
         df
@@ -419,13 +419,13 @@ def test_group_by_all_basic() -> None:
 
 def test_group_by_all_multi_key(sample_df: pl.DataFrame) -> None:
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by_all(
             "department",
             "sex",
-            pql_salary.mean().alias("mean_salary"),
-            pql.col("age").max().alias("max_age"),
+            bl_salary.mean().alias("mean_salary"),
+            bl.col("age").max().alias("max_age"),
         )
         .sort("department", "sex")
         .collect(),
@@ -443,13 +443,13 @@ def test_group_by_all_multi_key(sample_df: pl.DataFrame) -> None:
 
 def test_group_by_all_multi_agg(sample_df: pl.DataFrame) -> None:
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by_all(
             "department",
-            pql_salary.mean().alias("avg_salary"),
-            pql_salary.sum().alias("sum_salary"),
-            pql.col("id").count().alias("n"),
+            bl_salary.mean().alias("avg_salary"),
+            bl_salary.sum().alias("sum_salary"),
+            bl.col("id").count().alias("n"),
         )
         .sort("department")
         .collect(),
@@ -468,9 +468,9 @@ def test_group_by_all_multi_agg(sample_df: pl.DataFrame) -> None:
 
 def test_group_by_all_named_exprs(sample_df: pl.DataFrame) -> None:
     assert_eq(
-        pql
+        bl
         .LazyFrame(sample_df)
-        .group_by_all("department", mean_salary=pql_salary.mean())
+        .group_by_all("department", mean_salary=bl_salary.mean())
         .sort("department")
         .collect(),
         sample_df
@@ -492,11 +492,11 @@ def test_unique_exprs(sample_df: pl.DataFrame) -> None:
         .explode(pl.selectors.by_dtype(pl.List))
         .sort(dep)
         .collect(),
-        pql
+        bl
         .LazyFrame(sample_df)
         .group_by(dep)
-        .agg(pql.col("sex").unique())
-        .explode(pql.selectors.by_dtype(pql.List))
+        .agg(bl.col("sex").unique())
+        .explode(bl.selectors.by_dtype(bl.List))
         .sort(dep)
         .collect(),
     )

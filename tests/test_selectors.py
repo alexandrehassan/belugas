@@ -8,26 +8,26 @@ import polars.selectors as cs_pl
 import pytest
 from pyochain import Seq
 
-import pql
-from pql import selectors as cs
+import belouga as bl
+from belouga import selectors as cs
 
-from ._data import sample_lf, sample_pql
+from ._data import sample_bl, sample_lf
 from ._utils import assert_eq, assert_lf_eq, into_ids
 
 
 def test_with_columns() -> None:
     assert_lf_eq(
         sample_lf().select("s").with_columns(cs_pl.contains("x")),
-        sample_pql().select("s").with_columns(cs.contains("x")),
+        sample_bl().select("s").with_columns(cs.contains("x")),
     )
 
 
 def test_by_dtype_single() -> None:
-    assert_eq(cs.by_dtype(pql.Boolean), cs_pl.by_dtype(pl.Boolean))
+    assert_eq(cs.by_dtype(bl.Boolean), cs_pl.by_dtype(pl.Boolean))
 
 
 def test_by_dtype_multiple() -> None:
-    assert_eq(cs.by_dtype(pql.Float64, pql.Int64), cs_pl.by_dtype(pl.Float64, pl.Int64))
+    assert_eq(cs.by_dtype(bl.Float64, bl.Int64), cs_pl.by_dtype(pl.Float64, pl.Int64))
 
 
 def test_union() -> None:
@@ -77,13 +77,13 @@ def test_selector_with_suffix() -> None:
 
 
 def test_selector_cast() -> None:
-    assert_eq(cs.by_name("x").cast(pql.Boolean()), cs_pl.by_name("x").cast(pl.Boolean))
+    assert_eq(cs.by_name("x").cast(bl.Boolean()), cs_pl.by_name("x").cast(pl.Boolean))
 
 
 @pytest.mark.parametrize(
-    ("pql_expr", "pl_expr"),
+    ("bl_expr", "pl_expr"),
     [
-        (cs.by_name("x").cast(pql.Boolean()), cs_pl.by_name("x").cast(pl.Boolean)),
+        (cs.by_name("x").cast(bl.Boolean()), cs_pl.by_name("x").cast(pl.Boolean)),
         (cs.by_name("x").sum(), cs_pl.by_name("x").sum()),
         (cs.by_name("a").not_(), cs_pl.by_name("a").not_()),
         (
@@ -91,19 +91,19 @@ def test_selector_cast() -> None:
             cs_pl.by_name("x").name.suffix("_flag"),
         ),
         (
-            cs.by_name("a").__or__(pql.lit(value=False)),
+            cs.by_name("a").__or__(bl.lit(value=False)),
             cs_pl.by_name("a").__or__(pl.lit(value=False)),
         ),
         (
-            cs.by_name("a").__and__(pql.lit(value=True)),
+            cs.by_name("a").__and__(bl.lit(value=True)),
             cs_pl.by_name("a").__and__(pl.lit(value=True)),
         ),
         (
-            cs.by_name("x").__sub__(pql.lit(1)),
+            cs.by_name("x").__sub__(bl.lit(1)),
             cs_pl.by_name("x").__sub__(pl.lit(1)),
         ),
         (
-            cs.by_name("a", "b").__or__(pql.lit(value=False)).__invert__(),
+            cs.by_name("a", "b").__or__(bl.lit(value=False)).__invert__(),
             cs_pl.by_name("a", "b").__or__(pl.lit(value=False)).__invert__(),
         ),
         (
@@ -123,12 +123,12 @@ def test_selector_cast() -> None:
         "not-then-invert",
     ),
 )
-def test_selector_into_expr(pql_expr: pql.Expr, pl_expr: pl.Expr) -> None:
+def test_selector_into_expr(bl_expr: bl.Expr, pl_expr: pl.Expr) -> None:
     assert isinstance(pl_expr, pl.Expr)
     assert not cs_pl.is_selector(pl_expr)
-    assert isinstance(pql_expr, pql.Expr)
-    assert not isinstance(pql_expr, cs.Selector)
-    assert_eq(pql_expr, pl_expr)
+    assert isinstance(bl_expr, bl.Expr)
+    assert not isinstance(bl_expr, cs.Selector)
+    assert_eq(bl_expr, pl_expr)
 
 
 def test_selector_in_group_by_agg() -> None:
@@ -139,8 +139,8 @@ def test_selector_in_group_by_agg() -> None:
         .group_by("a")
         .agg(cs_pl.contains("_vals"))
         .sort("a"),
-        sample_pql()
-        .filter(pql.col("a").is_not_null())
+        sample_bl()
+        .filter(bl.col("a").is_not_null())
         .group_by("a")
         .agg(cs.contains("_vals"))
         .sort("a"),
@@ -150,12 +150,12 @@ def test_selector_in_group_by_agg() -> None:
 @pytest.mark.parametrize(
     "lf",
     [
-        sample_pql().select(pql.col("a"), total=cs.contains("vals")),
-        sample_pql().group_by("a").agg(total=cs.contains("vals")),
+        sample_bl().select(bl.col("a"), total=cs.contains("vals")),
+        sample_bl().group_by("a").agg(total=cs.contains("vals")),
     ],
     ids=["select", "agg"],
 )
-def test_named_selector(lf: pql.LazyFrame) -> None:
+def test_named_selector(lf: bl.LazyFrame) -> None:
     assert_lf_eq(lf.lazy(), lf)
     assert lf.schema.keys().into(list) == ["a", "total"]
 
@@ -163,7 +163,7 @@ def test_named_selector(lf: pql.LazyFrame) -> None:
 def test_empty_selector() -> None:
     assert_lf_eq(
         sample_lf().select(pl.col("a")).select(cs_pl.contains("x")),
-        sample_pql().select(pql.col("a")).select(cs.contains("x")),
+        sample_bl().select(bl.col("a")).select(cs.contains("x")),
     )
 
 
@@ -200,21 +200,21 @@ def test_duration_selector() -> None:
     """Dedicated test: DuckDB INTERVAL can't roundtrip via Arrow to Polars."""
     col_names = ["dur"]
     pl_lf = pl.LazyFrame({"x": [1, 2], "dur": [timedelta(hours=1), timedelta(days=2)]})
-    pql_lf = pql.LazyFrame(pl_lf)
-    assert pql_lf.select(cs.duration()).columns.into(list) == col_names
+    bl_lf = bl.LazyFrame(pl_lf)
+    assert bl_lf.select(cs.duration()).columns.into(list) == col_names
     assert pl_lf.select(cs_pl.duration()).collect_schema().names() == col_names
 
 
 def test_enum() -> None:
     cats = ["foo", "bar", "baz"]
-    lf = pql.LazyFrame(sample_lf())
+    lf = bl.LazyFrame(sample_lf())
     assert_lf_eq(
         lf
         .lazy()
         .with_columns(pl.col("enum").cast(pl.Enum(cats)))
         .select(cs_pl.enum().cast(pl.String)),
-        lf.with_columns(pql.col("enum").cast(pql.Enum(cats))).select(
-            cs.enum().cast(pql.String())
+        lf.with_columns(bl.col("enum").cast(bl.Enum(cats))).select(
+            cs.enum().cast(bl.String())
         ),
     )
 
@@ -309,7 +309,7 @@ def test_by_name_with_suffix() -> None:
 
 def test_matches_cast() -> None:
     assert_eq(
-        cs.matches("^[xn]$").cast(pql.Float64()),
+        cs.matches("^[xn]$").cast(bl.Float64()),
         cs_pl.matches("^[xn]$").cast(pl.Float64),
     )
 
@@ -323,7 +323,7 @@ def test_complex_selector() -> None:
         - OR ends with "_vals"
         - AND doesn't contain "str"
     """
-    pql_slctor = cs.contains("al").intersection(
+    bl_slctor = cs.contains("al").intersection(
         cs.ends_with("_vals").intersection(cs.contains("str").complement())
     )
     pl_slctor = cs_pl.contains("al").__and__(
@@ -335,10 +335,10 @@ def test_complex_selector() -> None:
         .group_by("a")
         .agg(pl_slctor)
         .sort("a"),
-        pql
+        bl
         .LazyFrame(sample_lf())
-        .filter(pql.col("a").is_not_null())
+        .filter(bl.col("a").is_not_null())
         .group_by("a")
-        .agg(pql_slctor)
+        .agg(bl_slctor)
         .sort("a"),
     )

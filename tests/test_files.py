@@ -6,7 +6,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
-import pql
+import belouga as bl
 
 assert_eq = partial(assert_frame_equal, check_dtypes=False, check_row_order=False)
 
@@ -33,7 +33,7 @@ def test_sink_parquet(sample_df: pl.DataFrame) -> None:
     with NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
         tmp_path = Path(tmp.name)
     try:
-        lf = pql.LazyFrame(sample_df)
+        lf = bl.LazyFrame(sample_df)
         lf.sink_parquet(tmp_path)
         assert tmp_path.exists()
         read_back = pl.read_parquet(tmp_path)
@@ -47,7 +47,7 @@ def test_sink_csv(sample_df: pl.DataFrame) -> None:
     with NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
         tmp_path = Path(tmp.name)
     try:
-        lf = pql.LazyFrame(sample_df)
+        lf = bl.LazyFrame(sample_df)
         lf.sink_csv(tmp_path, separator=",", include_header=True)
         assert tmp_path.exists()
         read_back = pl.read_csv(tmp_path)

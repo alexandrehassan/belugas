@@ -1,20 +1,20 @@
-"""Complex real-life query tests combining multiple pql features."""
+"""Complex real-life query tests combining multiple bl features."""
 
 from __future__ import annotations
 
 import polars as pl
 
-import pql
+import belouga as bl
 
 from ._utils import assert_lf_eq
 
-pql_salary = pql.col("salary")
-pql_order_id = pql.col("order_id")
-pql_amount = pql.col("amount")
+bl_salary = bl.col("salary")
+bl_order_id = bl.col("order_id")
+bl_amount = bl.col("amount")
 pl_salary = pl.col("salary")
 pl_order_id = pl.col("order_id")
 pl_amount = pl.col("amount")
-_EMPLOYEES = pql.LazyFrame({
+_EMPLOYEES = bl.LazyFrame({
     "id": [1, 2, 3, 4, 5, 6, 7, 8],
     "name": ["Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Heidi"],
     "department": [
@@ -44,7 +44,7 @@ _EMPLOYEES = pql.LazyFrame({
     "manager_id": [None, 1, 1, 2, 1, None, 6, 1],
 })
 
-_ORDERS = pql.LazyFrame({
+_ORDERS = bl.LazyFrame({
     "order_id": [101, 102, 103, 104, 105, 106, 107, 108],
     "employee_id": [1, 2, 1, 3, 2, 4, 1, 5],
     "amount": [1200.0, 800.0, 450.0, 2300.0, 950.0, 300.0, 1800.0, 600.0],
@@ -71,12 +71,12 @@ def test_groupby_filter_having() -> None:
         _EMPLOYEES
         .group_by("department")
         .agg(
-            pql_salary.mean().alias("avg_salary"),
-            pql_salary.max().alias("max_salary"),
-            pql.col("id").count().alias("headcount"),
-            pql.col("years_exp").sum().alias("total_exp"),
+            bl_salary.mean().alias("avg_salary"),
+            bl_salary.max().alias("max_salary"),
+            bl.col("id").count().alias("headcount"),
+            bl.col("years_exp").sum().alias("total_exp"),
         )
-        .filter(pql.col("headcount").gt(1))
+        .filter(bl.col("headcount").gt(1))
         .sort("department"),
     )
 
@@ -97,9 +97,9 @@ def test_join_then_aggregate() -> None:
         .join(_ORDERS, left_on="id", right_on="employee_id", how="inner")
         .group_by("name", "department")
         .agg(
-            pql_amount.sum().alias("total_amount"),
-            pql_order_id.count().alias("order_count"),
-            pql_amount.mean().alias("avg_amount"),
+            bl_amount.sum().alias("total_amount"),
+            bl_order_id.count().alias("order_count"),
+            bl_amount.mean().alias("avg_amount"),
         )
         .sort("name"),
     )
@@ -123,15 +123,15 @@ def test_top_n_per_group_nested_window() -> None:
         .sort("department", "dept_rank"),
         _EMPLOYEES
         .with_columns(
-            pql
+            bl
             .col("salary")
             .rank(method="ordinal", descending=True)
             .over("department")
             .alias("dept_rank"),
         )
-        .filter(pql.col("dept_rank").le(2))
+        .filter(bl.col("dept_rank").le(2))
         .with_columns(
-            pql_salary.mean().over("department").alias("top2_dept_avg"),
+            bl_salary.mean().over("department").alias("top2_dept_avg"),
         )
         .select("name", "department", "salary", "dept_rank", "top2_dept_avg")
         .sort("department", "dept_rank"),
@@ -140,7 +140,7 @@ def test_top_n_per_group_nested_window() -> None:
 
 def test_implode_list_ops_then_explode() -> None:
     """Implode salaries per dept, apply list ops, explode back."""
-    pql_salaries = pql.col("salaries").list
+    bl_salaries = bl.col("salaries").list
     pl_salaries = pl.col("salaries").list
     assert_lf_eq(
         _EMPLOYEES_LF
@@ -161,16 +161,16 @@ def test_implode_list_ops_then_explode() -> None:
         _EMPLOYEES
         .group_by("department")
         .agg(
-            pql_salary.implode().alias("salaries"),
+            bl_salary.implode().alias("salaries"),
         )
         .with_columns(
-            pql_salaries.len().alias("n"),
-            pql_salaries.mean().alias("list_mean"),
-            pql_salaries.max().alias("list_max"),
-            pql_salaries.sort(descending=True).alias("salaries_sorted"),
+            bl_salaries.len().alias("n"),
+            bl_salaries.mean().alias("list_mean"),
+            bl_salaries.max().alias("list_max"),
+            bl_salaries.sort(descending=True).alias("salaries_sorted"),
         )
         .with_columns(
-            pql.col("salaries_sorted").list.get(0).alias("highest"),
+            bl.col("salaries_sorted").list.get(0).alias("highest"),
         )
         .sort("department"),
     )
@@ -189,17 +189,17 @@ def test_frame_explode_then_reaggregate() -> None:
         .sort("department"),
         _EMPLOYEES
         .group_by("department")
-        .agg(pql_salary.implode().alias("salaries"))
+        .agg(bl_salary.implode().alias("salaries"))
         .explode("salaries")
-        .filter(pql.col("salaries").gt(70000.0))
+        .filter(bl.col("salaries").gt(70000.0))
         .group_by("department")
-        .agg(pql.col("salaries").mean().alias("high_earner_avg"))
+        .agg(bl.col("salaries").mean().alias("high_earner_avg"))
         .sort("department"),
     )
 
 
 def test_expr_list_explode_in_agg() -> None:
-    data = pql.LazyFrame({
+    data = bl.LazyFrame({
         "grp": ["a", "a", "b"],
         "vals": [[1, 2], [2, 3], [4, 5]],
         "arr": [[10, 20], [20, 30], [40, 50]],
@@ -220,12 +220,8 @@ def test_expr_list_explode_in_agg() -> None:
         data
         .group_by("grp")
         .agg(
-            pql.col("vals").list.sort().list.explode(),
-            pql
-            .col("arr")
-            .cast(pql.Array(pql.Int64(), size=2))
-            .arr.sort()
-            .arr.explode(),
+            bl.col("vals").list.sort().list.explode(),
+            bl.col("arr").cast(bl.Array(bl.Int64(), size=2)).arr.sort().arr.explode(),
         )
         .sort("grp", "vals"),
     )
@@ -258,11 +254,11 @@ def test_window_diff_pct_change_over_partition() -> None:
             "department",
             "years_exp",
             "salary",
-            pql_salary
+            bl_salary
             .shift(1)
             .over("department", order_by="years_exp")
             .alias("prev_salary"),
-            pql_salary
+            bl_salary
             .pct_change(1)
             .over("department", order_by="years_exp")
             .alias("salary_pct_change"),
@@ -273,7 +269,7 @@ def test_window_diff_pct_change_over_partition() -> None:
 
 def test_join_window_then_list_agg() -> None:
     """Join, compute per-employee order rank within region, implode order amounts."""
-    pql_grouped_amounts = pql.col("grouped_amounts").list
+    bl_grouped_amounts = bl.col("grouped_amounts").list
     pl_grouped_amounts = pl.col("grouped_amounts").list
     assert_lf_eq(
         _ORDERS_LF
@@ -302,7 +298,7 @@ def test_join_window_then_list_agg() -> None:
         .sort("region", "department"),
         _ORDERS
         .with_columns(
-            pql_amount
+            bl_amount
             .rank(method="ordinal", descending=True)
             .over("region")
             .alias("region_rank"),
@@ -315,13 +311,13 @@ def test_join_window_then_list_agg() -> None:
         )
         .group_by("region", "department")
         .agg(
-            pql_amount.implode().alias("grouped_amounts"),
-            pql.col("region_rank").min().alias("best_rank"),
+            bl_amount.implode().alias("grouped_amounts"),
+            bl.col("region_rank").min().alias("best_rank"),
         )
         .with_columns(
-            pql_grouped_amounts.sort(),
-            pql_grouped_amounts.sum().alias("total"),
-            pql_grouped_amounts.len().alias("n_orders"),
+            bl_grouped_amounts.sort(),
+            bl_grouped_amounts.sum().alias("total"),
+            bl_grouped_amounts.len().alias("n_orders"),
         )
         .sort("region", "department"),
     )
@@ -345,9 +341,9 @@ def test_multi_join_with_aggregation() -> None:
         .join(_ORDERS, left_on="id", right_on="employee_id", how="inner")
         .group_by("region", "category")
         .agg(
-            pql_amount.sum().alias("total"),
-            pql_order_id.count().alias("n_orders"),
-            pql_salary.mean().alias("avg_seller_salary"),
+            bl_amount.sum().alias("total"),
+            bl_order_id.count().alias("n_orders"),
+            bl_salary.mean().alias("avg_seller_salary"),
         )
         .sort("region", "category"),
     )
