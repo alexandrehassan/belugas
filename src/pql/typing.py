@@ -22,11 +22,10 @@ if TYPE_CHECKING:
         PyTypeIds as DuckPyTypeIds,
         StrIntoPyType as DuckStrIntoPyType,
     )
-    from pyochain import Dict, Result, Seq
+    from pyochain import Dict
 
     from ._core import ExprHandler
     from ._expr import Expr
-    from ._joins import JoinKeys
     from ._scans import ScanSource
     from .datatypes import DataType
 
@@ -201,7 +200,7 @@ UniqueKeepStrategy = Literal["any", "none", "first", "last"]
 PivotAgg = Literal[
     "min", "max", "first", "last", "sum", "mean", "median", "len", "count"
 ]
-type JoinKeysRes[T: Seq[str] | str] = Result[JoinKeys[T], ValueError]
+
 type GroupByClause = Literal["ROLLUP", "CUBE"]
 type Schema = Dict[str, exp.DataType]
 """Types that can be used to define a schema (mapping of column names to data types)."""

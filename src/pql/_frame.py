@@ -587,15 +587,21 @@ class LazyFrame(CoreHandler[exp.Selectable]):
             match name in targets, dtype:
                 case (True, dt.Struct() as s):
                     return s.fields.iter().map(
-                        lambda f: col(name).struct.field(f).alias(f).inner
+                        lambda f: col(name).struct.field(name=f).alias(f).inner
                     )
                 case (True, dt.List() | dt.Array()):
                     return Iter.once(unnest(col(name)).alias(name).inner)
                 case _:
                     return Iter.once(col(name).inner)
 
-        exprs = self._schema.iter().flat_map(_proj)
-        return exp.select(*exprs).from_("src").pipe(self._from_ast, src=self)
+        return (
+            self._schema
+            .iter()
+            .flat_map(_proj)
+            .into(_select)
+            .from_("src")
+            .pipe(self._from_ast, src=self)
+        )
 
     def first(self) -> Self:
         """Get the first row.
@@ -827,48 +833,12 @@ class LazyFrame(CoreHandler[exp.Selectable]):
             how, try_seq(on), try_seq(left_on), try_seq(right_on)
         ).unwrap()
         builder = JoinBuilder(suffix, self.columns, join_keys.right)
-
-        def _cols_how() -> Iter[exp.Expr | str]:
-            left = builder.left.iter()
-            right = other.columns.iter()
-            match how:
-                case "inner" | "left":
-                    return (
-                        left
-                        .map(builder.lhs)
-                        .chain(right.filter_map(builder.for_inner_left))
-                        .map(lambda c: c.inner)
-                    )
-                case "outer":
-                    return (
-                        left
-                        .map(builder.lhs)
-                        .chain(right.map(builder.for_outer))
-                        .map(lambda c: c.inner)
-                    )
-                case "right":
-                    return (
-                        left
-                        .filter(lambda name: name not in join_keys.left)
-                        .map(builder.lhs)
-                        .chain(right.map(builder.for_right))
-                        .map(lambda c: c.inner)
-                    )
-                case "semi" | "anti":
-                    return Iter.once("lhs.*")
-
         join_type = "full outer" if how == "outer" else how
-        condition = (
-            join_keys.left
-            .iter()
-            .zip(join_keys.right)
-            .map_star(builder.equals)
-            .reduce(Expr.and_)
-            .inner
-        )
+        condition = join_keys.get_join_condition(builder)
         return (
-            exp
-            .select(*_cols_how())
+            builder
+            .get_join_cols(other, join_keys, how)
+            .into(_select)
             .from_("lhs")
             .join("rhs", on=condition, join_type=join_type)
             .pipe(self._from_ast, lhs=self, rhs=other)
@@ -884,17 +854,10 @@ class LazyFrame(CoreHandler[exp.Selectable]):
         Returns:
             Self: A new LazyFrame resulting from the cross join.
         """
-        builder = JoinBuilder(suffix, self.columns, other.columns)
-        exprs = (
-            builder.left
-            .iter()
-            .map(builder.lhs)
-            .chain(builder.right.iter().map(builder.for_outer))
-            .map(lambda c: c.inner)
-        )
         return (
-            exp
-            .select(*exprs)
+            JoinBuilder(suffix, self.columns, other.columns)
+            .get_join_cols_cross()
+            .into(_select)
             .from_("lhs")
             .join("rhs", join_type="cross")
             .pipe(self._from_ast, lhs=self, rhs=other)
@@ -955,16 +918,13 @@ class LazyFrame(CoreHandler[exp.Selectable]):
             .reduce(Expr.and_)
             .inner
         )
-        exprs = (
+        return (
             builder.left
             .iter()
             .map(builder.lhs)
             .chain(other.columns.iter().filter_map(builder.for_inner_left))
             .map(lambda c: c.inner)
-        )
-        return (
-            exp
-            .select(*exprs)
+            .into(_select)
             .from_("lhs")
             .join("rhs", on=by_cond, join_type="asof left")
             .pipe(self._from_ast, lhs=self, rhs=other)
@@ -1218,25 +1178,19 @@ class LazyFrame(CoreHandler[exp.Selectable]):
 
             table = exp.Table(this=exp.to_identifier("src"), pivots=[_pivot_node()])
 
-            select_cols = (
+            selected = (
                 _pivoted_cols()
                 .iter()
                 .map(lambda n: exp.column(_case_sensitive_id(n)))
-                .collect(list)
+                .into(_select)
+                .from_(table)
             )
 
             return (
                 try_iter(idx_cols if maintain_order else None)
                 .collect()
-                .then(
-                    lambda cols: (
-                        exp
-                        .select(*select_cols)
-                        .from_(table)
-                        .order_by(*cols.iter().map(exp.column))
-                    )
-                )
-                .unwrap_or_else(lambda: exp.select(*select_cols).from_(table))
+                .then(lambda cols: selected.order_by(*cols.iter().map(exp.column)))
+                .unwrap_or(selected)
                 .pipe(self._from_ast, src=self)
             )
 
@@ -1295,6 +1249,7 @@ class LazyFrame(CoreHandler[exp.Selectable]):
         )
 
         def _select() -> exp.Select:
+            into = exp.UnpivotColumns(this=variable_name, expressions=[value_name])
             return exp.select(*index_cols, variable_name, value_name).from_(
                 exp
                 .to_table("src")
@@ -1303,9 +1258,7 @@ class LazyFrame(CoreHandler[exp.Selectable]):
                         this=e,
                         expressions=unpivot_cols.collect(list),
                         unpivot=True,
-                        into=exp.UnpivotColumns(
-                            this=variable_name, expressions=(value_name,)
-                        ),
+                        into=into,
                     )
                 )
                 .pipe(lambda e: exp.Subquery(this=e))
@@ -1448,6 +1401,10 @@ class LazyFrame(CoreHandler[exp.Selectable]):
 
 def _slct_all() -> exp.Select:
     return exp.select(exp.Star())
+
+
+def _select(exprs: Iterable[exp.Expr | str]) -> exp.Select:
+    return exp.select(*exprs)
 
 
 def _compute_schema(ast: exp.Selectable, sources: Dict[str, ScanSource]) -> Schema:
