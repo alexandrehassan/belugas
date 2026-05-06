@@ -80,10 +80,10 @@ PIVOT_AGG: dict[PivotAgg, Callable[[Expr], Expr]] = {
 
 
 @dataclass(slots=True, init=False, repr=False)
-class LazyFrame(CoreHandler[exp.Query]):
+class LazyFrame(CoreHandler[exp.Selectable]):
     """LazyFrame providing Polars-like API over DuckDB relations."""
 
-    _inner: exp.Query
+    _inner: exp.Selectable
     _sources: Dict[str, ScanSource]
     _schema: Schema
 
@@ -99,39 +99,14 @@ class LazyFrame(CoreHandler[exp.Query]):
                 self._sources = Dict.from_ref({source.identity: source})
                 self._schema = source.schema
 
-    def _make(self, ast: exp.Query, sources: Dict[str, ScanSource]) -> Self:
+    def _make(self, ast: exp.Selectable, sources: Dict[str, ScanSource]) -> Self:
         out = self.__class__.__new__(self.__class__)
         out._inner = ast
         out._sources = sources
         out._schema = _compute_schema(ast, sources)
         return out
 
-    def _execute(self, ast: exp.Expr, **subs: Self | ScanSource) -> Self:
-
-        def _replacement(table: exp.Table) -> exp.Expr:
-            alias_name = table.alias_or_name
-            pivots: Option[list[exp.Pivot]] = Option(table.args.get("pivots"))
-            match subs[table.name]:
-                case LazyFrame() as lf:
-                    alias = exp.TableAlias(this=exp.to_identifier(alias_name))
-                    return exp.Subquery(
-                        this=lf._inner, alias=alias, pivots=pivots.unwrap_or_else(list)
-                    )
-                case ScanSource() as src:
-                    return (
-                        exp
-                        .to_table(src.identity)
-                        .pipe(exp.alias_, alias_name, table=True)
-                        .apply(lambda out: pivots.map(lambda p: out.set("pivots", p)))
-                    )
-
-        def _replacer(node: exp.Expr) -> exp.Expr:
-            match node:
-                case exp.Table() if node.name in subs:
-                    return _replacement(node)
-                case _:
-                    return node
-
+    def _from_ast(self, ast: exp.Selectable, **subs: Self | ScanSource) -> Self:
         def _src_pairs(
             _name: str, v: Self | ScanSource
         ) -> Iter[tuple[str, ScanSource]]:
@@ -209,7 +184,7 @@ class LazyFrame(CoreHandler[exp.Query]):
         plan = self._schema.into(ExprPlan, exprs, more_exprs, named_exprs)
         return plan.select_ctx().map_or_else(
             lambda: self.__class__(ScanSource.from_none().relation),
-            lambda ast: self._execute(ast, src=self),
+            lambda ast: self._from_ast(ast, src=self),
         )
 
     def with_columns(
@@ -229,10 +204,7 @@ class LazyFrame(CoreHandler[exp.Query]):
             Self: A new LazyFrame with the added or replaced columns.
         """
         plan = self._schema.into(ExprPlan, exprs, more_exprs, named_exprs)
-        return self._execute(
-            plan.with_columns_ctx(),
-            src=self,
-        )
+        return self._from_ast(plan.with_columns_ctx(), src=self)
 
     def filter(
         self,
@@ -262,7 +234,7 @@ class LazyFrame(CoreHandler[exp.Query]):
             .reduce(Expr.and_)
             .inner
         )
-        return _slct_all().from_("src").where(condition).pipe(self._execute, src=self)
+        return _slct_all().from_("src").where(condition).pipe(self._from_ast, src=self)
 
     def group_by(
         self,
@@ -317,7 +289,7 @@ class LazyFrame(CoreHandler[exp.Query]):
             self._schema
             .into(ExprPlan, exprs, more_exprs, named_exprs)
             .group_by_all_ctx()
-            .pipe(self._execute, src=self)
+            .pipe(self._from_ast, src=self)
         )
 
     def sort(
@@ -353,7 +325,7 @@ class LazyFrame(CoreHandler[exp.Query]):
                 lambda expr, desc, nls: expr.set_order(desc=desc, nulls_last=nls).inner
             )
             .into(lambda order_exprs: _slct_all().from_("src").order_by(*order_exprs))
-            .pipe(self._execute, src=self)
+            .pipe(self._from_ast, src=self)
         )
 
     def limit(self, n: int) -> Self:
@@ -365,7 +337,7 @@ class LazyFrame(CoreHandler[exp.Query]):
         Returns:
             Self: A new LazyFrame with the limited rows.
         """
-        return _slct_all().from_("src").limit(n).pipe(self._execute, src=self)
+        return _slct_all().from_("src").limit(n).pipe(self._from_ast, src=self)
 
     def head(self, n: int = 5) -> Self:
         """Get the first n rows.
@@ -447,7 +419,7 @@ class LazyFrame(CoreHandler[exp.Query]):
 
         return (
             _qry(Option(length), offset)
-            .map(lambda ast: self._execute(ast, src=self))
+            .map(lambda ast: self._from_ast(ast, src=self))
             .unwrap()
         )
 
@@ -485,7 +457,7 @@ class LazyFrame(CoreHandler[exp.Query]):
             Self: A new LazyFrame with the specified columns dropped.
         """
         star_exclude = try_iter(columns).chain(more_columns).into(all).inner
-        return exp.select(star_exclude).from_("src").pipe(self._execute, src=self)
+        return exp.select(star_exclude).from_("src").pipe(self._from_ast, src=self)
 
     def drop_nulls(self, subset: TryIter[str] = None) -> Self:
         """Drop rows that contain null values.
@@ -572,7 +544,7 @@ class LazyFrame(CoreHandler[exp.Query]):
         slct = _slct_all().from_
         lhs = slct("lhs")
         rhs = slct("rhs")
-        return self._execute(exp.union(lhs, rhs), lhs=self, rhs=other)
+        return self._from_ast(exp.union(lhs, rhs), lhs=self, rhs=other)
 
     def rename(self, mapping: Mapping[str, str]) -> Self:
         """Rename columns.
@@ -623,7 +595,7 @@ class LazyFrame(CoreHandler[exp.Query]):
                     return Iter.once(col(name).inner)
 
         exprs = self._schema.iter().flat_map(_proj)
-        return exp.select(*exprs).from_("src").pipe(self._execute, src=self)
+        return exp.select(*exprs).from_("src").pipe(self._from_ast, src=self)
 
     def first(self) -> Self:
         """Get the first row.
@@ -899,7 +871,7 @@ class LazyFrame(CoreHandler[exp.Query]):
             .select(*_cols_how())
             .from_("lhs")
             .join("rhs", on=condition, join_type=join_type)
-            .pipe(self._execute, lhs=self, rhs=other)
+            .pipe(self._from_ast, lhs=self, rhs=other)
         )
 
     def join_cross(self, other: Self, *, suffix: str = "_right") -> Self:
@@ -925,7 +897,7 @@ class LazyFrame(CoreHandler[exp.Query]):
             .select(*exprs)
             .from_("lhs")
             .join("rhs", join_type="cross")
-            .pipe(self._execute, lhs=self, rhs=other)
+            .pipe(self._from_ast, lhs=self, rhs=other)
         )
 
     def join_asof(  # noqa: PLR0913
@@ -995,7 +967,7 @@ class LazyFrame(CoreHandler[exp.Query]):
             .select(*exprs)
             .from_("lhs")
             .join("rhs", on=by_cond, join_type="asof left")
-            .pipe(self._execute, lhs=self, rhs=other)
+            .pipe(self._from_ast, lhs=self, rhs=other)
         )
 
     def unique(
@@ -1103,7 +1075,7 @@ class LazyFrame(CoreHandler[exp.Query]):
                 _slct_all().from_("src").distinct(*subset_names).order_by(*order_exprs)
             )
 
-        return _query().unwrap().pipe(self._execute, src=self)
+        return _query().unwrap().pipe(self._from_ast, src=self)
 
     def pivot(  # noqa: C901, PLR0913
         self,
@@ -1265,7 +1237,7 @@ class LazyFrame(CoreHandler[exp.Query]):
                     )
                 )
                 .unwrap_or_else(lambda: exp.select(*select_cols).from_(table))
-                .pipe(self._execute, src=self)
+                .pipe(self._from_ast, src=self)
             )
 
         def _handle_multi(lf: Self) -> Self:
@@ -1343,7 +1315,7 @@ class LazyFrame(CoreHandler[exp.Query]):
             try_iter(order_by)
             .then(lambda cols: _select().order_by(*cols))
             .unwrap_or_else(_select)
-            .pipe(self._execute, src=self)
+            .pipe(self._from_ast, src=self)
         )
 
     def with_row_index(self, name: str, *, order_by: TryIter[str]) -> Self:
@@ -1357,7 +1329,9 @@ class LazyFrame(CoreHandler[exp.Query]):
             Self: A new LazyFrame with the row index added.
         """
         row_nb = row_number().window(order_by=order_by).sub(1).alias(name).inner
-        return exp.select(row_nb, exp.Star()).from_("src").pipe(self._execute, src=self)
+        return (
+            exp.select(row_nb, exp.Star()).from_("src").pipe(self._from_ast, src=self)
+        )
 
     def top_k(
         self, k: int, by: TryIter[IntoExpr], *, reverse: TrySeq[bool] = False
@@ -1476,7 +1450,7 @@ def _slct_all() -> exp.Select:
     return exp.select(exp.Star())
 
 
-def _compute_schema(ast: exp.Query, sources: Dict[str, ScanSource]) -> Schema:
+def _compute_schema(ast: exp.Selectable, sources: Dict[str, ScanSource]) -> Schema:
     schema = MappingSchema(dialect="duckdb")
     _ = (
         sources
@@ -1485,7 +1459,7 @@ def _compute_schema(ast: exp.Query, sources: Dict[str, ScanSource]) -> Schema:
         .for_each_star(lambda k, v: schema.add_table(k, v.schema.into(dict)))  # pyright: ignore[reportUnknownMemberType]
     )
 
-    def _into_selects(expr: exp.Query) -> Iter[exp.Expr]:
+    def _into_selects(expr: exp.Selectable) -> Iter[exp.Expr]:
         return Iter(expr.selects)
 
     # NOTE: need to update annotations upstream to keep the return generic
@@ -1498,3 +1472,28 @@ def _compute_schema(ast: exp.Query, sources: Dict[str, ScanSource]) -> Schema:
         .map(lambda p: (p.alias_or_name, Option(p.type).unwrap()))
         .collect(Dict)
     )
+
+
+def _replacer(
+    node: exp.Selectable, subs: Mapping[str, ScanSource | LazyFrame]
+) -> exp.Expr:
+    match node:
+        case exp.Table() if node.name in subs:
+            alias_name = node.alias_or_name
+            pivots: Option[list[exp.Pivot]] = Option(node.args.get("pivots"))
+            match subs[node.name]:
+                case LazyFrame() as lf:
+                    alias = exp.TableAlias(this=exp.to_identifier(alias_name))
+                    this = lf._inner  # pyright: ignore[reportPrivateUsage]
+                    return exp.Subquery(
+                        this=this, alias=alias, pivots=pivots.unwrap_or_else(list)
+                    )
+                case ScanSource() as src:
+                    return (
+                        exp
+                        .to_table(src.identity)
+                        .pipe(exp.alias_, alias_name, table=True)
+                        .apply(lambda out: pivots.map(lambda p: out.set("pivots", p)))
+                    )
+        case _:
+            return node

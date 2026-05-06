@@ -89,7 +89,7 @@ SYNTAX = partial(Syntax, lexer=DuckDbSqlLexer(), background_color="default")
 
 @dataclass(slots=True)
 class ParsedQuery:
-    query: exp.Query
+    query: exp.Selectable
 
     def sql(self, *, pretty: bool = False) -> str:
         return self.query.sql(dialect="duckdb", pretty=pretty)
