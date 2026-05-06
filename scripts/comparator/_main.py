@@ -1,4 +1,4 @@
-"""Compare pql API coverage against Polars."""
+"""Compare belouga API coverage against Polars."""
 
 import polars as pl
 from polars.lazyframe.group_by import LazyGroupBy as plLazyGroupBy
@@ -15,7 +15,7 @@ from ._text import ClassComparison, header, render_summary_table
 
 def get_comparisons() -> str:
     pl_col = pl.col("x")
-    pql_col = bl.col("x")
+    bl_col = bl.col("x")
     return (
         Iter((
             ClassComparison(
@@ -27,24 +27,24 @@ def get_comparisons() -> str:
             ClassComparison(pl.Expr, bl.Expr, Pql.EXPR),
             ClassComparison(plLazyGroupBy, blLazyGroupBy, Pql.LAZY_GROUP_BY),
             ClassComparison(
-                pl_col.str.__class__, pql_col.str.__class__, Pql.EXPR_STR_NAME_SPACE
+                pl_col.str.__class__, bl_col.str.__class__, Pql.EXPR_STR_NAME_SPACE
             ),
             ClassComparison(
-                pl_col.list.__class__, pql_col.list.__class__, Pql.EXPR_LIST_NAME_SPACE
+                pl_col.list.__class__, bl_col.list.__class__, Pql.EXPR_LIST_NAME_SPACE
             ),
             ClassComparison(
                 pl_col.struct.__class__,
-                pql_col.struct.__class__,
+                bl_col.struct.__class__,
                 Pql.EXPR_STRUCT_NAME_SPACE,
             ),
             ClassComparison(
-                pl_col.name.__class__, pql_col.name.__class__, Pql.EXPR_NAME_NAME_SPACE
+                pl_col.name.__class__, bl_col.name.__class__, Pql.EXPR_NAME_NAME_SPACE
             ),
             ClassComparison(
-                pl_col.arr.__class__, pql_col.arr.__class__, Pql.EXPR_ARR_NAME_SPACE
+                pl_col.arr.__class__, bl_col.arr.__class__, Pql.EXPR_ARR_NAME_SPACE
             ),
             ClassComparison(
-                pl_col.dt.__class__, pql_col.dt.__class__, Pql.EXPR_DT_NAME_SPACE
+                pl_col.dt.__class__, bl_col.dt.__class__, Pql.EXPR_DT_NAME_SPACE
             ),
             ClassComparison(
                 pl,

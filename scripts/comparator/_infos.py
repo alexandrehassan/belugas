@@ -116,26 +116,26 @@ class MethodInfo:
 
 @dataclass(slots=True)
 class ComparisonInfos:
-    """Holds MethodInfo for Polars and pql."""
+    """Holds MethodInfo for Polars and belouga."""
 
     polars: Option[MethodInfo] = field(default_factory=lambda: NONE)
-    pql_info: Option[MethodInfo] = field(default_factory=lambda: NONE)
+    belouga_info: Option[MethodInfo] = field(default_factory=lambda: NONE)
     ignored_params: Set[str] = field(default_factory=Set[str].new)
 
     def has_reference(self) -> bool:
         return self.polars.is_some()
 
     def status(self) -> Option[Status]:
-        match (self.polars, self.pql_info):
+        match (self.polars, self.belouga_info):
             case (Some(_), Null()):
                 return Some(Status.MISSING)
             case (Null(), Some(_)):
                 return Some(Status.EXTRA)
-            case (Some(reference), Some(pql_info)):
+            case (Some(reference), Some(belouga_info)):
                 return Some(
                     Status.SIGNATURE_MISMATCH
                     if _mismatch_against(
-                        pql_info.to_map(),
+                        belouga_info.to_map(),
                         reference.to_map(),
                         self.ignored_params,
                     )
@@ -193,14 +193,14 @@ class ComparisonResult:
     def __init__(
         self,
         polars_cls: object,
-        pql_cls: object,
+        belouga_cls: object,
         method_name: str,
         class_name: Pql,
     ) -> None:
-        """Compare a single method between Polars and pql."""
+        """Compare a single method between Polars and belouga."""
         infos = ComparisonInfos(
             polars=_get_method_info(polars_cls, method_name),
-            pql_info=_get_method_info(pql_cls, method_name),
+            belouga_info=_get_method_info(belouga_cls, method_name),
             ignored_params=ignored_params_for(class_name, method_name),
         )
         self.method_name = method_name
@@ -216,7 +216,7 @@ class ComparisonResult:
         Returns:
             Iter[str]: An iterator over the formatted markdown lines.
         """
-        match (status, self.infos.polars, self.infos.pql_info):
+        match (status, self.infos.polars, self.infos.belouga_info):
             case (Status.MISSING, _, _):
                 return Iter.once(f"- `{self.method_name}`").chain(
                     self.infos.polars.map(
@@ -225,11 +225,11 @@ class ComparisonResult:
                         )
                     ).unwrap_or(Iter(()))
                 )
-            case (Status.SIGNATURE_MISMATCH, Some(pl_info), Some(pql_info)):
+            case (Status.SIGNATURE_MISMATCH, Some(pl_info), Some(belouga_info)):
                 return Iter((
                     f"- `{self.method_name}`",
-                    f"  - **Polars**: {_signature_with_diff(pl_info, pql_info, self.infos.ignored_params)}",
-                    f"  - **pql**: {_signature_with_diff(pql_info, pl_info, self.infos.ignored_params)}",
+                    f"  - **Polars**: {_signature_with_diff(pl_info, belouga_info, self.infos.ignored_params)}",
+                    f"  - **belouga**: {_signature_with_diff(belouga_info, pl_info, self.infos.ignored_params)}",
                 ))
             case _:
                 return Iter.once(f"- `{self.method_name}`")
@@ -345,9 +345,9 @@ def _without_ignored_params(mapping: MapInfo, ignored: Set[str]) -> MapInfo:
     )
 
 
-def annotations_differ(pl_param: ParamInfo, pql_param: ParamInfo) -> bool:
-    match (pl_param.annotation, pql_param.annotation):
-        case (Some(pl_ann), Some(pql_ann)):
-            return not annotations_compatible(pl_ann, pql_ann)
+def annotations_differ(pl_param: ParamInfo, belouga_param: ParamInfo) -> bool:
+    match (pl_param.annotation, belouga_param.annotation):
+        case (Some(pl_ann), Some(belouga_ann)):
+            return not annotations_compatible(pl_ann, belouga_ann)
         case _:
             return False

@@ -30,7 +30,9 @@ class ComparisonReport:
                 "[!] Signature Mismatches",
                 status=Status.SIGNATURE_MISMATCH,
             ),
-            _format(self.results, "[+] Extra Methods (pql-only)", status=Status.EXTRA),
+            _format(
+                self.results, "[+] Extra Methods (belouga-only)", status=Status.EXTRA
+            ),
         ))
 
     def to_row(self) -> Vec[str]:
@@ -50,9 +52,9 @@ class ComparisonReport:
 
 def header() -> Iter[str]:
     txt = """
-# pql vs Polars API Comparison Report.
+# belouga vs Polars API Comparison Report.
 
-This report shows the API coverage of pql compared to other libraries.
+This report shows the API coverage of belouga compared to other libraries.
 
 ## Summary
 
@@ -66,7 +68,7 @@ class ClassComparison:
     """Converter between entry arguments and ComparisonReport."""
 
     polars_cls: object
-    pql_cls: object
+    belouga_cls: object
     name: Pql
     ignored_names: Set[str] = field(default_factory=Set[str].new)
 
@@ -77,16 +79,16 @@ class ClassComparison:
             ComparisonReport: A report containing the results of the comparison.
         """
         polars_methods = self._get_public_methods(self.polars_cls)
-        pql_methods = self._get_public_methods(self.pql_cls)
+        belouga_methods = self._get_public_methods(self.belouga_cls)
 
         return ComparisonReport(
             self.name,
             polars_methods
-            .union(pql_methods)
+            .union(belouga_methods)
             .iter()
             .map(
                 lambda name: ComparisonResult(
-                    self.polars_cls, self.pql_cls, name, self.name
+                    self.polars_cls, self.belouga_cls, name, self.name
                 )
             )
             .sort(key=lambda r: r.method_name),
