@@ -15,7 +15,7 @@ from . import meta
 
 if TYPE_CHECKING:
     from pygments.token import (
-        _TokenType as TokenType,  # pyright: ignore[reportPrivateUsage]  # noqa: PLC2701
+        _TokenType as TokenType,  # pyright: ignore[reportPrivateUsage]
     )
     from sqlglot import exp
 
@@ -40,29 +40,26 @@ class DuckDbSqlLexer(SqlLexer):
     @override
     def get_tokens_unprocessed(self, text: str) -> Iter[ProcessedToken]:  # pyright: ignore[reportIncompatibleMethodOverride]
         duck_tokens = Dict(duckdb.tokenize(text))
-        process = partial(self._process, duck_tokens)
+        process = partial(_process_token, duck_tokens)
         return Iter(super().get_tokens_unprocessed(text)).map_star(process)
 
-    def _process(  # noqa: PLR6301
-        self,
-        duck_tokens: Dict[int, duckdb.token_type],
-        pos: int,
-        tokentype: TokenType,
-        token_text: str,
-    ) -> ProcessedToken:
-        match duck_tokens.get_item(pos):
-            case Some(duckdb.token_type.identifier) if token_text in FUNCTIONS:
-                return (pos, token.Name.Function, token_text)
-            case Some(duckdb.token_type.keyword) if token_text in DTYPES:
-                return (pos, token.Name.Builtin, token_text)
-            case Some(duck_type):
-                return (
-                    pos,
-                    DUCK_PYGMENT_MAP.get_item(duck_type).unwrap_or(tokentype),
-                    token_text,
-                )
-            case _:
-                return (pos, tokentype, token_text)
+
+def _process_token(
+    duck_tokens: Dict[int, duckdb.token_type],
+    pos: int,
+    tokentype: TokenType,
+    token_text: str,
+) -> ProcessedToken:
+    match duck_tokens.get_item(pos):
+        case Some(duckdb.token_type.identifier) if token_text in FUNCTIONS:
+            return (pos, token.Name.Function, token_text)
+        case Some(duckdb.token_type.keyword) if token_text in DTYPES:
+            return (pos, token.Name.Builtin, token_text)
+        case Some(duck_type):
+            tken = DUCK_PYGMENT_MAP.get_item(duck_type).unwrap_or(tokentype)
+            return (pos, tken, token_text)
+        case _:
+            return (pos, tokentype, token_text)
 
 
 def _get_dtypes() -> Set[str]:
