@@ -105,8 +105,6 @@ The two core types are `LazyFrame` (relational operations) and `Expr` (expressio
 
 `LazyFrame` can be built from Python objects, NumPy arrays, any Narwhals-compatible frame, DuckDB relations, named tables, and DuckDB table functions. It supports `select`, `with_columns`, `filter`, `sort`, `join`, `group_by`, `pivot`, `unpivot`, `sink_*`, and more.
 
-`Expr` exposes 700+ DuckDB-backed methods, including namespaces for strings (`.str`), lists (`.list`), arrays (`.arr`), structs (`.struct`), datetimes (`.dt`), JSON (`.json`), regex (`.re`), maps (`.map`), enums (`.enum`), geospatial (`.geo`), and naming (`.name`).
-
 Module-level helpers cover the usual entry points: `col`, `lit`, `when`, `coalesce`, scalar and horizontal aggregations.
 
 `pql.selectors` mirrors the Polars selectors API. `pql.datatypes` exposes DuckDB-aligned type objects used for casts and schema work, including `Geometry`.
@@ -125,7 +123,17 @@ The `Geometry` datatype and `.geo` namespace expose DuckDB's spatial functions d
 
 `LazyFrame.group_by_all()` maps to DuckDB's `GROUP BY ALL`, which is convenient when the grouping columns are all non-aggregated ones.
 
-### Pyochain integration
+## Dependencies
+
+### DuckDB
+
+`pql` uses `DuckDB` as the execution engine.
+
+### sqlglot
+
+`sqlglot` is used to build and manipulate SQL ASTs for the IR between `LazyFrame`/`Expr` operations and the generated SQL queries.
+
+### Pyochain
 
 Iterable-returning methods return `pyochain` objects, so column lists and schema views stay chainable:
 
