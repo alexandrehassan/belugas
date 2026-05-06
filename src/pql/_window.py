@@ -84,13 +84,11 @@ class OverBuilder:
         )
 
     def handle_clauses(self, **kwargs: Unpack[ClauseArgs]) -> Self:
-        expr, clauses = _rewrite_forward_fill(self.expr, kwargs)
-
-        match expr.find(exp.Window):
+        match self.expr.find(exp.Window):
             case None:
-                return self.__class__(_wrap_in_window(expr, clauses))
+                return self.__class__(_wrap_in_window(self.expr, kwargs))
             case _:
-                return self.__class__(_inject_into_existing(expr, clauses))
+                return self.__class__(_inject_into_existing(self.expr, kwargs))
 
     def build_fn(
         self, *, ignore_nulls: bool = False, **kwargs: Unpack[FnArgs]
@@ -146,49 +144,6 @@ def rolling_agg(expr: exp.Expr, order_by: str, spec: BoundsValues) -> exp.Expr:
         )
         .build()
     )
-
-
-def _rewrite_forward_fill(
-    expr: exp.Expr, clauses: ClauseArgs
-) -> tuple[exp.Expr, ClauseArgs]:
-    from ._meta import Marker
-
-    def _last_value_arg(inner: exp.Expr) -> Option[exp.Expr]:
-        match inner:
-            case exp.Anonymous() as fn if fn.name.lower() == "last_value":
-                return Some(fn.expressions[0])  # pyright: ignore[reportAny]
-            case _:
-                return NONE
-
-    def _rewritten(arg: exp.Expr) -> tuple[exp.AnyValue, ClauseArgs]:
-        return (
-            exp.AnyValue(this=arg),
-            ClauseArgs(
-                partition_by=clauses["partition_by"],
-                order=get_order(
-                    Some(Marker.TEMP),
-                    descending=True,
-                    nulls_last=False,
-                ),
-                spec=make_spec(
-                    "ROWS",
-                    has_order_by=True,
-                    frame_start=Some(0),
-                    frame_end=NONE,
-                    exclude=NONE,
-                ),
-            ),
-        )
-
-    match expr:
-        case exp.IgnoreNulls():
-            match expr.args.get("this"):
-                case exp.Expr() as val:
-                    return _last_value_arg(val).map_or((expr, clauses), _rewritten)
-                case _:
-                    return expr, clauses
-        case _:
-            return expr, clauses
 
 
 def get_order(
