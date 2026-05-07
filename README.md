@@ -19,8 +19,8 @@ It is not trying to be portable across multiple backends, but rather to be the b
 
 The two main pillars of `belouga` are:
 
-- `Expr`, the base class for all expressions, created from `col`, `lit`, and all the available functions, that can be combined together to build complex expressions chains.
-- `LazyFrame`, the main entry point for all data manipulation, that can be created from various data sources, and on which you can call all the available methods to build your query.
+- `Expr`, the base class for all expressions, created from `col`, `lit`, selectors, and others module functions, that can be combined together to build complex expressions chains.
+- `LazyFrame`, the main entry point for all data manipulation, that can be created from various data sources (arrow, python mapping/sequences, pandas dataframe, CSV, parquet, json etc...), and on which you can call all the available methods to build your query.
 
 `belouga` currently provides:
 

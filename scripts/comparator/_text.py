@@ -54,7 +54,7 @@ def header() -> Iter[str]:
     txt = """
 # belouga vs Polars API Comparison Report.
 
-This report shows the API coverage of belouga compared to other libraries.
+This report shows the API coverage of belouga compared to polars.
 
 ## Summary
 
