@@ -175,3 +175,10 @@ It's also closer to polars than `SQLFrame` in terms of API design (take this wit
 ## Contributing
 
 If you want to contribute, start with [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Credits
+
+- `DuckDB` for building an amazing analytical database engine.
+- `sqlglot` for the amazing work on SQL parsing and AST manipulation, that made it possible to build a powerful IR for `belugas` without having to write a SQL parser from scratch. Also hats off to the `sqlglot` team who was very reactive on my contributions and feature requests.
+- `narwhals` for the inspiration on the API design and the idea of building a dataframe library on top of `DuckDB`.
+- @MarcoGorelli for the name idea
