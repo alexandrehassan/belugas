@@ -12,7 +12,7 @@ Just like his arctic cetacean cousin [narwhals](https://github.com/narwhals-dev/
 
 Contrary to `narwhals` or [`Ibis`](https://github.com/ibis-project/ibis), `belugas` is a specialized tool, aiming to expose the full power of `DuckDB` possibilities, in a syntax familiar to `polars` users, without concessions on functionnality.
 
-It is not trying to be portable across multiple backends, but rather to be the best possible interface for users who want to write expressive queries in Python and execute them on `DuckDB`.
+It's a WIP project, but lots of functionnality are already here, and the codebase is robustly tested, with more than +1000 tests covering features, edge cases and polars conformity.
 
 ## Features
 
