@@ -35,6 +35,7 @@ from ._expr import Expr
 from ._funcs import all, col, lit, row_number, unnest
 from ._joins import JoinBuilder, JoinKeys
 from ._meta import ExprPlan, Marker
+from ._pivots import pivot, unpivot
 from ._scans import ScanSource
 from .utils import TryIter, TrySeq, try_iter, try_seq
 
@@ -71,17 +72,6 @@ if TYPE_CHECKING:
     )
 
 MAX_I64 = 9_223_372_036_854_775_807
-PIVOT_AGG: dict[PivotAgg, Callable[[Expr], Expr]] = {
-    "min": Expr.min,
-    "max": Expr.max,
-    "first": Expr.first,
-    "last": Expr.last,
-    "sum": Expr.sum,
-    "mean": Expr.mean,
-    "median": Expr.median,
-    "len": Expr.count,
-    "count": Expr.count,
-}
 
 
 @dataclass(slots=True, init=False, repr=False)
@@ -1107,7 +1097,7 @@ class LazyFrame(CoreHandler[exp.Selectable]):
 
         return _query().unwrap().pipe(self._cls)
 
-    def pivot(  # noqa: C901, PLR0913
+    def pivot(  # noqa: PLR0913
         self,
         on: TryIter[str],
         on_columns: Sequence[PythonLiteral],
@@ -1132,139 +1122,17 @@ class LazyFrame(CoreHandler[exp.Selectable]):
         Returns:
             Self: A new LazyFrame with the pivoted data.
         """
+        pivoted, multi, idx_cols, val_cols = pivot(
+            self.columns,
+            on,
+            on_columns,
+            index,
+            values,
+            aggregate_function,
+            maintain_order=maintain_order,
+        )
 
-        def _cols_not_in(cols: Iterable[str]) -> Seq[str]:
-            return (
-                self.columns
-                .iter()
-                .filter(lambda c: c not in on_cols and c not in cols)
-                .collect()
-            )
-
-        def _get_idx_and_vals() -> Result[tuple[Seq[str], Seq[str]], ValueError]:
-            match (try_seq(index), try_seq(values)):
-                case (Some(idx), Some(vals)):
-                    return Ok((idx, vals))
-                case (Some(idx), Null()):
-                    return Ok((idx, _cols_not_in(idx)))
-                case (Null(), Some(vals)):
-                    return Ok((_cols_not_in(vals), vals))
-                case _:
-                    msg = "`pivot` needs either `index` or `values` to be specified"
-                    return Err(ValueError(msg))
-
-        on_cols = try_iter(on).collect()
-        idx_cols, val_cols = _get_idx_and_vals().unwrap()
-
-        multi = val_cols.length() > 1
-        agg = PIVOT_AGG[aggregate_function]
-
-        def _aliased(name: str) -> Expr:
-            expr = col(name).pipe(agg)
-            return expr.alias(name) if multi else expr
-
-        def _pivoted_cols() -> Seq[str]:
-            on_strs = Iter(on_columns).map(str)
-            tail = (
-                on_strs
-                if not multi
-                else val_cols.iter().flat_map(
-                    lambda vc: Iter(on_columns).map(lambda ov: f"{ov}_{vc}")
-                )
-            )
-            return idx_cols.iter().chain(tail).collect()
-
-        def _pivoted() -> Self:
-            def _field() -> exp.In:
-                exprs = Iter(on_columns).map(exp.convert).collect(list)
-                return exp.In(this=exp.column(on_cols.first()), expressions=exprs)
-
-            def _group() -> exp.Group | None:
-                group = idx_cols.then(
-                    lambda cols: exp.Group(
-                        expressions=cols.iter().map(exp.column).collect(list)
-                    )
-                )
-                return group.unwrap() if group.is_some() else None
-
-            def _case_sensitive_id(name: str) -> exp.Identifier:
-                """Build a quoted identifier that survives `qualify` normalization.
-
-                In DuckDB, all identifiers (even quoted) are normalized to
-                lowercase by `sqlglot.optimizer.normalize_identifiers`, which is
-                run by `qualify` and `annotate_types` during schema inference in
-                `_compute_schema`.
-
-                For pivoted output columns whose names mirror the user-provided
-                `on_columns` literals (e.g. ``"Engineering"``, ``"Sales"``), we
-                want the post-pivot column names to preserve their original
-                case rather than be downcased into ``"engineering"`` /
-                ``"sales"``. The literals inside the ``IN (...)`` clause already
-                survive normalization (they are `exp.Literal`, not identifiers),
-                but the identifiers we wire into ``Pivot.args["columns"]`` and
-                the explicit projection ``SELECT "Engineering", "Sales" ...``
-                that replaces ``SELECT *`` after the pivot are subject to it.
-
-                The escape hatch documented by sqlglot for this exact case is
-                the per-node ``meta["case_sensitive"] = True`` flag, which makes
-                `normalize_identifiers` skip the node entirely (see
-                `sqlglot.optimizer.normalize_identifiers.normalize_identifiers`).
-
-                Note:
-                    Once https://github.com/tobymao/sqlglot/pull/7586 is merged
-                    and released, the cleaner alternative is to drop both
-                    ``Pivot.args["columns"]`` and this meta flag, and instead
-                    rename the pivot output positionally via the standard
-                    ``PIVOT(...) AS alias(c1, c2, ...)`` mechanism (a
-                    `TableAlias(columns=[...])` on the Pivot's alias). The PR
-                    teaches `Pivot.output_columns` and `annotate_types` to
-                    propagate those alias-renamed names with their proper
-                    types, removing the need to bypass normalization manually.
-
-                Returns:
-                    exp.Identifier
-                """
-                ident = exp.to_identifier(name, quoted=True)
-                ident.meta["case_sensitive"] = True
-                return ident
-
-            def _pivot_node() -> exp.Pivot:
-                exprs = (
-                    val_cols.iter().map(_aliased).map(lambda c: c.inner).collect(list)
-                )
-                columns = (
-                    _pivoted_cols()
-                    .iter()
-                    .skip(idx_cols.length())
-                    .map(_case_sensitive_id)
-                    .collect(list)
-                )
-                return exp.Pivot(
-                    expressions=exprs,
-                    fields=[_field()],
-                    group=_group(),
-                    columns=columns,
-                )
-
-            table = exp.Table(this=exp.to_identifier("src"), pivots=[_pivot_node()])
-
-            selected = (
-                _pivoted_cols()
-                .iter()
-                .map(lambda n: exp.column(_case_sensitive_id(n)))
-                .into(_select)
-                .from_(table)
-            )
-
-            return (
-                try_iter(idx_cols if maintain_order else None)
-                .collect()
-                .then(lambda cols: selected.order_by(*cols.iter().map(exp.column)))
-                .unwrap_or(selected)
-                .pipe(self._from_ast, src=self)
-            )
-
-        def _handle_multi(lf: Self) -> Self:
+        def _handle_multi(expr: exp.Selectable) -> Self:
             match multi:
                 case True:
                     on_values = Iter(on_columns).map(str).collect()
@@ -1282,12 +1150,12 @@ class LazyFrame(CoreHandler[exp.Selectable]):
                         .iter()
                         .map(col)
                         .chain(val_cols.iter().flat_map(_rename_col))
-                        .into(lf.select)
+                        .into(expr.pipe(self._from_ast, src=self).select)
                     )
                 case False:
-                    return lf
+                    return expr.pipe(self._from_ast, src=self)
 
-        return _pivoted().pipe(_handle_multi)
+        return pivoted.pipe(_handle_multi)
 
     def unpivot(
         self,
@@ -1309,37 +1177,9 @@ class LazyFrame(CoreHandler[exp.Selectable]):
         Returns:
             Self: A new LazyFrame with the unpivoted data.
         """
-        index_cols = try_iter(index).collect(dict.fromkeys)
-        unpivot_cols = (
-            try_iter(on)
-            .then_some()
-            .unwrap_or_else(
-                lambda: self.columns.iter().filter(lambda name: name not in index_cols)
-            )
-        )
-
-        def _select() -> exp.Select:
-            into = exp.UnpivotColumns(this=variable_name, expressions=[value_name])
-            return exp.select(*index_cols, variable_name, value_name).from_(
-                exp
-                .to_table("src")
-                .pipe(
-                    lambda e: exp.Pivot(
-                        this=e,
-                        expressions=unpivot_cols.collect(list),
-                        unpivot=True,
-                        into=into,
-                    )
-                )
-                .pipe(lambda e: exp.Subquery(this=e))
-            )
-
-        return (
-            try_iter(order_by)
-            .then(lambda cols: _select().order_by(*cols))
-            .unwrap_or_else(_select)
-            .pipe(self._from_ast, src=self)
-        )
+        return self.columns.into(
+            unpivot, on, index, variable_name, value_name, order_by
+        ).pipe(self._from_ast, src=self)
 
     def with_row_index(self, name: str, *, order_by: TryIter[str]) -> Self:
         """Insert row index based on order_by.
