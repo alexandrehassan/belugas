@@ -177,6 +177,24 @@ class LazyFrame(CoreHandler[exp.Selectable]):
     def lazy(self) -> pl.LazyFrame:
         """Get a Polars LazyFrame.
 
+        Warning:
+            There's currently a known bug for the interaction between `polars.LazyFrame` and `DuckDB`.
+
+            `belugas.LazyFrame.lazy()` produces a Polars `LazyFrame` backed by a **`PYTHON SCAN`** (via `duckdb/polars_io.py`).
+            Certain Polars operations that internally generate a `dynamic_predicate` optimization node cause a **panic** when collected.
+
+            **Affected operations:** `.sort().limit()`, `.sort().head()`, `.top_k()`, `.bottom_k()`
+
+            **Workaround:** `.collect().lazy()` works — it materializes to an in-memory `DataFrame` first, so the plan uses a native `DF [...]` scan instead of `PYTHON SCAN`.
+
+            ### Mechanism
+
+                1. Polars optimizes `sort + limit` into a single node with a `dynamic_predicate` — an internal filter that pre-screens rows before the full sort.
+                2. This predicate gets pushed down to the DuckDB IO source plugin as the `predicate` callback argument.
+                3. `_predicate_to_expression` in `polars_io.py` fails to convert the `dynamic_predicate` node to a DuckDB expression (correctly suppressed via `contextlib.suppress`).
+                4. The fallback path (`polars_io.py:307`) calls `pl.from_arrow(batch).filter(predicate)`, which internally does `.lazy().filter(predicate).collect()`.
+                5. The `dynamic_predicate` expression is an optimizer-internal node — Polars' own `expr_to_ir` converter doesn't handle it → **panic** at `expr_to_ir.rs:627`.
+
         Returns:
             pl.LazyFrame: A Polars LazyFrame representing the same query.
         """

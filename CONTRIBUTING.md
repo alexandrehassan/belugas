@@ -5,6 +5,11 @@ Thank you for your interest in contributing to `belugas`!
 
 Contributions are always welcome, whether it's a bug fix, a new feature, or just improving the documentation.
 
+## Initial setup
+
+1. Fork the repository and clone it locally.
+2. Install the development dependencies using `uv sync --dev`.
+
 ## Testing
 
 The project heavily compares `belugas` behavior against reference Polars chains where parity is expected.
@@ -14,6 +19,36 @@ We want to periodically check the coverage. To do so, run:
 ```shell
 uv run pytest tests/ --cov=src/ --cov-report=term-missing
 ```
+
+## Type checking and formatting
+
+Before submitting a PR, ensure that the code is properly formatted and type-checked.
+
+To do so, run at the repo root:
+
+```shell
+uv run ruff check . --fix --unsafe-fixes; uv run ruff format .; uv run basedpyright .
+```
+
+Note that the repo rules are VERY pedantic. We use all rules for basedpyright and Ruff (including experimental ones), only desactivating a few ones.
+
+Sometimes ignoring rules can be necessary for valid reasons.
+In that case, motivate the decision in a review comment, and prefer `basedpyright: ignore <reason>` over `type: ignore <reason>`, as the former can be checked for staleness.
+
+## Code style
+
+The code style can be surprizing for pure python users, as ALL iterations are handled with [`pyochain`](https://outsquarecapital.github.io/pyochain/).
+If you are not familiar with it, take some time to get used to the style and patterns, by consulting the pyochain documentation linked above, or read this excellent series of articles from [jetbrains](https://blog.jetbrains.com/rust/2024/03/12/rust-iterators-beyond-the-basics-part-i-building-blocks/).
+
+The same applies for nullable values and error handling, which are also handled with pyochain patterns, with the [`Option`](https://doc.rust-lang.org/rust-by-example/std/option.html) and [`Result`](https://doc.rust-lang.org/rust-by-example/std/result.html) constructs.
+
+There's a friction at this level tough: `belugas` is a Python library, and we don't expect, nor want to, end users to input Option and Results values when calling the API.
+
+So we expect in entry points values such as `int | None`, but we handle them internally as `Option[int]`, especially if we then pass this value to internal helpers that aren't part of the public API.
+Note that those must ALWAYS use `Option[T]` instead of `T | None`.
+
+As for errors, we always unwrap them before returning to the end user.
+However we carry the `Result` type internally for as long as necessary, because it allows us to handle errors in a more robust way, without losing context, and without having to litter the code with try/except blocks, with implicit failure paths.
 
 ## Architecture
 
@@ -75,32 +110,3 @@ uv run -m scripts --help
 
 The main generated outputs are [DuckDB function wrappers and namespace mixins](src/belugas/_fns.py), [DuckDB meta table-function helpers](src/belugas/meta.py), and [the SQL display theme literal](src/belugas/typing.py).
 If you never generated the function wrappers before, run `fns-to-parquet` once to build the cached metadata, then `gen-fns`.
-
-## References
-
-- [DuckDB functions](https://duckdb.org/docs/stable/sql/functions/overview)
-
-## Known bug: `DuckDB` → `polars.LazyFrame` panic on `dynamic_predicate`
-
-> **Versions**: Polars 1.39.3, DuckDB 1.5.2.dev40
-
-### Summary
-
-`belugas.LazyFrame.lazy()` produces a Polars `LazyFrame` backed by a **`PYTHON SCAN`** (via `duckdb/polars_io.py`).
-Certain Polars operations that internally generate a `dynamic_predicate` optimization node cause a **panic** when collected.
-
-**Affected operations:** `.sort().limit()`, `.sort().head()`, `.top_k()`, `.bottom_k()`
-
-**Workaround:** `.collect().lazy()` works — it materializes to an in-memory `DataFrame` first, so the plan uses a native `DF [...]` scan instead of `PYTHON SCAN`.
-
-### Mechanism
-
-1. Polars optimizes `sort + limit` into a single node with a `dynamic_predicate` — an internal filter that pre-screens rows before the full sort.
-2. This predicate gets pushed down to the DuckDB IO source plugin as the `predicate` callback argument.
-3. `_predicate_to_expression` in `polars_io.py` fails to convert the `dynamic_predicate` node to a DuckDB expression (correctly suppressed via `contextlib.suppress`).
-4. The fallback path (`polars_io.py:307`) calls `pl.from_arrow(batch).filter(predicate)`, which internally does `.lazy().filter(predicate).collect()`.
-5. The `dynamic_predicate` expression is an optimizer-internal node — Polars' own `expr_to_ir` converter doesn't handle it → **panic** at `expr_to_ir.rs:627`.
-
-### Responsibility
-
-This is a **DuckDB `polars_io` plugin bug**: the fallback filter path doesn't account for optimizer-internal predicate nodes that cannot be evaluated as user-level expressions.

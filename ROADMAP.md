@@ -5,7 +5,6 @@ Here are notes of ideas and to-dos.
 ## TBD (to check, or verify)
 
 - Views, etc... that are duckdb AND relation/expression specific, have to check more.
-- Check how to integrate with narwhals (for framelib)
 - Analyze geometric datatypes.
 - Full interop with data formats and network(iceberg, credentials, etc...), for polars parity and full duckdb support.
 
