@@ -4,7 +4,7 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Self
 
-from pyochain import NONE, Dict, Iter, NoneOption as Null, Option, Seq, Set, Some
+from pyochain import NONE, Dict, Iter, Null, Option, Seq, Set, Some
 
 from .._utils import Builtins, Pql, get_attr
 from ._parse import annotations_compatible, extract_last_name

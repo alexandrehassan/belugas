@@ -6,7 +6,7 @@ from enum import auto
 from functools import partial
 from typing import TYPE_CHECKING, NamedTuple, Self, TypedDict, Unpack
 
-from pyochain import NONE, Iter, NoneOption as Null, Option, Seq, Some
+from pyochain import NONE, Iter, Null, Option, Seq, Some
 from sqlglot import exp
 
 from ._core import into_expr

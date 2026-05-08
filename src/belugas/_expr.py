@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import TYPE_CHECKING, Self, override
 
-from pyochain import NONE, Err, Iter, NoneOption as Null, Ok, Option, Result, Some
+from pyochain import NONE, Err, Iter, Null, Ok, Option, Result, Some
 from sqlglot import exp
 
 from ._core import func, into_expr, into_expr_list

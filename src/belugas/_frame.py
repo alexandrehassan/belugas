@@ -14,7 +14,7 @@ from pyochain import (
     Dict,
     Err,
     Iter,
-    NoneOption as Null,
+    Null,
     Ok,
     Option,
     Result,

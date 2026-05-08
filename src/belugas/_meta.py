@@ -6,7 +6,7 @@ from enum import StrEnum, auto
 from functools import partial
 from typing import TYPE_CHECKING, Self, override
 
-from pyochain import NONE, Dict, Iter, NoneOption as Null, Option, Seq, Set, Some
+from pyochain import NONE, Dict, Iter, Null, Option, Seq, Set, Some
 from pyochain.traits import Pipeable
 from sqlglot import exp
 

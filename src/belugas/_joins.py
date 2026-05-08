@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple
 
-from pyochain import NONE, Err, Iter, NoneOption as Null, Ok, Option, Result, Seq, Some
+from pyochain import NONE, Err, Iter, Null, Ok, Option, Result, Seq, Some
 
 from ._expr import Expr
 from ._funcs import col

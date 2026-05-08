@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable, Sequence
 
-from pyochain import Err, Iter, NoneOption as Null, Ok, Result, Seq, Some
+from pyochain import Err, Iter, Null, Ok, Result, Seq, Some
 from pyochain.traits import PyoIterable
 from sqlglot import exp
 
