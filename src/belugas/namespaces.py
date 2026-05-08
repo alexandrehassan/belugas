@@ -181,8 +181,8 @@ class ExprStringNameSpace(StringFns[Expr]):
         """
         expr = self.inner
         match prefix:
-            case str() as prefix_str:
-                return expr.re.replace(lit(f"^{re.escape(prefix_str)}"), Lit.EMPTY_STR)
+            case str():
+                return expr.re.replace(lit(f"^{re.escape(prefix)}"), Lit.EMPTY_STR)
             case _:
                 return (
                     expr
@@ -206,8 +206,8 @@ class ExprStringNameSpace(StringFns[Expr]):
         """
         expr = self.inner
         match suffix:
-            case str() as suffix_str:
-                return expr.re.replace(lit(f"{re.escape(suffix_str)}$"), Lit.EMPTY_STR)
+            case str():
+                return expr.re.replace(lit(f"{re.escape(suffix)}$"), Lit.EMPTY_STR)
             case _:
                 return expr.new(suffix).pipe(
                     lambda sfx: (

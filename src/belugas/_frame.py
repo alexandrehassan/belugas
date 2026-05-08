@@ -645,8 +645,8 @@ class LazyFrame(CoreHandler[exp.Selectable]):
         def _proj(name: str) -> Iter[exp.Expr]:
             dtype = self._schema.get_item(name).map(dt.DataType.from_sql).unwrap()
             match name in targets, dtype:
-                case (True, dt.Struct() as s):
-                    return s.fields.iter().map(
+                case (True, dt.Struct()):
+                    return dtype.fields.iter().map(
                         lambda f: col(name).struct.field(name=f).alias(f).inner
                     )
                 case (True, dt.List() | dt.Array()):

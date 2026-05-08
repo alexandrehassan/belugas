@@ -159,8 +159,8 @@ def _ordered(
 ) -> list[exp.Ordered]:
     def _expand_clauses(*, clauses: TryIter[bool], n: int) -> Iterable[bool]:
         match clauses:
-            case Iterable() as seq:
-                return seq
+            case Iterable():
+                return clauses
             case _:
                 return try_iter(clauses).cycle().take(n)
 

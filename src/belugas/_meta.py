@@ -316,8 +316,8 @@ class ExprPlan:
             from ._expr import Expr
 
             match val:
-                case Expr() as expr:
-                    return expr.alias(name)
+                case Expr():
+                    return val.alias(name)
                 case _:
                     return Expr.new(val, as_col=True).alias(name)
 
