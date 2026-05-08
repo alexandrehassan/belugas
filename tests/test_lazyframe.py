@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import polars as pl
 import pytest
-from pyochain import Dict, ResultUnwrapError
+from pyochain import ResultUnwrapError
 from sqlglot import exp
 
 import belugas as bl
@@ -42,10 +42,10 @@ def lf() -> bl.LazyFrame:
 
 def test_properties(lf: bl.LazyFrame) -> None:
     df = lf.collect()
+    schema = lf._schema  # pyright: ignore[reportPrivateUsage]
     assert lf.width == df.width
     assert lf.columns.into(list) == df.columns
-    assert set(lf.schema.keys()) == set(df.columns)
-    assert lf.schema == lf.collect_schema()
+    assert set(schema.keys()) == set(df.columns)
     assert lf.shape == df.shape
     assert isinstance(lf.lazy(), pl.LazyFrame)
     assert isinstance(df, pl.DataFrame)
@@ -295,7 +295,7 @@ def test_rename(lf: bl.LazyFrame, mapping: dict[str, str]) -> None:
 
 
 def test_with_columns_star_exprs(lf: bl.LazyFrame) -> None:
-    cols = lf.schema.items().iter().map_star(lambda k, v: (k, v.raw)).collect(Dict)
+    cols = lf._schema  # pyright: ignore[reportPrivateUsage]
 
     def _plan(expr: bl.Expr) -> exp.Star | None:
         return m.ExprPlan(cols, expr, (), {}).with_columns_ctx().find(exp.Star)

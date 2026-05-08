@@ -157,7 +157,7 @@ def test_selector_in_group_by_agg() -> None:
 )
 def test_named_selector(lf: bl.LazyFrame) -> None:
     assert_lf_eq(lf.lazy(), lf)
-    assert lf.schema.keys().into(list) == ["a", "total"]
+    assert lf.columns.into(list) == ["a", "total"]
 
 
 def test_empty_selector() -> None:

@@ -101,7 +101,7 @@ def cast_schema(sample_data: bl.LazyFrame) -> Dict[str, bl.DataType]:
 
 
 def _create_schema(sample_data: bl.LazyFrame) -> Dict[str, bl.DataType]:
-    return sample_data.select(_exprs()).schema
+    return sample_data.select(_exprs()).collect_schema()
 
 
 def _exprs() -> tuple[bl.Expr, ...]:

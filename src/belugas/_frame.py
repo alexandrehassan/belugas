@@ -843,13 +843,11 @@ class LazyFrame(CoreHandler[exp.Selectable]):
 
     @property
     def schema(self) -> Dict[str, dt.DataType]:
-        return (
-            self._schema
-            .items()
-            .iter()
-            .map_star(lambda name, dtype: (name, dt.DataType.from_sql(dtype)))
-            .collect(Dict)
-        )
+        from warnings import warn
+
+        msg = "Resolving schema in a lazy context can be expensive. Use `collect_schema()` if you need to resolve the schema of a LazyFrame."
+        warn(message=msg, stacklevel=2)
+        return self.collect_schema()
 
     def collect_schema(self) -> Dict[str, dt.DataType]:
         """Collect the schema (same as schema property for lazy).
@@ -857,7 +855,13 @@ class LazyFrame(CoreHandler[exp.Selectable]):
         Returns:
             Schema: The schema of the LazyFrame.
         """
-        return self.schema
+        return (
+            self._schema
+            .items()
+            .iter()
+            .map_star(lambda name, dtype: (name, dt.DataType.from_sql(dtype)))
+            .collect(Dict)
+        )
 
     def join(  # noqa: PLR0913
         self,
