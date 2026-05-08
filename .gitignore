@@ -14,4 +14,4 @@ wheels/
 t.py
 f.py
 # data
-*.parquet
+*functions.parquet
