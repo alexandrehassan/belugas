@@ -8,24 +8,12 @@ if TYPE_CHECKING:
 
 
 def check_missing_sqlglot(output: Path) -> int:
-    _set_config()
+    from ._utils import set_pl_config
+
+    set_pl_config()
     txt = _header(_run_qry())
     output.touch()
     return output.write_text(txt, encoding="utf-8")
-
-
-def _set_config() -> None:
-    from polars.config import Config
-
-    _ = (
-        Config()
-        .set_tbl_formatting("ASCII_MARKDOWN", rounded_corners=True)
-        .set_tbl_hide_column_data_types(True)
-        .set_tbl_hide_dataframe_shape(True)
-        .set_fmt_str_lengths(1000)
-        .set_tbl_rows(-1)
-        .set_tbl_cols(-1)
-    )
 
 
 def _run_qry() -> str:

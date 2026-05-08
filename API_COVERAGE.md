@@ -7,8 +7,8 @@ This report shows the API coverage of belugas compared to polars.
 
 Each summary cell is relative to Polars.
 
-| Class                 | Coverage                                                                                     | Belouga Total | Compared | Matched | Missing | Mismatched | Belouga only |
-| --------------------- | -------------------------------------------------------------------------------------------- | ------------- | -------- | ------- | ------- | ---------- | ------------ |
+| Class                 | Coverage                                                                                     | Belugas Total | Compared | Matched | Missing | Mismatched | Belugas Only |
+|-----------------------|----------------------------------------------------------------------------------------------|---------------|----------|---------|---------|------------|--------------|
 | LazyFrame             | <span style="color: #f39c12;">███</span><span style="color: #bdc3c7;">░░░░░░░</span> (38.8%) | 62            | 55       | 31      | 25      | 24         | 7            |
 | Expr                  | <span style="color: #f39c12;">███</span><span style="color: #bdc3c7;">░░░░░░░</span> (39.3%) | 327           | 128      | 84      | 86      | 44         | 199          |
 | LazyGroupBy           | <span style="color: #27ae60;">██████</span><span style="color: #bdc3c7;">░░░░</span> (62.5%) | 12            | 12       | 10      | 4       | 2          | 0            |
@@ -21,7 +21,7 @@ Each summary cell is relative to Polars.
 | ModuleFunctions       | <span style="color: #e74c3c;">█</span><span style="color: #bdc3c7;">░░░░░░░░░</span> (16.0%) | 77            | 63       | 27      | 106     | 36         | 14           |
 | selectors             | <span style="color: #f39c12;">█████</span><span style="color: #bdc3c7;">░░░░░</span> (54.3%) | 23            | 23       | 19      | 12      | 4          | 0            |
 | DataType              | <span style="color: #f39c12;">█████</span><span style="color: #bdc3c7;">░░░░░</span> (53.3%) | 11            | 9        | 8       | 6       | 1          | 2            |
-| Schema                | <span style="color: #e74c3c;"></span><span style="color: #bdc3c7;">░░░░░░░░░░</span> (0.0%)  | 0             | 0        | 0       | 17      | 0          | 0            |
+| Schema                | <span style="color: #e74c3c;"></span><span style="color: #bdc3c7;">░░░░░░░░░░</span> (0.0%)  | 0             | 0        | 0       | 19      | 0          | 0            |
 
 ## LazyFrame
 

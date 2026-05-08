@@ -1,12 +1,29 @@
 from dataclasses import dataclass, field
+from enum import StrEnum
 from types import ModuleType
 
+import polars as pl
 from pyochain import Iter, Seq, Set, Vec
 
 from .._utils import Dunders, Pql, get_attr
-from ._array_builder import ArrayBuilder
 from ._infos import ComparisonResult
 from ._rules import Status
+
+
+class _BarColor(StrEnum):
+    RED = "#e74c3c"
+    ORANGE = "#f39c12"
+    GREEN = "#27ae60"
+
+    @classmethod
+    def on_pct(cls, percentage: float) -> str:
+        match percentage:
+            case p if p < 30:
+                return cls.RED
+            case p if p < 60:
+                return cls.ORANGE
+            case _:
+                return cls.GREEN
 
 
 @dataclass(slots=True)
@@ -34,21 +51,6 @@ class ComparisonReport:
                 self.results, "[+] Extra Methods (belugas-only)", status=Status.EXTRA
             ),
         ))
-
-    def to_row(self) -> Vec[str]:
-        """Return a row of summary data as columns."""
-        return (
-            ArrayBuilder(self.results)
-            .with_name(self.name)
-            .coverage_cell()
-            .belugas_count_cell()
-            .count_cell()
-            .status_cell(Status.MATCH)
-            .status_cell(Status.MISSING)
-            .status_cell(Status.SIGNATURE_MISMATCH)
-            .status_cell(Status.EXTRA)
-            .build()
-        )
 
 
 def header() -> Iter[str]:
@@ -124,55 +126,77 @@ class ClassComparison:
 
 
 def render_summary_table(comps: Seq[ComparisonReport]) -> Iter[str]:
-    data_rows = _summary_rows(comps)
+    from .._utils import set_pl_config
+
+    set_pl_config()
+    class_name = pl.col("class_name")
+    has_reference = pl.col("has_reference")
+    has_belugas = pl.col("has_belugas")
+    classification = pl.col("classification")
+    polars_total = pl.col("Polars Total")
+    matched = pl.col("Matched")
+
+    def _coverage_cell(pct: float) -> str:
+        filled = int(pct / 100 * 10)
+        color = _BarColor.on_pct(pct)
+        filled_bar = f'<span style="color: {color};">{"█" * filled}</span>'
+        empty_bar = f'<span style="color: #bdc3c7;">{"░" * (10 - filled)}</span>'
+        return f"{filled_bar}{empty_bar} ({pct:.1f}%)"
 
     return (
-        Iter
-        .once(_summary_header())
-        .chain(data_rows)
-        .collect()
-        .into(_summary_widths)
-        .collect()
-        .into(
-            lambda widths: Iter.once(_format_row(_summary_header(), widths)).chain(
-                Iter.once(_format_separator(widths)),
-                data_rows.iter().map(lambda row: _format_row(row, widths)),
+        comps
+        .iter()
+        .flat_map(
+            lambda comp: comp.results.iter().map(
+                lambda r: (
+                    comp.name,
+                    r.infos.has_reference(),
+                    r.infos.belugas_info.is_some(),
+                    str(r.classification),
+                )
             )
         )
-    )
-
-
-def _summary_rows(comps: Seq[ComparisonReport]) -> Seq[Vec[str]]:
-    return comps.iter().map(lambda comp: comp.to_row()).collect()
-
-
-def _summary_widths(rows: Seq[Seq[str]]) -> Iter[int]:
-    return Iter(range(_summary_header().length())).map(
-        lambda idx: (
-            rows
-            .iter()
-            .map(lambda row: len(row[idx]))
-            .fold(0, lambda acc, length: max(length, acc))
+        .collect()
+        .into(
+            lambda rows: pl.LazyFrame(
+                rows,
+                schema={
+                    "class_name": pl.String,
+                    "has_reference": pl.Boolean,
+                    "has_belugas": pl.Boolean,
+                    "classification": pl.String,
+                },
+                orient="row",
+            )
         )
+        .group_by(class_name, maintain_order=True)
+        .agg(
+            has_reference.sum().alias("Polars Total"),
+            has_belugas.sum().alias("Belugas Total"),
+            has_reference.and_(has_belugas).sum().alias("Compared"),
+            classification.eq(Status.MATCH).sum().alias("Matched"),
+            classification.eq(Status.MISSING).sum().alias("Missing"),
+            classification.eq(Status.SIGNATURE_MISMATCH).sum().alias("Mismatched"),
+            classification.eq(Status.EXTRA).sum().alias("Belugas Only"),
+        )
+        .select(
+            class_name.alias("Class"),
+            pl
+            .when(polars_total.gt(0))
+            .then(matched.cast(pl.Float64).truediv(polars_total).mul(100.0))
+            .otherwise(pl.lit(100.0))
+            .map_elements(_coverage_cell, return_dtype=pl.String)
+            .alias("Coverage"),
+            "Belugas Total",
+            "Compared",
+            "Matched",
+            "Missing",
+            "Mismatched",
+            "Belugas Only",
+        )
+        .collect()
+        .pipe(lambda df: Iter.once(repr(df)))
     )
-
-
-def _summary_header() -> Seq[str]:
-    return Seq((
-        "Class",
-        "Coverage",
-        "Belouga Total",
-        "Compared",
-        "Matched",
-        "Missing",
-        "Mismatched",
-        "Belouga only",
-    ))
-
-
-def _format_separator(widths: Seq[int]) -> str:
-    cells = widths.iter().map(lambda width: "-" * width).join(" | ")
-    return f"| {cells} |"
 
 
 def _format(results: Vec[ComparisonResult], title: str, *, status: Status) -> str:
@@ -198,15 +222,6 @@ def _format(results: Vec[ComparisonResult], title: str, *, status: Status) -> st
         )
         .unwrap_or("")
     )
-
-
-def _format_row(row: Seq[str], widths: Seq[int]) -> str:
-    cells = (
-        Iter(range(widths.length()))
-        .map(lambda idx: row[idx].ljust(widths[idx]))
-        .join(" | ")
-    )
-    return f"| {cells} |"
 
 
 def _by_status(results: Vec[ComparisonResult], status: Status) -> Seq[ComparisonResult]:

@@ -174,3 +174,17 @@ class CollectionsABC(KwordEnum):
     COLLECTION = collections_abc.Collection.__name__
     CALLABLE = collections_abc.Callable.__name__
     MAPPING = collections_abc.Mapping.__name__
+
+
+def set_pl_config() -> None:
+    from polars.config import Config
+
+    _ = (
+        Config()
+        .set_tbl_formatting("ASCII_MARKDOWN", rounded_corners=True)
+        .set_tbl_hide_column_data_types(True)
+        .set_tbl_hide_dataframe_shape(True)
+        .set_fmt_str_lengths(1000)
+        .set_tbl_rows(-1)
+        .set_tbl_cols(-1)
+    )
