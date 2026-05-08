@@ -11,6 +11,7 @@ import duckdb
 from pyochain import Dict, Iter, Option, Seq, Set, Vec
 
 import belugas as bl
+from belugas import _core as bl_core, namespaces as bl_nm  # noqa: PLC2701
 
 
 class KwordEnum(StrEnum):
@@ -68,8 +69,8 @@ class Import[T: KwordEnum]:
 
 
 class Dunders(KwordEnum):
-    INIT = "__init__"
-    CALL = "__call__"
+    INIT = object.__init__.__name__
+    CALL = object.__call__.__name__
     DEPRECATED = "__deprecated__"
     DOC = "__doc__"
     AND = "__and__"
@@ -79,7 +80,6 @@ class Dunders(KwordEnum):
 
 class Pql(KwordEnum):
     SELECTORS = auto()
-    SQLEXPR = "SqlExpr"
     EXPR = bl.Expr.__name__
     INTO_EXPR = "IntoExpr"
     BLOB_LITERAL = "BlobLiteral"
@@ -88,23 +88,20 @@ class Pql(KwordEnum):
     TRY_ITER = auto()
     INTO_DUCKDB = auto()
     INTO_DUCKDB_MAPPING = auto()
-    RELATION = "Relation"
-    CORE_HANDLER = "CoreHandler"
-    REL_HANDLER = "RelHandler"
-    EXPR_HANDLER = "ExprHandler"
+    CORE_HANDLER = bl_core.CoreHandler.__name__
+    EXPR_HANDLER = bl_core.ExprHandler.__name__
     LAZY_FRAME = bl.LazyFrame.__name__
     LAZY_GROUP_BY = "LazyGroupBy"
-    EXPR_STR_NAME_SPACE = "ExprStrNameSpace"
-    EXPR_LIST_NAME_SPACE = "ExprListNameSpace"
-    EXPR_STRUCT_NAME_SPACE = "ExprStructNameSpace"
-    EXPR_NAME_NAME_SPACE = "ExprNameNameSpace"
-    EXPR_ARR_NAME_SPACE = "ExprArrNameSpace"
-    EXPR_DT_NAME_SPACE = "ExprDtNameSpace"
+    EXPR_STR_NAME_SPACE = bl_nm.ExprStringNameSpace.__name__
+    EXPR_LIST_NAME_SPACE = bl_nm.ExprListNameSpace.__name__
+    EXPR_STRUCT_NAME_SPACE = bl_nm.ExprStructNameSpace.__name__
+    EXPR_NAME_NAME_SPACE = bl_nm.ExprNameNameSpace.__name__
+    EXPR_ARR_NAME_SPACE = bl_nm.ExprArrayNameSpace.__name__
+    EXPR_DT_NAME_SPACE = bl_nm.ExprDateTimeNameSpace.__name__
     MODULE_FUNCTIONS = "ModuleFunctions"
     SEQ_LITERAL = "SeqLiteral"
-    DATA_TYPE = "DataType"
+    DATA_TYPE = bl.DataType.__name__
     SCHEMA = "Schema"
-    CORE_HANDLER_RELATION = "CoreHandler[DuckDBPyRelation]"
 
 
 class Pyochain(KwordEnum):

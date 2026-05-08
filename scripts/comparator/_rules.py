@@ -120,7 +120,6 @@ _INTO_EXPR_COL_TYPES: Set[str] = _set(
     "ColumnNameOrSelector",
     Builtins.STR,
     Pql.EXPR,
-    Pql.SQLEXPR,
     Pql.EXPR_HANDLER,
 )
 
