@@ -315,14 +315,15 @@ class ExprPlan:
 
         def _resolve(val: IntoExpr) -> Iter[ResolvedExpr]:
             from ._expr import Expr
-            from .selectors import Selector
 
             match val:
-                case Selector():
-                    return val.meta.into_resolved(val, schema)
                 case Expr():
-                    name = extract_root_name(val.inner)
-                    return ResolvedExpr(val, name).into(Iter.once)
+                    match val.meta:
+                        case MultiMeta() as meta:
+                            return meta.into_resolved(val, schema)
+                        case _:
+                            name = extract_root_name(val.inner)
+                            return ResolvedExpr(val, name).into(Iter.once)
                 case _:
                     return (
                         Expr
