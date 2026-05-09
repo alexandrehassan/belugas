@@ -39,8 +39,13 @@ class Marker(StrEnum):
 def _into_windowed(cols: PyoIterable[ResolvedExpr]) -> exp.Expr:
     from ._funcs import row_number
 
+    def _is_windowed(p: ResolvedExpr) -> bool:
+        return p.name != Marker.TEMP and p.expr.inner.pipe(_find_all, exp.Column).any(
+            lambda col: col.parts[-1].name == Marker.TEMP
+        )
+
     source = exp.to_table("src")
-    if cols.any(lambda p: p.is_windowed(Marker.TEMP)):
+    if cols.any(_is_windowed):
         row_nb = row_number().window().sub(1).alias(Marker.TEMP).inner
         return exp.select(row_nb, exp.Star()).from_(source).subquery("src")
     return source
@@ -136,9 +141,6 @@ class ResolvedExpr(Pipeable):
         else:
             self.expr = expr
 
-    def maybe_alias(self, expr: Expr) -> Expr:
-        return expr if not self.name else expr.alias(self.name)
-
     def implode_or_scalar(self) -> Expr:
         if self.is_pure_reducer:
             expr = self.expr
@@ -146,7 +148,7 @@ class ResolvedExpr(Pipeable):
             expr = self.expr.pipe(
                 _resolve_exploded, is_distinct=self.has_projection_distinct
             )
-        return expr.pipe(self.maybe_alias)
+        return expr.alias(self.name)
 
     def as_aliased(self, *, broadcast_agg: bool) -> Expr:
         def _broadcast_reducers(expr: Expr) -> Expr:
@@ -161,13 +163,7 @@ class ResolvedExpr(Pipeable):
 
         return self.expr.pipe(
             lambda e: _broadcast_reducers(e) if broadcast_agg else e
-        ).pipe(self.maybe_alias)
-
-    def is_windowed(self, marker: Marker) -> bool:
-        is_temp = self.expr.inner.pipe(_find_all, exp.Column).any(
-            lambda col: col.parts[-1].name == marker
-        )
-        return self.name != marker and is_temp
+        ).alias(self.name)
 
 
 def _resolve(val: IntoExpr, schema: Schema) -> Iter[ResolvedExpr]:  # noqa: PLR0912
