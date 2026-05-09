@@ -7,6 +7,7 @@ from pyochain import NONE, Dict, Err, Iter, Null, Ok, Option, Result, Seq, Some
 
 from ._expr import Expr
 from ._funcs import col
+from ._meta import Tables
 
 if TYPE_CHECKING:
     from pyochain.traits import PyoCollection
@@ -29,11 +30,11 @@ class JoinBuilder:
 
     @staticmethod
     def lhs(name: str) -> Expr:
-        return col(name, table="lhs")
+        return col(name, table=Tables.LHS.name)
 
     @staticmethod
     def rhs(name: str) -> Expr:
-        return col(name, table="rhs")
+        return col(name, table=Tables.RHS.name)
 
     def for_inner_left(self, name: str) -> Option[Expr]:
         match (name in self.left, name in self.right):

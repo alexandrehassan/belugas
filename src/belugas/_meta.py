@@ -35,6 +35,13 @@ class Marker(StrEnum):
         return col(self.value)
 
 
+class Tables:
+    SRC: exp.Table = exp.to_table("src")
+    LHS: exp.Table = exp.to_table("lhs")
+    RHS: exp.Table = exp.to_table("rhs")
+    EXPLODE_SRC: exp.Table = exp.to_table("_explode_src")
+
+
 def _into_windowed(cols: PyoIterable[ResolvedExpr]) -> exp.Expr:
     from ._funcs import row_number
 
@@ -43,11 +50,12 @@ def _into_windowed(cols: PyoIterable[ResolvedExpr]) -> exp.Expr:
             lambda col: col.parts[-1].name == Marker.TEMP
         )
 
-    source = exp.to_table("src")
     if cols.any(_is_windowed):
         row_nb = row_number().window().sub(1).alias(Marker.TEMP).inner
-        return exp.select(row_nb, exp.Star()).from_(source).subquery("src")
-    return source
+        return (
+            exp.select(row_nb, exp.Star()).from_(Tables.SRC).subquery(Tables.SRC.name)
+        )
+    return Tables.SRC
 
 
 def _has_window_ancestor(node: exp.Expr) -> bool:
@@ -489,7 +497,7 @@ class ExprPlan:
         )
 
     def group_by_all_ctx(self) -> exp.Select:
-        return self.aliased_sql(broadcast_agg=False).from_("src").group_by("ALL")
+        return self.aliased_sql(broadcast_agg=False).from_(Tables.SRC).group_by("ALL")
 
     def aliased_sql(self, *, broadcast_agg: bool) -> exp.Select:
         def _into_expr(resolved: ResolvedExpr) -> exp.Expr:
@@ -521,4 +529,4 @@ class ExprPlan:
                     return expr.alias(proj.name).inner.pipe(Iter.once)
 
         exprs = keys.iter().chain(self.projections.iter().flat_map(_lower_projection))
-        return exp.select(*exprs).from_("src")
+        return exp.select(*exprs).from_(Tables.SRC)

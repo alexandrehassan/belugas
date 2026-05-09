@@ -6,6 +6,7 @@ from sqlglot import exp
 
 from ._expr import Expr
 from ._funcs import col
+from ._meta import Tables
 from .typing import PivotAgg, PythonLiteral
 from .utils import TryIter, try_iter, try_seq
 
@@ -92,7 +93,7 @@ def pivot(  # noqa: ANN202, PLR0913, PLR0914, PLR0917
         expressions=pivot_exprs, fields=[pivot_field], group=group, columns=pivot_cols
     )
 
-    table = exp.Table(this=exp.to_identifier("src"), pivots=[pivot_node])
+    table = exp.Table(this=Tables.SRC, pivots=[pivot_node])
 
     selected = (
         pivoted_cols
@@ -180,16 +181,9 @@ def unpivot(  # noqa: PLR0913, PLR0917
     )
 
     into = exp.UnpivotColumns(this=variable_name, expressions=[value_name])
-    pivot = (
-        exp
-        .to_table("src")
-        .pipe(
-            lambda e: exp.Pivot(
-                this=e, expressions=unpivot_cols, unpivot=True, into=into
-            )
-        )
-        .pipe(lambda e: exp.Subquery(this=e))
-    )
+    pivot = Tables.SRC.pipe(
+        lambda e: exp.Pivot(this=e, expressions=unpivot_cols, unpivot=True, into=into)
+    ).pipe(lambda e: exp.Subquery(this=e))
     selected = exp.select(*index_cols, variable_name, value_name).from_(pivot)
     return (
         try_iter(order_by)
