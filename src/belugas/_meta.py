@@ -73,6 +73,19 @@ def _resolve_exploded(expr: Expr, *, is_distinct: bool) -> Expr:
     return expr.implode()
 
 
+def lookup_type(inner: exp.Expr, schema: Schema) -> exp.DataType:
+    node = inner.unalias()
+    match node, node.args.get("to"):
+        case exp.Cast() | exp.TryCast(), exp.DataType() as to:
+            return to
+        case _:
+            return (
+                Option(node.find(exp.Column))
+                .and_then(lambda c: schema.get_item(c.output_name))
+                .unwrap_or_else(exp.DType.UNKNOWN.into_expr)
+            )
+
+
 @dataclass(slots=True)
 class AliasMapper:
     """Metadata for expressions, used for tracking properties that affect query generation."""
@@ -369,10 +382,8 @@ class ExprPlan:
         )
 
     def agg_schema(self, key_schema: Schema) -> Schema:
-        from ._frame import _lookup_type  # pyright: ignore[reportPrivateUsage]
-
         def _proj_type(proj: ResolvedExpr) -> exp.DataType:
-            base = _lookup_type(proj.expr.inner, self.schema)
+            base = lookup_type(proj.expr.inner, self.schema)
             if proj.is_pure_reducer:
                 return base
             return exp.DataType(

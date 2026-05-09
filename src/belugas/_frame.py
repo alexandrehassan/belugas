@@ -34,7 +34,7 @@ from ._core import CoreHandler, into_expr
 from ._expr import Expr
 from ._funcs import all, col, lit, row_number, unnest
 from ._joins import JoinBuilder, JoinKeys
-from ._meta import ExprPlan, Marker, ResolvedExpr
+from ._meta import ExprPlan, Marker, ResolvedExpr, lookup_type
 from ._pivots import pivot, unpivot
 from ._scans import ScanSource
 from .utils import TryIter, TrySeq, try_iter, try_seq
@@ -1401,28 +1401,9 @@ def _fast_select_schema(projections: Seq[ResolvedExpr], schema: Schema) -> Schem
     return (
         projections
         .iter()
-        .map(lambda proj: (proj.name, _lookup_type(proj.expr.inner, schema)))
+        .map(lambda proj: (proj.name, lookup_type(proj.expr.inner, schema)))
         .collect(Dict)
     )
-
-
-def _lookup_type(inner: exp.Expr, schema: Schema) -> exp.DataType:
-    actual = inner.unalias() if isinstance(inner, exp.Alias) else inner
-    match actual:
-        case exp.Cast() | exp.TryCast():
-            to = actual.args.get("to")
-            if isinstance(to, exp.DataType):
-                return to
-        case _:
-            pass
-    col_node = actual.find(exp.Column)
-    if col_node is not None:
-        match schema.get_item(col_node.output_name):
-            case Some(dtype):
-                return dtype
-            case _:
-                pass
-    return exp.DataType(this=exp.DataType.Type.UNKNOWN)
 
 
 def _compute_schema(ast: exp.Selectable, tables: Dict[str, Schema]) -> Schema:

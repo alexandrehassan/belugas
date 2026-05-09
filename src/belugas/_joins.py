@@ -75,35 +75,29 @@ class JoinBuilder:
         join_keys: JoinKeys[Seq[str]],
         how: JoinStrategy,
     ) -> Schema:
+
+        def _suffix(name: str) -> str:
+            return f"{name}{self.suffix}" if name in self.left else name
+
         match how:
             case "semi" | "anti":
                 return left_schema
-            case "inner" | "left":
+            case "inner" | "left" | "outer":
+                left_pairs = left_schema.items().iter()
                 right_pairs = (
                     right_schema
                     .items()
                     .iter()
                     .filter_star(lambda name, _: name not in self.left)
-                    .map_star(
-                        lambda name, dtype: (
-                            f"{name}{self.suffix}" if name in self.left else name,
-                            dtype,
-                        )
-                    )
-                )
-            case "outer":
-                right_pairs = (
-                    right_schema
-                    .items()
-                    .iter()
-                    .map_star(
-                        lambda name, dtype: (
-                            f"{name}{self.suffix}" if name in self.left else name,
-                            dtype,
-                        )
-                    )
+                    .map_star(lambda name, dtype: (_suffix(name), dtype))
                 )
             case "right":
+                left_pairs = (
+                    left_schema
+                    .items()
+                    .iter()
+                    .filter_star(lambda name, _: name not in join_keys.left)
+                )
                 right_pairs = (
                     right_schema
                     .items()
@@ -117,12 +111,6 @@ class JoinBuilder:
                         )
                     )
                 )
-        left_pairs = (
-            left_schema
-            .items()
-            .iter()
-            .filter_star(lambda name, _: how != "right" or name not in join_keys.left)
-        )
         return left_pairs.chain(right_pairs).collect(Dict)
 
     def join_schema_cross(self, left_schema: Schema, right_schema: Schema) -> Schema:
