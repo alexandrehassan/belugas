@@ -449,29 +449,7 @@ class ExprPlan:
 
     def agg_ctx(self, keys: PyoIterable[exp.Expr]) -> exp.Select:
         def _lower_projection(proj: ResolvedExpr) -> Iter[exp.Expr]:
-            def _excluded(star: exp.Star) -> Set[str]:
-                return (
-                    Option(star.args.get("except_"))
-                    .map(Iter[exp.Expr])
-                    .unwrap_or_else(Iter[exp.Expr].new)
-                    .map(lambda e: e.name)
-                    .collect(Set)
-                )
-
-            def _into_glot(name: str) -> exp.Expr:
-                from ._funcs import col
-
-                return col(name).pipe(ResolvedExpr, name).implode_or_scalar().inner
-
             match proj.expr.inner:
-                case exp.Star() as star:
-                    excluded = _excluded(star)
-                    return (
-                        self.schema
-                        .iter()
-                        .filter(lambda name: name not in excluded)
-                        .map(_into_glot)
-                    )
                 case exp.Explode(this=exp.Expr() as inner):
                     return (
                         proj.expr

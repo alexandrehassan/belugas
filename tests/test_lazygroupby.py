@@ -500,3 +500,21 @@ def test_unique_exprs(sample_df: pl.DataFrame) -> None:
         .sort(dep)
         .collect(),
     )
+
+
+def test_selectors(sample_df: pl.DataFrame) -> None:
+    dep = "department"
+    assert_eq(
+        sample_df
+        .lazy()
+        .group_by(dep)
+        .agg(pl.selectors.numeric().mean())
+        .sort(dep)
+        .collect(),
+        bl
+        .LazyFrame(sample_df)
+        .group_by(dep)
+        .agg(bl.selectors.numeric().mean())
+        .sort(dep)
+        .collect(),
+    )
