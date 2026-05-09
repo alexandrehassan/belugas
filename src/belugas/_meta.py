@@ -39,6 +39,7 @@ class Tables:
     SRC: exp.Table = exp.to_table("src")
     LHS: exp.Table = exp.to_table("lhs")
     RHS: exp.Table = exp.to_table("rhs")
+    STATS: exp.Table = exp.to_table("stats")
     EXPLODE_SRC: exp.Table = exp.to_table("_explode_src")
 
 
@@ -480,7 +481,7 @@ class ExprPlan:
             .collect(Dict)
         )
         return exp.select(*updates.into(_resolved)).from_(
-            self.projections.into(_into_windowed)
+            self.projections.into(_into_windowed), copy=False
         )
 
     def _should_broadcast_agg(self, *, include_source_cols: bool) -> bool:
@@ -497,7 +498,12 @@ class ExprPlan:
         )
 
     def group_by_all_ctx(self) -> exp.Select:
-        return self.aliased_sql(broadcast_agg=False).from_(Tables.SRC).group_by("ALL")
+        return (
+            self
+            .aliased_sql(broadcast_agg=False)
+            .from_(Tables.SRC, copy=False)
+            .group_by("ALL")
+        )
 
     def aliased_sql(self, *, broadcast_agg: bool) -> exp.Select:
         def _into_expr(resolved: ResolvedExpr) -> exp.Expr:
@@ -529,4 +535,4 @@ class ExprPlan:
                     return expr.alias(proj.name).inner.pipe(Iter.once)
 
         exprs = keys.iter().chain(self.projections.iter().flat_map(_lower_projection))
-        return exp.select(*exprs).from_(Tables.SRC)
+        return exp.select(*exprs).from_(Tables.SRC, copy=False)

@@ -100,7 +100,7 @@ def pivot(  # noqa: ANN202, PLR0913, PLR0914, PLR0917
         .iter()
         .map(lambda n: exp.column(_case_sensitive_id(n)))
         .into(_select)
-        .from_(table)
+        .from_(table, copy=False)
     )
 
     return (
@@ -184,7 +184,9 @@ def unpivot(  # noqa: PLR0913, PLR0917
     pivot = Tables.SRC.pipe(
         lambda e: exp.Pivot(this=e, expressions=unpivot_cols, unpivot=True, into=into)
     ).pipe(lambda e: exp.Subquery(this=e))
-    selected = exp.select(*index_cols, variable_name, value_name).from_(pivot)
+    selected = exp.select(*index_cols, variable_name, value_name).from_(
+        pivot, copy=False
+    )
     return (
         try_iter(order_by)
         .then(lambda cols: selected.order_by(*cols))

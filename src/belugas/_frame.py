@@ -441,10 +441,15 @@ class LazyFrame(CoreHandler[exp.Selectable]):
                                 .greatest(0)
                                 .inner
                             )
-                            .from_("stats")
+                            .from_(Tables.STATS, copy=False)
                             .subquery()
                         )
-                        .offset(exp.select(start_expr).from_("stats").subquery())
+                        .offset(
+                            exp
+                            .select(start_expr)
+                            .from_(Tables.STATS, copy=False)
+                            .subquery()
+                        )
                     )
                 case (_, offset):
                     return Ok(
