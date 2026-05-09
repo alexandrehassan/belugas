@@ -99,60 +99,30 @@ class LazyFrame(CoreHandler[exp.Selectable]):
         out._schema = schema
         return out
 
-    def _from_ast(
-        self,
-        ast: exp.Selectable,
-        schema: Schema,
-        **subs: Self | ScanSource,
-    ) -> Self:
-        def _src_pairs(
-            _name: str, v: Self | ScanSource
-        ) -> Iter[tuple[str, ScanSource]]:
-            match v:
-                case LazyFrame():
-                    return v._sources.items().iter()
-                case ScanSource():
-                    return Iter.once((v.identity, v))
-
+    def _from_ast(self, ast: exp.Selectable, schema: Schema, **subs: Self) -> Self:
         def _replacer(
-            node: exp.Selectable, subs: Mapping[str, ScanSource | LazyFrame]
-        ) -> exp.Expr:
+            node: exp.Selectable, subs: Mapping[str, LazyFrame]
+        ) -> exp.Selectable:
             match node:
                 case exp.Table() if node.name in subs:
-                    alias_name = node.alias_or_name
-                    pivots: Option[list[exp.Pivot]] = Option(node.args.get("pivots"))
-                    match subs[node.name]:
-                        case LazyFrame() as lf:
-                            alias = exp.TableAlias(this=exp.to_identifier(alias_name))
-                            this = lf._inner
-                            return exp.Subquery(
-                                this=this,
-                                alias=alias,
-                                pivots=pivots.unwrap_or_else(list),
-                            )
-                        case ScanSource() as src:
-                            return (
-                                exp
-                                .to_table(src.identity)
-                                .pipe(exp.alias_, alias_name, table=True)
-                                .apply(
-                                    lambda out: pivots.map(
-                                        lambda p: out.set("pivots", p)
-                                    )
-                                )
-                            )
+                    pivots = node.args.get("pivots")
+                    alias = exp.TableAlias(this=exp.to_identifier(node.alias_or_name))
+                    this = subs[node.name]._inner
+                    return exp.Subquery(this=this, alias=alias, pivots=pivots)
                 case _:
                     return node
 
         new_sources = (
             Iter(subs.items())
-            .map_star(_src_pairs)
+            .map_star(lambda _name, v: v._sources.items().iter())
             .flatten()
             .chain(self._sources.items())
             .collect(Dict)
         )
 
-        return ast.transform(_replacer, subs=subs).pipe(self._make, new_sources, schema)  # pyright: ignore[reportArgumentType]
+        return ast.transform(_replacer, subs=subs, copy=False).pipe(
+            self._make, new_sources, schema
+        )
 
     @override
     def _cls(self, value: exp.Selectable) -> Self:
