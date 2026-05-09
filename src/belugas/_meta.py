@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum, auto
-from functools import partial
 from typing import TYPE_CHECKING, Self, override
 
 from pyochain import NONE, Dict, Iter, Null, Option, Seq, Set, Some
@@ -68,10 +67,6 @@ def _has_window_ancestor(node: exp.Expr) -> bool:
     return _ancestor_is_window(node.parent)
 
 
-def _is_projection_distinct(node: exp.Expr) -> bool:
-    return node.find_ancestor(exp.AggFunc, exp.List, exp.Window) is None
-
-
 def _resolve_exploded(expr: Expr, *, is_distinct: bool) -> Expr:
     if is_distinct:
         return expr.implode().list.distinct()
@@ -118,21 +113,35 @@ class ResolvedExpr(Pipeable):
     def __init__(self, expr: Expr, name: str) -> None:
         self.name = name
         inner = expr.inner
-        self.has_projection_distinct = inner.pipe(_find_all, exp.Distinct).any(
-            _is_projection_distinct
-        )
 
-        search = partial(_find_all, inner)
-        self.is_pure_reducer = search(exp.AggFunc, exp.List).any(
-            lambda node: not _has_window_ancestor(node)
-        ) and not search(exp.Column).any(_is_projection_distinct)
-        if self.has_projection_distinct:
+        def _is_projection_distinct(node: exp.Expr) -> bool:
+            return node.find_ancestor(exp.AggFunc, exp.List, exp.Window) is None
+
+        def _classify(
+            acc: tuple[bool, bool, bool], node: exp.Expr
+        ) -> tuple[bool, bool, bool]:
+            has_distinct, has_bare_agg, has_bare_col = acc
+            match node:
+                case exp.Distinct() if _is_projection_distinct(node):
+                    return (True, has_bare_agg, has_bare_col)
+                case exp.AggFunc() | exp.List() if not _has_window_ancestor(node):
+                    return (has_distinct, True, has_bare_col)
+                case exp.Column() if _is_projection_distinct(node):
+                    return (has_distinct, has_bare_agg, True)
+                case _:
+                    return acc
+
+        has_distinct, has_bare_agg, has_bare_col = Iter(inner.walk(bfs=False)).fold(
+            (False, False, False), _classify
+        )
+        self.has_projection_distinct = has_distinct
+        self.is_pure_reducer = has_bare_agg and not has_bare_col
+
+        if has_distinct:
 
             def _strip(node: exp.Expr) -> exp.Expr:
                 match node:
-                    case exp.Distinct(expressions=[exp.Expr() as expr]) if (
-                        _is_projection_distinct(node)
-                    ):
+                    case exp.Distinct(expressions=[exp.Expr() as expr]):
                         return expr
                     case _:
                         return node
