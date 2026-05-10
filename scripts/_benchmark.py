@@ -3,7 +3,6 @@ from __future__ import annotations
 import statistics
 import timeit
 from collections.abc import Callable
-from typing import Any
 
 import polars as pl
 from polars.testing import assert_frame_equal
@@ -14,7 +13,8 @@ from rich.table import Table
 
 import belugas as bl
 
-type BenchFn[T: pl.DataFrame | bl.LazyFrame] = Callable[[], T]
+type Frame = pl.LazyFrame | bl.LazyFrame
+type BenchFn[T: pl.LazyFrame | bl.LazyFrame] = Callable[[], T]
 N_COLS = 25
 N_GROUPS = 10
 
@@ -52,19 +52,19 @@ _EXPLODE_DATA = {
 }
 
 BASE = bl.LazyFrame(_DATA)
-PL_BASE = pl.DataFrame(_DATA)
+PL_BASE = pl.LazyFrame(_DATA)
 RHS = bl.LazyFrame(_RHS_DATA)
-PL_RHS = pl.DataFrame(_RHS_DATA)
+PL_RHS = pl.LazyFrame(_RHS_DATA)
 STRUCT_BL = bl.LazyFrame(_STRUCT_DATA)
-STRUCT_PL = pl.DataFrame(_STRUCT_DATA)
+STRUCT_PL = pl.LazyFrame(_STRUCT_DATA)
 ASOF_L_BL = bl.LazyFrame(_ASOF_L_DATA)
 ASOF_R_BL = bl.LazyFrame(_ASOF_R_DATA)
-ASOF_L_PL = pl.DataFrame(_ASOF_L_DATA)
-ASOF_R_PL = pl.DataFrame(_ASOF_R_DATA)
+ASOF_L_PL = pl.LazyFrame(_ASOF_L_DATA)
+ASOF_R_PL = pl.LazyFrame(_ASOF_R_DATA)
 PIVOT_BL = bl.LazyFrame(_PIVOT_DATA)
-PIVOT_PL = pl.DataFrame(_PIVOT_DATA)
+PIVOT_PL = pl.LazyFrame(_PIVOT_DATA)
 EXPLODE_BL = bl.LazyFrame(_EXPLODE_DATA)
-EXPLODE_PL = pl.DataFrame(_EXPLODE_DATA)
+EXPLODE_PL = pl.LazyFrame(_EXPLODE_DATA)
 
 AGG: Seq[bl.Expr] = (
     COLS
@@ -137,10 +137,13 @@ def run_benchmark(runs: int) -> None:
         )
 
         def _run_bench(
-            name: str, bl_fn: BenchFn[bl.LazyFrame], pl_fn: BenchFn[pl.DataFrame]
+            name: str, bl_fn: BenchFn[bl.LazyFrame], pl_fn: BenchFn[pl.LazyFrame]
         ) -> tuple[str, float, float]:
             assert_frame_equal(
-                bl_fn().collect(), pl_fn(), check_dtypes=False, check_row_order=False
+                bl_fn().collect(),
+                pl_fn().collect(),
+                check_dtypes=False,
+                check_row_order=False,
             )
             return name, _get_timing(runs, bl_fn), _get_timing(runs, pl_fn)
 
@@ -165,7 +168,7 @@ def _get_table() -> Table:
     return table
 
 
-def _get_timing(runs: int, fn: BenchFn[Any]) -> float:  # pyright: ignore[reportExplicitAny]
+def _get_timing(runs: int, fn: BenchFn[Frame]) -> float:
     return (
         Iter(range(runs))
         .map(lambda _: timeit.timeit(fn, number=1) * 1000)
@@ -173,8 +176,8 @@ def _get_timing(runs: int, fn: BenchFn[Any]) -> float:  # pyright: ignore[report
     )
 
 
-def _get_benchmarks() -> Seq[tuple[str, BenchFn[bl.LazyFrame], BenchFn[pl.DataFrame]]]:
-    return Seq[tuple[str, BenchFn[bl.LazyFrame], BenchFn[pl.DataFrame]]]((
+def _get_benchmarks() -> Seq[tuple[str, BenchFn[bl.LazyFrame], BenchFn[pl.LazyFrame]]]:
+    return Seq[tuple[str, BenchFn[bl.LazyFrame], BenchFn[pl.LazyFrame]]]((
         (
             "select",
             lambda: BASE.select(COLS),
@@ -215,7 +218,9 @@ def _get_benchmarks() -> Seq[tuple[str, BenchFn[bl.LazyFrame], BenchFn[pl.DataFr
             lambda: PIVOT_BL.pivot(
                 on="col", on_columns=["a", "b"], index="idx", values="val"
             ),
-            lambda: PIVOT_PL.pivot(on="col", index="idx", values="val"),
+            lambda: PIVOT_PL.pivot(
+                on="col", on_columns=["a", "b"], index="idx", values="val"
+            ),
         ),
         (
             "unpivot",
