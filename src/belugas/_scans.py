@@ -337,7 +337,7 @@ class ScanSource:
             exec("relation = duckdb.from_query(parsed)", namespace)
             result = cast(DuckDBPyRelation, namespace["relation"])
             return cls.from_relation(result)
-        except duckdb.ParserException as e:
+        except duckdb.Error as e:
             raise PQLConversionError(e, query) from e
 
     @classmethod
