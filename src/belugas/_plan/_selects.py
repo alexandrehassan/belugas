@@ -152,11 +152,12 @@ def select(
             source = _into_windowed(projs)
             if projs.all(lambda resolved: resolved.has_projection_distinct):
                 ast = aliased(broadcast_agg=False).from_(source).distinct()
-            ast = aliased(
-                broadcast_agg=_should_broadcast_agg(
-                    include_source_cols=False, projections=projections
-                )
-            ).from_(source)
+            else:
+                ast = aliased(
+                    broadcast_agg=_should_broadcast_agg(
+                        include_source_cols=False, projections=projections
+                    )
+                ).from_(source)
             return ast, new_schema
         case _:
             ast = exp.select(exp.null().as_(Marker.TEMP)).from_(Tables.SRC)
