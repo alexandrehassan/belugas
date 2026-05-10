@@ -31,5 +31,37 @@ def test_with_fields() -> None:
     )
 
 
+def test_with_fields_arithmetic() -> None:
+    assert_eq(
+        bl_struct.with_fields(
+            bl_struct.field("a").add(bl_struct.field("b")).alias("a")
+        ),
+        pl_struct.with_fields(
+            pl_struct.field("a").add(pl_struct.field("b")).alias("a")
+        ),
+    )
+
+
+def test_with_fields_cast() -> None:
+    assert_eq(
+        bl_struct.with_fields(bl_struct.field("a").cast(bl.Float64).alias("a")),
+        pl_struct.with_fields(pl_struct.field("a").cast(pl.Float64).alias("a")),
+    )
+
+
+def test_with_fields_chained() -> None:
+    assert_eq(
+        bl_struct.with_fields(bl_struct.field("a").add(1).mul(2).alias("computed")),
+        pl_struct.with_fields(pl_struct.field("a").add(1).mul(2).alias("computed")),
+    )
+
+
+def test_with_fields_add_new_field() -> None:
+    assert_eq(
+        bl_struct.with_fields(bl_struct.field("a").alias("new")),
+        pl_struct.with_fields(pl_struct.field("a").alias("new")),
+    )
+
+
 def test_json_encode() -> None:
     assert_eq(bl_struct.json_encode(), pl_struct.json_encode())
