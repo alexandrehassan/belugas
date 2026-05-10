@@ -1,3 +1,4 @@
+from . import nodes
 from ._explode import explode
 from ._filters import drop, drop_rows, filter, limit
 from ._group_by import agg, agg_columns, group_by_all
@@ -33,6 +34,7 @@ __all__ = [
     "join_asof",
     "join_cross",
     "limit",
+    "nodes",
     "pivot",
     "rename",
     "resolve_all",
