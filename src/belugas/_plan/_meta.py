@@ -63,21 +63,6 @@ class ResolvedExpr(Pipeable):
         self.name = name
         self.expr, self.has_distinct, self.is_pure_reducer = into_resolved(expr)
 
-    def as_aliased(self, *, broadcast_agg: bool) -> Expr:
-        def _broadcast_reducers(expr: Expr) -> Expr:
-            def _window_agg(node: exp.Expr) -> exp.Expr:
-                match node:
-                    case exp.AggFunc() | exp.List() if not _has_window_ancestor(node):
-                        return expr.__class__(node, expr.aliaser).window().inner
-                    case _:
-                        return node
-
-            return expr.inner.transform(_window_agg).pipe(expr.__class__)
-
-        return self.expr.pipe(
-            lambda e: _broadcast_reducers(e) if broadcast_agg else e
-        ).alias(self.name)
-
 
 def into_resolved(expr: Expr) -> tuple[Expr, bool, bool]:
     inner = expr.inner
@@ -94,7 +79,7 @@ def into_resolved(expr: Expr) -> tuple[Expr, bool, bool]:
                 return (True, has_bare_agg, has_bare_col)
             case exp.Column(), True:
                 return (has_distinct, has_bare_agg, True)
-            case exp.AggFunc() | exp.List(), _ if not _has_window_ancestor(node):
+            case exp.AggFunc() | exp.List(), _ if not has_window_ancestor(node):
                 return (has_distinct, True, has_bare_col)
             case _:
                 return acc
@@ -115,7 +100,7 @@ def into_resolved(expr: Expr) -> tuple[Expr, bool, bool]:
     return expr, has_distinct, has_bare_agg and not has_bare_col
 
 
-def _has_window_ancestor(node: exp.Expr) -> bool:
+def has_window_ancestor(node: exp.Expr) -> bool:
     def _ancestor_is_window(ancestor: exp.Expr | None) -> bool:
         match ancestor:
             case exp.Window():

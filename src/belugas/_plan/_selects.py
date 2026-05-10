@@ -6,7 +6,15 @@ from typing import TYPE_CHECKING
 from pyochain import Dict, Iter, Seq, Some
 from sqlglot import exp
 
-from ._meta import Marker, ResolvedExpr, Tables, find_all, lookup_type, resolve_all
+from ._meta import (
+    Marker,
+    ResolvedExpr,
+    Tables,
+    find_all,
+    has_window_ancestor,
+    lookup_type,
+    resolve_all,
+)
 
 if TYPE_CHECKING:
     from pyochain.traits import PyoIterable
@@ -54,7 +62,9 @@ def with_columns(
         .map(
             lambda proj: (
                 proj.name,
-                proj.as_aliased(broadcast_agg=broadcast_agg),
+                _maybe_broadcast(proj.expr, broadcast_agg=broadcast_agg).alias(
+                    proj.name
+                ),
             )
         )
         .collect(Dict)
@@ -142,7 +152,11 @@ def select(
 
     def aliased(*, broadcast_agg: bool) -> exp.Select:
         def _into_expr(resolved: ResolvedExpr) -> exp.Expr:
-            return resolved.as_aliased(broadcast_agg=broadcast_agg).inner
+            return (
+                _maybe_broadcast(resolved.expr, broadcast_agg=broadcast_agg)
+                .alias(resolved.name)
+                .inner
+            )
 
         return exp.select(*projections.iter().map(_into_expr))
 
@@ -201,3 +215,20 @@ def _should_broadcast_agg(
     return include_source_cols or not projections.all(
         lambda resolved: resolved.is_pure_reducer
     )
+
+
+def _maybe_broadcast(expr: Expr, *, broadcast_agg: bool) -> Expr:
+    if broadcast_agg:
+        return broadcast_aggs(expr)
+    return expr
+
+
+def broadcast_aggs(expr: Expr) -> Expr:
+    def _window_agg(node: exp.Expr) -> exp.Expr:
+        match node:
+            case exp.AggFunc() | exp.List() if not has_window_ancestor(node):
+                return expr.__class__(node, expr.aliaser).window().inner
+            case _:
+                return node
+
+    return expr.inner.transform(_window_agg).pipe(expr.__class__)

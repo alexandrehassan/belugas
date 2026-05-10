@@ -25,7 +25,7 @@ def group_by_all(
     ) -> tuple[Vec[exp.Expr], Schema]:
         select_exprs, schema = acc
         base = lookup_type(proj.expr.inner, schema)
-        _ = select_exprs.append(proj.as_aliased(broadcast_agg=False).inner)
+        _ = select_exprs.append(proj.expr.alias(proj.name).inner)
         _ = schema.insert(
             proj.name, _to_array(base, is_pure_reducer=proj.is_pure_reducer)
         )
