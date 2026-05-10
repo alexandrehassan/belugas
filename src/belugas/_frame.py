@@ -73,6 +73,10 @@ class LazyFrame(CoreHandler[ScanSource]):
         out._nodes = self._nodes.concat([node])
         return out
 
+    @property
+    def nodes(self) -> Vec[nodes.PlanNode]:
+        return self._nodes
+
     def _compile(self) -> CompiledPlan:
         return compile_plan(self._inner, self._nodes)
 

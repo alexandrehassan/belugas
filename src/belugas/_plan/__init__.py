@@ -3,6 +3,7 @@ from ._explode import explode
 from ._filters import drop, drop_rows, filter, limit
 from ._group_by import agg, agg_columns, group_by_all
 from ._joins import join, join_asof, join_cross
+from ._optimize import optimize_nodes
 from ._pivots import pivot, unpivot
 from ._resolve import CompiledPlan, Tables, compile_plan, extract_root_name, resolve_all
 from ._selects import (
@@ -37,6 +38,7 @@ __all__ = [
     "join_cross",
     "limit",
     "nodes",
+    "optimize_nodes",
     "pivot",
     "rename",
     "resolve_all",

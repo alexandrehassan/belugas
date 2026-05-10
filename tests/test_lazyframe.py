@@ -420,6 +420,61 @@ def test_top_bottom_k_single(
     )
 
 
+def test_compile_flattens_consecutive_filters(lf: bl.LazyFrame) -> None:
+    query = lf.filter(bl_age.gt(25)).filter(bl_salary.gt(50_000), department="Sales")
+    assert_lf_eq(
+        lf
+        .lazy()
+        .filter(pl_age.gt(25))
+        .filter(pl_salary.gt(50_000), department="Sales"),
+        query,
+    )
+    sql = query.sql_query().sql().upper()
+    assert sql.count(" WHERE ") == 1
+
+
+def test_compile_flattens_consecutive_limits(lf: bl.LazyFrame) -> None:
+    query = lf.limit(4).limit(2)
+    assert_lf_eq(lf.lazy().limit(4).limit(2), query)
+    sql = query.sql_query().sql().upper()
+    assert sql.count(" LIMIT ") == 1
+    assert "LIMIT 2" in sql
+
+
+def test_compile_flattens_consecutive_sorts(lf: bl.LazyFrame) -> None:
+    query = lf.sort("age").sort("salary")
+    assert_lf_eq(lf.lazy().sort("age").sort("salary"), query)
+    sql = query.sql_query().sql().upper()
+    assert sql.count(" ORDER BY ") == 1
+
+
+def test_compile_flattens_consecutive_drops(lf: bl.LazyFrame) -> None:
+    query = lf.drop("value").drop("category")
+    assert_lf_eq(lf.lazy().drop("value").drop("category"), query)
+
+    assert query.nodes.length() > m.optimize_nodes(query.nodes).length()
+
+
+def test_compile_flattens_consecutive_renames(lf: bl.LazyFrame) -> None:
+    query = lf.rename({"department": "dept"}).rename({"dept": "team", "age": "years"})
+    assert_lf_eq(
+        lf
+        .lazy()
+        .rename({"department": "dept"})
+        .rename({"dept": "team", "age": "years"}),
+        query,
+    )
+
+    assert query.nodes.length() > m.optimize_nodes(query.nodes).length()
+
+
+def test_compile_flattens_consecutive_slices(lf: bl.LazyFrame) -> None:
+    query = lf.slice(2, 5).slice(1, 2)
+    assert_lf_eq(lf.lazy().slice(2, 5).slice(1, 2), query)
+
+    assert query.nodes.length() > m.optimize_nodes(query.nodes).length()
+
+
 @pytest.mark.parametrize("seed", [0, 42, 12345])
 def test_hash_seed(seed: int) -> None:
     df = bl.LazyFrame({"text": ["apple", "banana", "apple"]})

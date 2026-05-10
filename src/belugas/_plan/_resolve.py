@@ -11,6 +11,7 @@ from sqlglot import exp
 from .._core import Marker
 from ..utils import try_iter
 from . import nodes
+from ._optimize import optimize_nodes
 
 if TYPE_CHECKING:
     from .._expr import Cols, Expr
@@ -34,7 +35,9 @@ class CompiledPlan(NamedTuple):
     sources: Dict[str, ScanSource]
 
 
-def compile_plan(source: ScanSource, plan_nodes: Vec[nodes.PlanNode]) -> CompiledPlan:
+def compile_plan(
+    source: ScanSource, plan_nodes: Vec[nodes.PlanNode], *, optimize: bool = True
+) -> CompiledPlan:
     def _process(acc: NodeResult, node: nodes.PlanNode) -> NodeResult:
         new_ast, new_schema, extra = _compile_node(*acc, node)
         sources.extend(extra.items())
@@ -43,8 +46,9 @@ def compile_plan(source: ScanSource, plan_nodes: Vec[nodes.PlanNode]) -> Compile
     ast = exp.select(exp.Star()).from_(exp.to_table(source.identity))
     accumulator = (ast, source.schema)
     sources = Vec([(source.identity, source)])
+    optimized_nodes = optimize_nodes(plan_nodes) if optimize else plan_nodes
     return CompiledPlan(
-        *plan_nodes.iter().fold(accumulator, _process), sources.into(Dict)
+        *optimized_nodes.iter().fold(accumulator, _process), sources.into(Dict)
     )
 
 

@@ -1,0 +1,138 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from pyochain import NONE, Dict, Iter, Option, Some, Vec
+
+from ..utils import try_iter
+from . import nodes
+
+if TYPE_CHECKING:
+    from ..typing import IntoExpr, IntoExprColumn
+
+
+def optimize_nodes(plan_nodes: Vec[nodes.PlanNode]) -> Vec[nodes.PlanNode]:
+    def _step(
+        acc: tuple[Option[nodes.PlanNode], Vec[nodes.PlanNode]],
+        node: nodes.PlanNode,
+    ) -> tuple[Option[nodes.PlanNode], Vec[nodes.PlanNode]]:
+        pending, out = acc
+        match pending:
+            case Some(prev):
+                match _flatten_pair(prev, node):
+                    case Some(merged):
+                        return Some(merged), out
+                    case _:
+                        _ = out.append(prev)
+                        return Some(node), out
+            case _:
+                return Some(node), out
+
+    init = (NONE, Vec[nodes.PlanNode].new())
+    pending, optimized = plan_nodes.iter().fold(init, _step)
+    match pending:
+        case Some(last):
+            _ = optimized.append(last)
+            return optimized
+        case _:
+            return optimized
+
+
+def _flatten_pair(prev: nodes.PlanNode, nxt: nodes.PlanNode) -> Option[nodes.PlanNode]:
+    match prev, nxt:
+        case nodes.Filter() as lhs, nodes.Filter() as rhs:
+            return Some(_merge_filters(lhs, rhs))
+        case nodes.Drop() as lhs, nodes.Drop() as rhs:
+            return Some(_merge_drops(lhs, rhs))
+        case nodes.Rename() as lhs, nodes.Rename() as rhs:
+            return Some(_merge_renames(lhs, rhs))
+        case nodes.Limit() as lhs, nodes.Limit() as rhs:
+            return Some(nodes.Limit(min(rhs.n, lhs.n)))
+        case nodes.Slice() as lhs, nodes.Slice() as rhs:
+            return _merge_slices(lhs, rhs)
+        case nodes.Sort(), nodes.Sort() as rhs:
+            return Some(rhs)
+        case _:
+            return NONE
+
+
+def _merge_slices(lhs: nodes.Slice, rhs: nodes.Slice) -> Option[nodes.PlanNode]:
+    if lhs.offset < 0 or rhs.offset < 0:
+        return NONE
+
+    offset = lhs.offset + rhs.offset
+    match lhs.length:
+        case Some(lhs_length):
+            match rhs.length:
+                case Some(rhs_length):
+                    merged_bounded_slice = nodes.Slice(
+                        Some(min(rhs_length, max(lhs_length - rhs.offset, 0))), offset
+                    )
+                    return Some(merged_bounded_slice)
+                case _ if rhs.length is NONE:
+                    merged_open_slice = nodes.Slice(
+                        Some(max(lhs_length - rhs.offset, 0)), offset
+                    )
+                    return Some(merged_open_slice)
+                case _:
+                    return NONE
+        case _ if lhs.length is NONE:
+            match rhs.length:
+                case Some(rhs_length):
+                    rhs_slice = nodes.Slice(Some(rhs_length), offset)
+                    return Some(rhs_slice)
+                case _ if rhs.length is NONE:
+                    unbounded_slice = nodes.Slice(NONE, offset)
+                    return Some(unbounded_slice)
+                case _:
+                    return NONE
+        case _:
+            return NONE
+
+
+def _merge_filters(lhs: nodes.Filter, rhs: nodes.Filter) -> nodes.Filter:
+    predicates = (
+        try_iter(lhs.predicates)
+        .chain(lhs.more_predicates)
+        .chain(_constraints_to_predicates(lhs.constraints))
+        .chain(try_iter(rhs.predicates))
+        .chain(rhs.more_predicates)
+    )
+    return nodes.Filter(predicates, (), rhs.constraints)
+
+
+def _constraints_to_predicates(
+    constraints: dict[str, IntoExpr],
+) -> Iter[IntoExprColumn]:
+    from .._funcs import col
+
+    return Iter(constraints.items()).map_star(lambda key, value: col(key).eq(value))
+
+
+def _merge_drops(lhs: nodes.Drop, rhs: nodes.Drop) -> nodes.Drop:
+    columns = (
+        try_iter(lhs.columns)
+        .chain(lhs.more_columns)
+        .chain(try_iter(rhs.columns))
+        .chain(rhs.more_columns)
+    )
+    return nodes.Drop(columns, ())
+
+
+def _merge_renames(lhs: nodes.Rename, rhs: nodes.Rename) -> nodes.Rename:
+    names = Iter(lhs.mapping.keys()).chain(rhs.mapping.keys()).collect()
+    mapping = (
+        names
+        .iter()
+        .map(
+            lambda name: (
+                name,
+                rhs.mapping.get(
+                    lhs.mapping.get(name, name), lhs.mapping.get(name, name)
+                ),
+            )
+        )
+        .filter_star(lambda name, renamed: renamed != name)
+        .collect(Dict)
+    )
+    return nodes.Rename(mapping)
