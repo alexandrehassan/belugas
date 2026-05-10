@@ -14,6 +14,56 @@ if TYPE_CHECKING:
     from ..utils import TryIter
 
 
+def group_by_all(
+    schema: Schema,
+    exprs: TryIter[IntoExpr],
+    more_exprs: Iterable[IntoExpr],
+    named_exprs: dict[str, IntoExpr],
+) -> tuple[exp.Select, Schema]:
+    def _acc(
+        acc: tuple[Vec[exp.Expr], Schema], proj: ResolvedExpr
+    ) -> tuple[Vec[exp.Expr], Schema]:
+        select_exprs, schema = acc
+        base = lookup_type(proj.expr.inner, schema)
+        _ = select_exprs.append(proj.as_aliased(broadcast_agg=False).inner)
+        _ = schema.insert(
+            proj.name, _to_array(base, is_pure_reducer=proj.is_pure_reducer)
+        )
+        return acc
+
+    select_exprs, out_schema = (
+        resolve_all(schema, exprs, more_exprs, named_exprs)
+        .iter()
+        .fold((Vec[exp.Expr].new(), Dict[str, exp.DataType].new()), _acc)
+    )
+    return (
+        exp
+        .select(*select_exprs)
+        .from_(Tables.SRC, copy=False)
+        .group_by("ALL", copy=False),
+        out_schema,
+    )
+
+
+def agg_columns(
+    schema: Schema,
+    keys: Seq[Expr],
+    func: Callable[[Expr], Expr],
+    *,
+    drop_null_keys: bool,
+) -> tuple[exp.Select, Schema]:
+    from .._funcs import col
+
+    key_names = keys.iter().map(lambda k: k.inner.output_name).collect(Set)
+    agg_exprs = (
+        schema
+        .iter()
+        .filter(lambda name: name not in key_names)
+        .map(lambda name: col(name).pipe(func).alias(name))
+    )
+    return agg(schema, keys, agg_exprs, (), {}, None, drop_null_keys=drop_null_keys)
+
+
 def agg(  # noqa: PLR0913, PLR0917
     schema: Schema,
     keys: Seq[Expr],
@@ -76,12 +126,6 @@ def agg(  # noqa: PLR0913, PLR0917
     return ast.group_by(*_group_by_clause(strategy, key_glots), copy=False), out_schema
 
 
-def _exploded(expr: Expr, *, is_distinct: bool) -> Expr:
-    if is_distinct:
-        return expr.implode().list.distinct()
-    return expr.implode()
-
-
 def _split_by_key(
     key_names: Set[str],
     acc: tuple[Schema, Schema],
@@ -95,37 +139,6 @@ def _split_by_key(
         case _:
             _ = non_key_s.insert(name, dtype)
     return acc
-
-
-def group_by_all(
-    schema: Schema,
-    exprs: TryIter[IntoExpr],
-    more_exprs: Iterable[IntoExpr],
-    named_exprs: dict[str, IntoExpr],
-) -> tuple[exp.Select, Schema]:
-    def _acc(
-        acc: tuple[Vec[exp.Expr], Schema], proj: ResolvedExpr
-    ) -> tuple[Vec[exp.Expr], Schema]:
-        select_exprs, schema = acc
-        base = lookup_type(proj.expr.inner, schema)
-        _ = select_exprs.append(proj.as_aliased(broadcast_agg=False).inner)
-        _ = schema.insert(
-            proj.name, _to_array(base, is_pure_reducer=proj.is_pure_reducer)
-        )
-        return acc
-
-    select_exprs, out_schema = (
-        resolve_all(schema, exprs, more_exprs, named_exprs)
-        .iter()
-        .fold((Vec[exp.Expr].new(), Dict[str, exp.DataType].new()), _acc)
-    )
-    return (
-        exp
-        .select(*select_exprs)
-        .from_(Tables.SRC, copy=False)
-        .group_by("ALL", copy=False),
-        out_schema,
-    )
 
 
 def _to_array(base: exp.DataType, *, is_pure_reducer: bool) -> exp.DataType:
@@ -146,20 +159,7 @@ def _group_by_clause(
             return key_glots
 
 
-def agg_columns(
-    schema: Schema,
-    keys: Seq[Expr],
-    func: Callable[[Expr], Expr],
-    *,
-    drop_null_keys: bool,
-) -> tuple[exp.Select, Schema]:
-    from .._funcs import col
-
-    key_names = keys.iter().map(lambda k: k.inner.output_name).collect(Set)
-    agg_exprs = (
-        schema
-        .iter()
-        .filter(lambda name: name not in key_names)
-        .map(lambda name: col(name).pipe(func).alias(name))
-    )
-    return agg(schema, keys, agg_exprs, (), {}, None, drop_null_keys=drop_null_keys)
+def _exploded(expr: Expr, *, is_distinct: bool) -> Expr:
+    if is_distinct:
+        return expr.implode().list.distinct()
+    return expr.implode()

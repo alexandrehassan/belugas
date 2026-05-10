@@ -17,40 +17,6 @@ if TYPE_CHECKING:
     from ..utils import TryIter
 
 
-def select(
-    schema: Schema,
-    exprs: TryIter[IntoExpr],
-    more_exprs: Iterable[IntoExpr],
-    named_exprs: dict[str, IntoExpr],
-) -> tuple[exp.Selectable, Schema]:
-    projections = resolve_all(schema, exprs, more_exprs, named_exprs)
-
-    def aliased(*, broadcast_agg: bool) -> exp.Select:
-        def _into_expr(resolved: ResolvedExpr) -> exp.Expr:
-            return resolved.as_aliased(broadcast_agg=broadcast_agg).inner
-
-        return exp.select(*projections.iter().map(_into_expr))
-
-    match projections.then_some():
-        case Some(projs):
-            new_schema = _select_schema(schema, projs)
-            source = _into_windowed(projs)
-            if projs.all(lambda resolved: resolved.has_projection_distinct):
-                ast = aliased(broadcast_agg=False).from_(source).distinct()
-            ast = aliased(
-                broadcast_agg=_should_broadcast_agg(
-                    include_source_cols=False, projections=projections
-                )
-            ).from_(source)
-            return ast, new_schema
-        case _:
-            ast = exp.select(exp.null().as_(Marker.TEMP)).from_(Tables.SRC)
-            new_schema: Schema = Dict.from_ref({
-                Marker.TEMP: exp.DType.NULL.into_expr()
-            })
-            return ast, new_schema
-
-
 def with_columns(
     schema: Schema,
     exprs: TryIter[IntoExpr],
@@ -110,42 +76,6 @@ def _with_columns_schema(schema: Schema, projections: Seq[ResolvedExpr]) -> Sche
     )
 
 
-def _select_schema(schema: Schema, projections: Seq[ResolvedExpr]) -> Schema:
-    return (
-        projections
-        .iter()
-        .map(lambda proj: (proj.name, lookup_type(proj.expr.inner, schema)))
-        .collect(Dict)
-    )
-
-
-def _should_broadcast_agg(
-    *, include_source_cols: bool, projections: Seq[ResolvedExpr]
-) -> bool:
-    return include_source_cols or not projections.all(
-        lambda resolved: resolved.is_pure_reducer
-    )
-
-
-def _into_windowed(cols: PyoIterable[ResolvedExpr]) -> exp.Expr:
-    from .._funcs import row_number
-
-    def _is_windowed(p: ResolvedExpr) -> bool:
-        return p.name != Marker.TEMP and p.expr.inner.pipe(find_all, exp.Column).any(
-            lambda col: col.parts[-1].name == Marker.TEMP
-        )
-
-    if cols.any(_is_windowed):
-        row_nb = row_number().window().sub(1).alias(Marker.TEMP).inner
-        return (
-            exp
-            .select(row_nb, exp.Star())
-            .from_(Tables.SRC)
-            .subquery(Tables.SRC.name, copy=False)
-        )
-    return Tables.SRC
-
-
 def rename(schema: Schema, mapping: Mapping[str, str]) -> tuple[exp.Selectable, Schema]:
     exprs = schema.iter().map(lambda c: exp.column(c).as_(mapping.get(c, c)))
     return select(schema, exprs, (), {})
@@ -164,16 +94,6 @@ def with_row_index(
         .collect(Dict)
     )
     return exp.select(row_nb, exp.Star()).from_(Tables.SRC, copy=False), new_schema
-
-
-def select_all(
-    schema: Schema, func: Callable[[Expr], Expr]
-) -> tuple[exp.Selectable, Schema]:
-    from .._funcs import col
-
-    exprs = schema.iter().map(lambda c: col(c).pipe(func).alias(c).inner)
-
-    return select(schema, exprs, (), {})
 
 
 def union() -> exp.Union:
@@ -200,3 +120,83 @@ def cast(
             )
         case _:
             return select_all(schema, lambda c: c.cast(dtypes.raw))
+
+
+def select_all(
+    schema: Schema, func: Callable[[Expr], Expr]
+) -> tuple[exp.Selectable, Schema]:
+    from .._funcs import col
+
+    exprs = schema.iter().map(lambda c: col(c).pipe(func).alias(c).inner)
+
+    return select(schema, exprs, (), {})
+
+
+def select(
+    schema: Schema,
+    exprs: TryIter[IntoExpr],
+    more_exprs: Iterable[IntoExpr],
+    named_exprs: dict[str, IntoExpr],
+) -> tuple[exp.Selectable, Schema]:
+    projections = resolve_all(schema, exprs, more_exprs, named_exprs)
+
+    def aliased(*, broadcast_agg: bool) -> exp.Select:
+        def _into_expr(resolved: ResolvedExpr) -> exp.Expr:
+            return resolved.as_aliased(broadcast_agg=broadcast_agg).inner
+
+        return exp.select(*projections.iter().map(_into_expr))
+
+    match projections.then_some():
+        case Some(projs):
+            new_schema = _select_schema(schema, projs)
+            source = _into_windowed(projs)
+            if projs.all(lambda resolved: resolved.has_projection_distinct):
+                ast = aliased(broadcast_agg=False).from_(source).distinct()
+            ast = aliased(
+                broadcast_agg=_should_broadcast_agg(
+                    include_source_cols=False, projections=projections
+                )
+            ).from_(source)
+            return ast, new_schema
+        case _:
+            ast = exp.select(exp.null().as_(Marker.TEMP)).from_(Tables.SRC)
+            new_schema: Schema = Dict.from_ref({
+                Marker.TEMP: exp.DType.NULL.into_expr()
+            })
+            return ast, new_schema
+
+
+def _select_schema(schema: Schema, projections: Seq[ResolvedExpr]) -> Schema:
+    return (
+        projections
+        .iter()
+        .map(lambda proj: (proj.name, lookup_type(proj.expr.inner, schema)))
+        .collect(Dict)
+    )
+
+
+def _into_windowed(cols: PyoIterable[ResolvedExpr]) -> exp.Expr:
+    from .._funcs import row_number
+
+    def _is_windowed(p: ResolvedExpr) -> bool:
+        return p.name != Marker.TEMP and p.expr.inner.pipe(find_all, exp.Column).any(
+            lambda col: col.parts[-1].name == Marker.TEMP
+        )
+
+    if cols.any(_is_windowed):
+        row_nb = row_number().window().sub(1).alias(Marker.TEMP).inner
+        return (
+            exp
+            .select(row_nb, exp.Star())
+            .from_(Tables.SRC)
+            .subquery(Tables.SRC.name, copy=False)
+        )
+    return Tables.SRC
+
+
+def _should_broadcast_agg(
+    *, include_source_cols: bool, projections: Seq[ResolvedExpr]
+) -> bool:
+    return include_source_cols or not projections.all(
+        lambda resolved: resolved.is_pure_reducer
+    )

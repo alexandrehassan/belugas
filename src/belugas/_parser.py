@@ -84,11 +84,11 @@ SYNTAX = partial(Syntax, lexer=DuckDbSqlLexer(), background_color="default")
 class ParsedQuery:
     query: exp.Selectable
 
-    def sql(self, *, pretty: bool = False) -> str:
-        return self.query.sql(dialect="duckdb", pretty=pretty)
-
     def show(self, theme: Themes = "github-dark", *, pretty: bool = True) -> None:
         return CONSOLE.print(SYNTAX(self.sql(pretty=pretty), theme=theme))
 
     def tokenize(self) -> Vec[tuple[int, duckdb.token_type]]:
         return Vec.from_ref(duckdb.tokenize(self.sql()))
+
+    def sql(self, *, pretty: bool = False) -> str:
+        return self.query.sql(dialect="duckdb", pretty=pretty)

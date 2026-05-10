@@ -42,37 +42,6 @@ def unique(
             return Err(ValueError(msg))
 
 
-def _distinct_on(
-    subset_names: Seq[str],
-    order_names: Seq[str],
-    *,
-    descending: bool,
-    nulls_last: bool,
-) -> exp.Select:
-    from .._funcs import col
-
-    order_exprs = (
-        subset_names
-        .iter()
-        .map(col)
-        .chain(
-            order_names.iter().map(
-                lambda name: col(name).order_by(
-                    descending=descending, nulls_last=nulls_last
-                )
-            )
-        )
-        .map(lambda expr: expr.inner)
-    )
-    return (
-        exp
-        .select(exp.Star())
-        .from_(Tables.SRC, copy=False)
-        .distinct(*subset_names)
-        .order_by(*order_exprs)
-    )
-
-
 def _none_on_subset(subset_names: Seq[str]) -> exp.Select:
     from .._expr import Expr
     from .._funcs import col, lit
@@ -116,4 +85,35 @@ def _none_on_all() -> exp.Select:
         .from_(Tables.SRC, copy=False)
         .group_by("ALL")
         .having(lit(1).count().eq(1).inner)
+    )
+
+
+def _distinct_on(
+    subset_names: Seq[str],
+    order_names: Seq[str],
+    *,
+    descending: bool,
+    nulls_last: bool,
+) -> exp.Select:
+    from .._funcs import col
+
+    order_exprs = (
+        subset_names
+        .iter()
+        .map(col)
+        .chain(
+            order_names.iter().map(
+                lambda name: col(name).order_by(
+                    descending=descending, nulls_last=nulls_last
+                )
+            )
+        )
+        .map(lambda expr: expr.inner)
+    )
+    return (
+        exp
+        .select(exp.Star())
+        .from_(Tables.SRC, copy=False)
+        .distinct(*subset_names)
+        .order_by(*order_exprs)
     )

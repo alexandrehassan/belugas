@@ -98,18 +98,6 @@ class Selector(Expr):
         return self._resolver.complement().into_selector()
 
 
-def by_dtype(*dtypes: type[dt.DataType]) -> Selector:
-    """Select columns matching any of the given dtype classes.
-
-    Args:
-        *dtypes (type[dt.DataType]): One or more dtype classes to match.
-
-    Returns:
-        Selector: A selector for columns matching the specified dtypes.
-    """
-    return Resolver.dtype(lambda d: isinstance(d, dtypes)).into_selector()
-
-
 def numeric() -> Selector:
     """Select all numeric columns.
 
@@ -261,6 +249,18 @@ def struct() -> Selector:
         Selector: A selector for all struct columns.
     """
     return by_dtype(dt.Struct)
+
+
+def by_dtype(*dtypes: type[dt.DataType]) -> Selector:
+    """Select columns matching any of the given dtype classes.
+
+    Args:
+        *dtypes (type[dt.DataType]): One or more dtype classes to match.
+
+    Returns:
+        Selector: A selector for columns matching the specified dtypes.
+    """
+    return Resolver.dtype(lambda d: isinstance(d, dtypes)).into_selector()
 
 
 # ──── name-based selectors ────

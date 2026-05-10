@@ -411,6 +411,31 @@ class ScanSource:
                 return cls.from_relation(_named_array(cols))
 
     @classmethod
+    def from_polars(
+        cls, df: IntoPolars, connection: DuckDBPyConnection | None = None
+    ) -> Self:
+        """Create a ScanSource from a Polars DataFrame or LazyFrame.
+
+        Note:
+            Two big improvements here would be to:
+
+            1)  Exploit `polars::LazyFrame::collect_batches` to avoid materializing the entire DataFrame in memory at once.
+                This would require managing the lifecycle of the Iterator. If we do it naively, it will just freeze once the Iterator is empty.
+
+            2)  Exploit `sqlglot` and the sql capabilities of polars to push down the AST into polars directly.
+
+        Returns:
+            Self
+        """
+        return cls.from_arrow(df.lazy().collect(), connection=connection)
+
+    @classmethod
+    def from_arrow(
+        cls, df: IntoArrow, connection: DuckDBPyConnection | None = None
+    ) -> Self:
+        return cls.from_relation(duckdb.from_arrow(df, connection=connection))
+
+    @classmethod
     def from_records(cls, data: SeqIntoVals, orient: Orientation = "col") -> Self:
         match data[0]:
             case Mapping():
@@ -490,31 +515,6 @@ class ScanSource:
         )
 
         return cls(relation, schema)
-
-    @classmethod
-    def from_arrow(
-        cls, df: IntoArrow, connection: DuckDBPyConnection | None = None
-    ) -> Self:
-        return cls.from_relation(duckdb.from_arrow(df, connection=connection))
-
-    @classmethod
-    def from_polars(
-        cls, df: IntoPolars, connection: DuckDBPyConnection | None = None
-    ) -> Self:
-        """Create a ScanSource from a Polars DataFrame or LazyFrame.
-
-        Note:
-            Two big improvements here would be to:
-
-            1)  Exploit `polars::LazyFrame::collect_batches` to avoid materializing the entire DataFrame in memory at once.
-                This would require managing the lifecycle of the Iterator. If we do it naively, it will just freeze once the Iterator is empty.
-
-            2)  Exploit `sqlglot` and the sql capabilities of polars to push down the AST into polars directly.
-
-        Returns:
-            Self
-        """
-        return cls.from_arrow(df.lazy().collect(), connection=connection)
 
 
 def _named(j: object) -> str:
