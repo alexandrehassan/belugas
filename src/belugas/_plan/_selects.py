@@ -87,7 +87,14 @@ def _with_columns_schema(schema: Schema, projections: Seq[ResolvedExpr]) -> Sche
 
 def rename(schema: Schema, mapping: Mapping[str, str]) -> tuple[exp.Selectable, Schema]:
     exprs = schema.iter().map(lambda c: exp.column(c).as_(mapping.get(c, c)))
-    return select(schema, exprs, (), {})
+    new_schema = (
+        schema
+        .items()
+        .iter()
+        .map_star(lambda name, dtype: (mapping.get(name, name), dtype))
+        .collect(Dict)
+    )
+    return exp.select(*exprs).from_(Tables.SRC, copy=False), new_schema
 
 
 def with_row_index(
