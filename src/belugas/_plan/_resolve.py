@@ -35,14 +35,16 @@ class CompiledPlan(NamedTuple):
     sources: Dict[str, ScanSource]
 
 
-def compile_plan(
-    source: ScanSource, plan_nodes: nodes.Plan, *, optimize: bool = True
-) -> CompiledPlan:
+def compile_plan(plan_nodes: nodes.Plan, *, optimize: bool = True) -> CompiledPlan:
     def _process(acc: NodeResult, node: nodes.Node) -> NodeResult:
         new_ast, new_schema, extra = _compile_node(*acc, node)
         sources.extend(extra.items())
         return new_ast, new_schema
 
+    from .._scans import ScanSource
+
+    scan: nodes.Scan = plan_nodes.first()  # pyright: ignore[reportAssignmentType]
+    source = ScanSource.build(scan.data, scan.orient).set_alias()
     ast = exp.select(exp.Star()).from_(exp.to_table(source.identity))
     accumulator = (ast, source.schema)
     sources = Vec([(source.identity, source)])
@@ -165,11 +167,11 @@ def _compile_node(  # noqa: PLR0915
             )
             return sub(ast), new_schema, empty
         case nodes.Union():
-            other = node.other._compile()  # pyright: ignore[reportPrivateUsage]
+            other = compile_plan(node.other.inner)
             ast = plan.union()
             return (merge(ast, other.ast), schema, other.sources)
         case nodes.Join():
-            other = node.other._compile()  # pyright: ignore[reportPrivateUsage]
+            other = compile_plan(node.other.inner)
             ast, new_schema = plan.join(
                 schema,
                 other.schema,
@@ -181,11 +183,11 @@ def _compile_node(  # noqa: PLR0915
             )
             return (merge(ast, other.ast), new_schema, other.sources)
         case nodes.JoinCross():
-            other = node.other._compile()  # pyright: ignore[reportPrivateUsage]
+            other = compile_plan(node.other.inner)
             ast, new_schema = plan.join_cross(schema, other.schema, node.suffix)
             return (merge(ast, other.ast), new_schema, other.sources)
         case nodes.JoinAsof():
-            other = node.other._compile()  # pyright: ignore[reportPrivateUsage]
+            other = compile_plan(node.other.inner)
             ast, new_schema = plan.join_asof(
                 schema,
                 other.schema,

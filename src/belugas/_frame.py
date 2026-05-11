@@ -13,7 +13,7 @@ from . import datatypes as dt
 from ._core import CoreHandler, Marker
 from ._expr import Expr
 from ._funcs import col
-from ._plan import CompiledPlan, compile_plan, nodes
+from ._plan import compile_plan, nodes
 from ._scans import ScanSource
 from .utils import try_iter
 
@@ -52,36 +52,25 @@ if TYPE_CHECKING:
 
 
 @dataclass(slots=True, init=False, repr=False)
-class LazyFrame(CoreHandler[ScanSource]):
+class LazyFrame(CoreHandler[nodes.Plan]):
     """LazyFrame providing Polars-like API over DuckDB relations."""
 
-    _inner: ScanSource
-    _nodes: nodes.Plan
+    _inner: nodes.Plan
 
     def __init__(self, data: IntoRel | Self, orient: Orientation = "col") -> None:
         match data:
             case LazyFrame():
                 self._inner = data._inner
-                self._nodes = data._nodes
             case _:
-                self._inner = ScanSource.build(data, orient).set_alias()
-                self._nodes = Vec.new()
+                self._inner = Vec([nodes.Scan(data, orient)])
 
     def _push(self, node: nodes.Node) -> Self:
         out = self.__class__.__new__(self.__class__)
-        out._inner = self._inner
-        out._nodes = self._nodes.concat([node])
+        out._inner = self._inner.concat([node])
         return out
 
-    @property
-    def nodes(self) -> nodes.Plan:
-        return self._nodes
-
-    def _compile(self) -> CompiledPlan:
-        return compile_plan(self._inner, self._nodes)
-
     def _collect(self) -> DuckDBPyRelation:
-        compiled = self._compile()
+        compiled = compile_plan(self._inner)
         return compiled.ast.pipe(ScanSource.from_query, **compiled.sources).relation
 
     def _iter_slct(self, func: Callable[[Expr], Expr]) -> Self:
@@ -381,7 +370,7 @@ class LazyFrame(CoreHandler[ScanSource]):
         """
         from ._parser import ParsedQuery
 
-        return ParsedQuery(self._compile().ast)
+        return ParsedQuery(compile_plan(self._inner).ast)
 
     def explain(self, kind: ExplainType | ExplainTypeLiteral = "standard") -> str:
         return self._collect().explain(kind)
@@ -543,7 +532,6 @@ class LazyFrame(CoreHandler[ScanSource]):
         """
         out = self.__class__.__new__(self.__class__)
         out._inner = self._inner
-        out._nodes = self._nodes
         return out
 
     def gather_every(self, n: int, offset: int = 0) -> Self:
@@ -567,7 +555,7 @@ class LazyFrame(CoreHandler[ScanSource]):
     @property
     def columns(self) -> PyoKeysView[str]:
         """Get column names."""
-        return self._compile().schema.keys()
+        return compile_plan(self._inner).schema.keys()
 
     @property
     def dtypes(self) -> PyoValuesView[dt.DataType]:
@@ -578,7 +566,7 @@ class LazyFrame(CoreHandler[ScanSource]):
     @property
     def width(self) -> int:
         """Get number of columns."""
-        return self._compile().schema.length()
+        return compile_plan(self._inner).schema.length()
 
     @property
     def schema(self) -> Dict[str, dt.DataType]:

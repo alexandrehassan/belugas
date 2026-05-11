@@ -15,7 +15,9 @@ if TYPE_CHECKING:
         GroupByClause,
         IntoExpr,
         IntoExprColumn,
+        IntoRel,
         JoinStrategy,
+        Orientation,
         PivotAgg,
         PythonLiteral,
         TryIter,
@@ -47,6 +49,9 @@ class _Expressions(BaseNode):
 @dataclass(slots=True)
 class Scan(BaseNode):
     """Node representing a scan operation."""
+
+    data: IntoRel
+    orient: Orientation
 
 
 @dataclass(slots=True)
@@ -252,6 +257,7 @@ Node = (
     | WithRowIndex
 )
 """All nodes that can be part of the logical plan.
+
 Each node represents a logical operation to be performed on the data, such as filtering, joining, or aggregating.
 
 They just hold the input arguments for the operation, and are used to build the logical plan before it's compiled into executable code.
