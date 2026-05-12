@@ -1,4 +1,4 @@
-"""PQL - Polars Query Language over DuckDB."""
+"""`belugas` - Polars Query Language over DuckDB."""
 
 from . import meta, selectors
 from ._expr import Expr
