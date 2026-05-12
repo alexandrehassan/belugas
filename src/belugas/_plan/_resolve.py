@@ -415,32 +415,26 @@ def _resolve(val: IntoExpr, schema: Schema) -> Iter[ResolvedExpr]:
                     return _expand_columns(val, base_names, output_names)
 
                 case _:
-                    match val.inner.find(exp.Columns):
+                    match val.inner.find(exp.Columns, exp.Star):
                         case None:
-                            match val.inner.find(exp.Star):
+                            name = extract_root_name(val.inner)
+                            return ResolvedExpr(val, name).into(Iter.once)
+                        case exp.Star() as star:
+                            excepts: list[exp.Expr] | None = star.args.get("except_")
+                            match excepts:
                                 case None:
-                                    name = extract_root_name(val.inner)
-                                    return ResolvedExpr(val, name).into(Iter.once)
-                                case exp.Star() as star:
-                                    excepts: list[exp.Expr] | None = star.args.get(
-                                        "except_"
+                                    base_names = schema.keys()
+                                case list():
+                                    excluded = (
+                                        Iter(excepts).map(lambda c: c.name).collect(Set)
                                     )
-                                    match excepts:
-                                        case None:
-                                            base_names = schema.keys()
-                                        case list():
-                                            excluded = (
-                                                Iter(excepts)
-                                                .map(lambda c: c.name)
-                                                .collect(Set)
-                                            )
-                                            base_names = (
-                                                schema
-                                                .iter()
-                                                .filter(lambda n: n not in excluded)
-                                                .collect()
-                                            )
-                                    return _expand_columns(val, base_names, base_names)
+                                    base_names = (
+                                        schema
+                                        .iter()
+                                        .filter(lambda n: n not in excluded)
+                                        .collect()
+                                    )
+                            return _expand_columns(val, base_names, base_names)
                         case _ as columns_node:
                             base_names = _get_inner_node(columns_node.this)  # pyright: ignore[reportAny]
                             return _expand_columns(val, base_names, base_names)
