@@ -9,12 +9,14 @@ from typing import TYPE_CHECKING, Any, Self, cast
 import duckdb
 from duckdb import DuckDBPyConnection, DuckDBPyRelation
 from pyochain import Dict, Iter, Option, Seq, Some
-from sqlglot import exp
 
 from .._core import BelugasConversionError
+from ..datatypes import DataType
 from ..typing import CSVOptions, JsonOptions, LitSeq, NestedSeq, ParquetOptions, Schema
 
 if TYPE_CHECKING:
+    from sqlglot import exp
+
     from ..typing import (
         AnyArray,
         IntoArrow,
@@ -54,7 +56,7 @@ def run_query(
         schema = (
             Iter(relation.columns)
             .zip(relation.dtypes, strict=True)
-            .map_star(lambda k, d: (k, exp.DataType.from_str(str(d), dialect="duckdb")))
+            .map_star(lambda k, d: (k, DataType.from_duckdb(d).raw))
             .collect(Dict)
         )
         return ScanResult(relation, schema)
@@ -239,7 +241,7 @@ def from_query(relation: DuckDBPyRelation) -> ScanResult:
     schema = (
         Iter(relation.columns)
         .zip(relation.dtypes, strict=True)
-        .map_star(lambda k, d: (k, exp.DataType.from_str(str(d), dialect="duckdb")))
+        .map_star(lambda k, d: (k, DataType.from_duckdb(d).raw))
         .collect(Dict)
     )
 

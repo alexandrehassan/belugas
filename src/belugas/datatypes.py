@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum as PyEnum
 from typing import TYPE_CHECKING, Any, Concatenate, Self, TypeIs, final, overload
 
+from duckdb import sqltypes
 from pyochain import Dict, Iter, Seq
 from sqlglot import exp
 
@@ -60,7 +61,13 @@ class DataType(ABC):
         Returns:
             DataType: The corresponding PQL DataType.
         """
-        return exp.DataType.from_str(str(dtype), dialect="duckdb").pipe(cls.from_sql)
+        return (
+            DUCKDB_MAP
+            .get_item(dtype)
+            .map(exp.DType.into_expr)
+            .unwrap_or_else(lambda: exp.DataType.from_str(str(dtype), dialect="duckdb"))
+            .pipe(cls.from_sql)
+        )
 
     @classmethod
     def from_sql(cls, dtype: exp.DataType) -> DataType:
@@ -703,7 +710,7 @@ NESTED_MAP: Dict[exp.DType, type[ComplexDataType]] = Dict.from_ref({
     exp.DType.ENUM: Enum,
     exp.DType.DECIMAL: Decimal,
 })
-
+"""Mapping from `sqlglot::exp::DType` to PQL `ComplexDataType` constructors for parameterized, nested types."""
 NON_NESTED_MAP: Dict[exp.DType, DataType] = Dict.from_ref({
     exp.DType.BIGINT: Int64(),
     exp.DType.BIT: BitString(),
@@ -742,3 +749,36 @@ NON_NESTED_MAP: Dict[exp.DType, DataType] = Dict.from_ref({
     exp.DType.VARCHAR: String(),
     exp.DType.VARIANT: Number(),
 })
+"""Mapping from `sqlglot::exp::DType` to PQL `DataType` for constant, non-parameterized types."""
+DUCKDB_MAP: Dict[sqltypes.DuckDBPyType, exp.DType] = Dict.from_ref({
+    sqltypes.BIGINT: exp.DType.BIGINT,
+    sqltypes.BIT: exp.DType.BIT,
+    sqltypes.BLOB: exp.DType.BLOB,
+    sqltypes.BOOLEAN: exp.DType.BOOLEAN,
+    sqltypes.DATE: exp.DType.DATE,
+    sqltypes.DOUBLE: exp.DType.DOUBLE,
+    sqltypes.FLOAT: exp.DType.FLOAT,
+    sqltypes.HUGEINT: exp.DType.INT128,
+    sqltypes.INTEGER: exp.DType.INT,
+    sqltypes.INTERVAL: exp.DType.INTERVAL,
+    sqltypes.SMALLINT: exp.DType.SMALLINT,
+    sqltypes.SQLNULL: exp.DType.NULL,
+    sqltypes.TIME: exp.DType.TIME,
+    sqltypes.TIME_NS: exp.DType.TIME_NS,
+    sqltypes.TIMESTAMP: exp.DType.TIMESTAMP,
+    sqltypes.TIMESTAMP_MS: exp.DType.TIMESTAMP_MS,
+    sqltypes.TIMESTAMP_NS: exp.DType.TIMESTAMP_NS,
+    sqltypes.TIMESTAMP_S: exp.DType.TIMESTAMP_S,
+    sqltypes.TIMESTAMP_TZ: exp.DType.TIMESTAMPTZ,
+    sqltypes.TIME_TZ: exp.DType.TIMETZ,
+    sqltypes.TINYINT: exp.DType.TINYINT,
+    sqltypes.UBIGINT: exp.DType.UBIGINT,
+    sqltypes.UHUGEINT: exp.DType.UINT128,
+    sqltypes.UINTEGER: exp.DType.UINT,
+    sqltypes.USMALLINT: exp.DType.USMALLINT,
+    sqltypes.UTINYINT: exp.DType.UTINYINT,
+    sqltypes.UUID: exp.DType.UUID,
+    sqltypes.VARCHAR: exp.DType.VARCHAR,
+    sqltypes.VARIANT: exp.DType.VARIANT,
+})
+"""Mapping from `duckdb::sqltypes::DuckDBPyType` to `sqlglot::exp::DType` for constant, non-parameterized types."""
