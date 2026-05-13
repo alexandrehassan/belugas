@@ -385,7 +385,7 @@ class LazyFrame(CoreHandler[nodes.Node]):
         from ._show import QueryTree
 
         try:
-            return QueryTree(compile_plan(self._inner).ast)
+            return QueryTree(self._inner)
         except ImportError as e:
             msg = "SQL rendering requires `rich` to be installed. Support for rendering without it is WIP."
             raise ImportError(msg) from e

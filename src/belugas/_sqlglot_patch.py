@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from pyochain import Iter
 from sqlglot import Dialect, exp, parser
-from sqlglot.dialects.dialect import build_regexp_extract
+from sqlglot.dialects.dialect import build_formatted_time, build_regexp_extract
 from sqlglot.dialects.duckdb import DuckDB
 from sqlglot.generators.duckdb import DuckDBGenerator
 from sqlglot.parsers.duckdb import DuckDBParser
@@ -151,6 +151,8 @@ def _patched_from_duckdb() -> FuncRegistery:
         "LIST_CONCAT": _bind_dialect(parser.build_array_concat),
         "REGEXP_EXTRACT": _regexp_extract(exp.RegexpExtract),
         "REGEXP_EXTRACT_ALL": _regexp_extract(exp.RegexpExtractAll),
+        "STRFTIME": _bind_dialect(build_formatted_time(exp.TimeToStr)),
+        "STRPTIME": _bind_dialect(build_formatted_time(exp.StrToTime)),
     }
 
 
