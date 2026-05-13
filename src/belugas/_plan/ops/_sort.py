@@ -49,7 +49,7 @@ def check_by_arg(
             len_arg = len(arg)
             if len_arg == length:
                 return Ok(try_iter(arg))
-            msg = f"the length of `{name}` ({len_arg}) does not match the length of `by` ({length})"
+            msg = f"the length of `{name}` ({len_arg}) does not match the length of `by` ({length}). \n Current expr:\n {compared!r}\n Provided `{name}`:\n {arg!r}"
             return Err(ValueError(msg))
 
         case _:
