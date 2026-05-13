@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, override
 
-from pyochain import NONE, Seq
+from pyochain import Seq
 
 from ..typing import FileGlob, PathOrBuffer
 
@@ -103,7 +103,6 @@ class BaseScan(BaseNode):
 class ScanInMemory[T: IntoRel](BaseScan):
     data: T | None
     orient: Orientation = "col"
-    projected_columns: Option[Seq[str]] = field(default_factory=lambda: NONE)
 
 
 @dataclass(slots=True, repr=False)
