@@ -93,7 +93,7 @@ def test_clone(lf: bl.LazyFrame) -> None:
 
 def test_sql_query(lf: bl.LazyFrame) -> None:
     query = lf.filter(bl_age.gt(25)).select("name", "age")
-    parsed = query.sql_query()
+    parsed = query.query()
     assert parsed.sql() != parsed.sql(pretty=True)
     assert parsed.tokenize() != parsed.sql(pretty=True)
     assert "SELECT" in parsed.sql()
@@ -103,7 +103,7 @@ def test_sql_query(lf: bl.LazyFrame) -> None:
 
 @pytest.mark.parametrize("theme", t.Themes.__args__)
 def test_sql_show(lf: bl.LazyFrame, theme: t.Themes) -> None:
-    lf.select(bl_salary.cast(bl.Float64())).sql_query().show(theme)
+    lf.select(bl_salary.cast(bl.Float64())).query().show(theme)
 
 
 def test_explain(lf: bl.LazyFrame) -> None:
@@ -431,14 +431,14 @@ def test_compile_flattens_consecutive_filters(lf: bl.LazyFrame) -> None:
         .filter(pl_salary.gt(50_000), department="Sales"),
         query,
     )
-    sql = query.sql_query().sql().upper()
+    sql = query.query().sql().upper()
     assert sql.count(" WHERE ") == 1
 
 
 def test_compile_flattens_consecutive_limits(lf: bl.LazyFrame) -> None:
     query = lf.limit(4).limit(2)
     assert_lf_eq(lf.lazy().limit(4).limit(2), query)
-    sql = query.sql_query().sql().upper()
+    sql = query.query().sql().upper()
     assert sql.count(" LIMIT ") == 1
     assert "LIMIT 2" in sql
 
@@ -446,7 +446,7 @@ def test_compile_flattens_consecutive_limits(lf: bl.LazyFrame) -> None:
 def test_compile_flattens_consecutive_sorts(lf: bl.LazyFrame) -> None:
     query = lf.sort("age").sort("salary")
     assert_lf_eq(lf.lazy().sort("age").sort("salary"), query)
-    sql = query.sql_query().sql().upper()
+    sql = query.query().sql().upper()
     assert sql.count(" ORDER BY ") == 1
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import Field, dataclass, fields
 from functools import partial
-from typing import TYPE_CHECKING, Any, override
+from typing import TYPE_CHECKING, Any, Literal, override
 
 import duckdb
 from pygments import token
@@ -110,11 +110,23 @@ _POLARS_EXPRS = {"col", "when", ">", "<", ">=", "<=", "=="}
 
 
 @dataclass(slots=True)
-class ParsedQuery:
+class QueryTree:
     query: exp.Selectable
 
-    def show(self, theme: Themes = "github-dark", *, pretty: bool = True) -> None:
-        return CONSOLE.print(SYNTAX(self.sql(pretty=pretty), theme=theme))
+    def show(
+        self,
+        theme: Themes = "github-dark",
+        *,
+        pretty: bool = True,
+        kind: Literal["sql", "ast", "tree"] = "sql",
+    ) -> None:
+        match kind:
+            case "sql":
+                return CONSOLE.print(SYNTAX(self.sql(pretty=pretty), theme=theme))
+            case "tree":
+                return CONSOLE.print(expr_tree(self.query))
+            case "ast":
+                return CONSOLE.print(repr(self.query))
 
     def tokenize(self) -> Vec[tuple[int, duckdb.token_type]]:
         return Vec.from_ref(duckdb.tokenize(self.sql()))

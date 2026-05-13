@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from pyochain.traits import PyoKeysView, PyoValuesView
 
     from ._groupby import LazyGroupBy
-    from ._show import ParsedQuery
+    from ._show import QueryTree
     from .typing import (
         AsofJoinStrategy,
         FillNullStrategy,
@@ -371,7 +371,7 @@ class LazyFrame(CoreHandler[nodes.Node]):
         """
         return self._cls(nodes.Rename(self._inner, mapping))
 
-    def sql_query(self) -> ParsedQuery:
+    def query(self) -> QueryTree:
         """Generate a `ParsedQuery` object.
 
         Allow to format and display prettified `SQL`.
@@ -382,10 +382,10 @@ class LazyFrame(CoreHandler[nodes.Node]):
         Raises:
             ImportError: If `rich` is not installed.
         """
-        from ._show import ParsedQuery
+        from ._show import QueryTree
 
         try:
-            return ParsedQuery(compile_plan(self._inner).ast)
+            return QueryTree(compile_plan(self._inner).ast)
         except ImportError as e:
             msg = "SQL rendering requires `rich` to be installed. Support for rendering without it is WIP."
             raise ImportError(msg) from e
