@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterable, Mapping
 from typing import TYPE_CHECKING
 
 from pyochain import Dict, Iter, Seq, Some
+from pyochain.traits import PyoIterable
 from sqlglot import exp
 
 from ..._core import Marker, Tables
@@ -169,6 +170,7 @@ def select(
     match projections.then_some():
         case Some(projs):
             new_schema = _select_schema(schema, projs)
+            rel = _into_windowed(as_relation(src_ast), projs)
             select_exprs = (
                 projs
                 .iter()
@@ -185,16 +187,9 @@ def select(
                 .collect()
             )
             if projs.all(lambda resolved: resolved.has_distinct):
-                ast = (
-                    exp
-                    .select(*select_exprs)
-                    .from_(_into_windowed(as_relation(src_ast), projs), copy=False)
-                    .distinct()
-                )
+                ast = exp.select(*select_exprs).from_(rel, copy=False).distinct()
                 return ast, new_schema
-            ast = exp.select(*select_exprs).from_(
-                _into_windowed(as_relation(src_ast), projs), copy=False
-            )
+            ast = exp.select(*select_exprs).from_(rel, copy=False)
             return ast, new_schema
         case _:
             new_schema: Schema = Dict.from_ref({

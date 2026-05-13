@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple
 
 from duckdb import DuckDBPyRelation
-from pyochain import Dict, Err, Iter, Null, Ok, Option, Result, Seq, Set, Some, Vec
+from pyochain import NONE, Dict, Err, Iter, Null, Ok, Option, Result, Seq, Set, Some
 from pyochain.traits import Pipeable
 from sqlglot import exp
 
@@ -34,211 +34,36 @@ class CompiledPlan(NamedTuple):
     sources: Dict[str, DuckDBPyRelation]
 
 
-type Pending = Vec[nodes.DeferredNode]
-
-
 def compile_plan(node: nodes.Node, *, optimize: bool = True) -> CompiledPlan:
     root = optimize_nodes(node) if optimize else node
-    return _compile_node(root, Vec[nodes.DeferredNode].new()).unwrap()
+    return _compile_tree(root)
 
 
 class CompilationError(Exception):
     pass
 
 
-def _compile_node(  # noqa: PLR0915
-    node: nodes.Node, pending: Pending
-) -> Result[CompiledPlan, CompilationError]:
-    from . import ops
-
+def _compile_tree(node: nodes.Node) -> CompiledPlan:
     match node:
+        case nodes.LogicalNode():
+            compiled_src = _compile_tree(node.inner)
+            compiled_node = _compile_node(
+                compiled_src.ast, compiled_src.schema, node
+            ).unwrap_or_else((_ for _ in ()).throw)
+            sources = (
+                compiled_src.sources
+                .items()
+                .iter()
+                .chain(compiled_node.sources.items())
+                .collect(Dict)
+            )
+            return CompiledPlan(compiled_node.ast, compiled_node.schema, sources)
         case nodes.BaseScan():
-            return Ok(_compile_scan(node, pending))
-        case nodes.DeferredNode():
-            pending.insert(0, node)
-            return Ok(_compile_node(node.inner, pending).unwrap())
-        case nodes.GroupBy():
-            return Ok(_compile_node(node.inner, pending).unwrap())
-        case nodes.Agg() as agg_node:
-            match node.inner:
-                case nodes.GroupBy() as group_by:
-                    source = _compile_node(
-                        group_by.inner, Vec[nodes.DeferredNode].new()
-                    ).unwrap()
-                    ast, new_schema = ops.agg(
-                        source.ast,
-                        source.schema,
-                        node.inner.keys,
-                        agg_node.exprs,
-                        agg_node.more_exprs,
-                        agg_node.named,
-                        node.inner.strategy,
-                        drop_null_keys=node.inner.drop_null_keys,
-                    )
-                    return Ok(
-                        _apply_deferred(
-                            CompiledPlan(ast, new_schema, source.sources), pending
-                        )
-                    )
-                case _:
-                    msg = f"Unexpected inner node for Agg: {type(node.inner)}"
-                    return Err(CompilationError(msg))
-        case nodes.AggColumns() as agg_cols:
-            match node.inner:
-                case nodes.GroupBy():
-                    source = _compile_node(
-                        node.inner, Vec[nodes.DeferredNode].new()
-                    ).unwrap()
-                    ast, new_schema = ops.agg_columns(
-                        source.ast,
-                        source.schema,
-                        node.inner.keys,
-                        agg_cols.func,
-                        drop_null_keys=node.inner.drop_null_keys,
-                    )
-                    return Ok(
-                        _apply_deferred(
-                            CompiledPlan(ast, new_schema, source.sources), pending
-                        )
-                    )
-                case _:
-                    msg = f"Unexpected inner node for Agg: {type(node.inner)}"
-                    return Err(CompilationError(msg))
-        case nodes.GroupByAll():
-            source = _compile_node(node.inner, Vec[nodes.DeferredNode].new()).unwrap()
-            ast, schema = ops.group_by_all(
-                source.ast, source.schema, node.exprs, node.more_exprs, node.named
+            source = _resolve_scan(node).set_alias()  # pyright: ignore[reportArgumentType]
+            ast = exp.select(exp.Star()).from_(exp.to_table(source.identity))
+            return CompiledPlan(
+                ast, source.schema, Dict([(source.identity, source.relation)])
             )
-            return Ok(
-                _apply_deferred(CompiledPlan(ast, schema, source.sources), pending)
-            )
-        case nodes.Explode():
-            source = _compile_node(node.inner, Vec[nodes.DeferredNode].new()).unwrap()
-            ast = ops.explode(
-                source.ast, source.schema, node.columns, node.more_columns
-            )
-            return Ok(
-                _apply_deferred(
-                    CompiledPlan(ast, source.schema, source.sources), pending
-                )
-            )
-        case nodes.Unnest():
-            source = _compile_node(node.inner, Vec[nodes.DeferredNode].new()).unwrap()
-            ast, schema = ops.unnest(
-                source.ast, source.schema, node.columns, node.more_columns
-            )
-            return Ok(
-                _apply_deferred(CompiledPlan(ast, schema, source.sources), pending)
-            )
-        case nodes.Pivot():
-            source = _compile_node(node.inner, Vec[nodes.DeferredNode].new()).unwrap()
-            ast, new_schema = ops.pivot(
-                source.ast,
-                source.schema,
-                node.on,
-                node.on_columns,
-                node.index,
-                node.values,
-                node.aggregate_function,
-                maintain_order=node.maintain_order,
-                separator=node.separator,
-            )
-            return Ok(
-                _apply_deferred(CompiledPlan(ast, new_schema, source.sources), pending)
-            )
-        case nodes.Unpivot():
-            source = _compile_node(node.inner, Vec[nodes.DeferredNode].new()).unwrap()
-            ast, new_schema = ops.unpivot(
-                source.ast,
-                source.schema,
-                node.on,
-                node.index,
-                node.variable_name,
-                node.value_name,
-                node.order_by,
-            )
-            return Ok(
-                _apply_deferred(CompiledPlan(ast, new_schema, source.sources), pending)
-            )
-        case nodes.Slice():
-            source = _compile_node(node.inner, Vec[nodes.DeferredNode].new()).unwrap()
-            ast = ops.slice(source.ast, node.length, node.offset).unwrap()
-            return Ok(
-                _apply_deferred(
-                    CompiledPlan(ast, source.schema, source.sources), pending
-                )
-            )
-        case nodes.Unique():
-            source = _compile_node(node.inner, Vec[nodes.DeferredNode].new()).unwrap()
-            ast = ops.unique(source.ast, node.subset, node.keep, node.order_by).unwrap()
-            return Ok(
-                _apply_deferred(
-                    CompiledPlan(ast, source.schema, source.sources), pending
-                )
-            )
-        case nodes.Union():
-            lhs = _compile_node(node.inner, Vec[nodes.DeferredNode].new()).unwrap()
-            rhs = _compile_node(node.other, Vec[nodes.DeferredNode].new()).unwrap()
-            ast = ops.union(lhs.ast, rhs.ast)
-            lhs.sources.update(rhs.sources.items())
-            return Ok(
-                _apply_deferred(CompiledPlan(ast, lhs.schema, lhs.sources), pending)
-            )
-        case nodes.Join():
-            lhs = _compile_node(node.inner, Vec[nodes.DeferredNode].new()).unwrap()
-            rhs = _compile_node(node.other, Vec[nodes.DeferredNode].new()).unwrap()
-            ast, schema = ops.join(
-                lhs.ast,
-                rhs.ast,
-                lhs.schema,
-                rhs.schema,
-                node.on,
-                node.how,
-                node.left_on,
-                node.right_on,
-                node.suffix,
-            )
-            lhs.sources.update(rhs.sources.items())
-            return Ok(_apply_deferred(CompiledPlan(ast, schema, lhs.sources), pending))
-        case nodes.JoinCross():
-            lhs = _compile_node(node.inner, Vec[nodes.DeferredNode].new()).unwrap()
-            rhs = _compile_node(node.other, Vec[nodes.DeferredNode].new()).unwrap()
-            ast, new_schema = ops.join_cross(
-                lhs.ast, rhs.ast, lhs.schema, rhs.schema, node.suffix
-            )
-            lhs.sources.update(rhs.sources.items())
-            return Ok(
-                _apply_deferred(CompiledPlan(ast, new_schema, lhs.sources), pending)
-            )
-        case nodes.JoinAsof():
-            lhs = _compile_node(node.inner, Vec[nodes.DeferredNode].new()).unwrap()
-            rhs = _compile_node(node.other, Vec[nodes.DeferredNode].new()).unwrap()
-            ast, schema = ops.join_asof(
-                lhs.ast,
-                rhs.ast,
-                lhs.schema,
-                rhs.schema,
-                node.left_on,
-                node.right_on,
-                node.on,
-                node.by_left,
-                node.by_right,
-                node.by,
-                node.strategy,
-                node.suffix,
-            )
-            lhs.sources.update(rhs.sources.items())
-            return Ok(_apply_deferred(CompiledPlan(ast, schema, lhs.sources), pending))
-
-
-def _compile_scan(node: nodes.BaseScan, pending: Pending) -> CompiledPlan:
-    source = _resolve_scan(node).set_alias()  # pyright: ignore[reportArgumentType]
-    base = CompiledPlan(
-        exp.select(exp.Star()).from_(exp.to_table(source.identity)),
-        source.schema,
-        Dict([(source.identity, source.relation)]),
-    )
-    return _apply_deferred(base, pending)
 
 
 def _resolve_scan(node: nodes.Scan) -> scans.ScanResult:
@@ -271,170 +96,234 @@ def _resolve_scan(node: nodes.Scan) -> scans.ScanResult:
             return scans.from_json(node.path, node.connection, node.options)
 
 
-def _apply_deferred(plan: CompiledPlan, pending: Pending) -> CompiledPlan:
-    def _apply(current: CompiledPlan, node: nodes.DeferredNode) -> CompiledPlan:
-        from . import ops
+def _compile_node(  # noqa: PLR0915
+    src_ast: exp.Selectable, schema: Schema, node: nodes.Node
+) -> Result[CompiledPlan, CompilationError]:
+    from . import ops
 
-        match node:
-            case nodes.Select():
-                ast, schema = ops.select(
-                    current.ast,
-                    current.schema,
-                    node.exprs,
-                    node.more_exprs,
-                    node.named,
-                )
-                return CompiledPlan(ast, schema, current.sources)
-            case nodes.SelectAll():
-                ast, schema = ops.select_all(current.ast, current.schema, node.func)
-                return CompiledPlan(ast, schema, current.sources)
-            case nodes.WithColumns():
-                ast, schema = ops.with_columns(
-                    current.ast,
-                    current.schema,
-                    node.exprs,
-                    node.more_exprs,
-                    node.named,
-                )
-                return CompiledPlan(ast, schema, current.sources)
-            case nodes.Filter():
-                condition = ops.filter(
-                    node.predicates,
-                    node.more_predicates,
-                    node.constraints,
-                )
-                ast = _apply_where(current.ast, condition)
-                return CompiledPlan(ast, current.schema, current.sources)
-            case nodes.Sort():
-                order_exprs = ops.sort(
-                    node.by,
-                    node.more_by,
-                    node.descending,
-                    node.nulls_last,
-                )
-                ast = _apply_order(current.ast, order_exprs)
-                return CompiledPlan(ast, current.schema, current.sources)
-            case nodes.Limit():
-                limit_expr = ops.limit(node.n)
-                ast = _apply_limit(current.ast, limit_expr)
-                return CompiledPlan(ast, current.schema, current.sources)
-            case nodes.Drop():
-                ast, schema = ops.drop(
-                    current.ast,
-                    current.schema,
-                    node.columns,
-                    node.more_columns,
-                )
-                return CompiledPlan(ast, schema, current.sources)
-            case nodes.DropRows():
-                condition = ops.drop_rows(
-                    current.schema,
-                    node.subset,
-                    node.fn,
-                )
-                ast = _apply_where(current.ast, condition)
-                return CompiledPlan(ast, current.schema, current.sources)
-            case nodes.Rename():
-                ast, schema = ops.rename(current.ast, current.schema, node.mapping)
-                return CompiledPlan(ast, schema, current.sources)
-            case nodes.Cast():
-                ast, schema = ops.cast(current.ast, current.schema, node.dtypes)
-                return CompiledPlan(ast, schema, current.sources)
-            case nodes.WithRowIndex():
-                ast, schema = ops.with_row_index(
-                    current.ast,
-                    current.schema,
-                    node.name,
-                    node.order_by,
-                )
-                return CompiledPlan(ast, schema, current.sources)
-            case _:
-                return current
+    empty = Dict[str, DuckDBPyRelation].new()
 
-    return pending.iter().fold(plan, _apply)
+    match node:
+        case nodes.BaseScan():
+            source = _resolve_scan(node).set_alias()  # pyright: ignore[reportArgumentType]
+            ast = exp.select(exp.Star()).from_(exp.to_table(source.identity))
+            plan = CompiledPlan(
+                ast, source.schema, Dict([(source.identity, source.relation)])
+            )
+            return Ok(plan)
+        case nodes.GroupBy():
+            return Ok(CompiledPlan(src_ast, schema, empty))
+        case nodes.Agg() as agg_node:
+            match node.inner:
+                case nodes.GroupBy() as group_by:
+                    ast, new_schema = ops.agg(
+                        src_ast,
+                        schema,
+                        group_by.keys,
+                        agg_node.exprs,
+                        agg_node.more_exprs,
+                        agg_node.named,
+                        group_by.strategy,
+                        drop_null_keys=group_by.drop_null_keys,
+                    )
+                    return Ok(CompiledPlan(ast, new_schema, empty))
+                case _:
+                    msg = f"Unexpected inner node for Agg: {type(node.inner)}"
+                    return Err(CompilationError(msg))
+        case nodes.AggColumns() as agg_cols:
+            match node.inner:
+                case nodes.GroupBy() as group_by:
+                    ast, new_schema = ops.agg_columns(
+                        src_ast,
+                        schema,
+                        group_by.keys,
+                        agg_cols.func,
+                        drop_null_keys=group_by.drop_null_keys,
+                    )
+                    return Ok(CompiledPlan(ast, new_schema, empty))
+                case _:
+                    msg = f"Unexpected inner node for Agg: {type(node.inner)}"
+                    return Err(CompilationError(msg))
+        case nodes.Select():
+            ast, new_schema = ops.select(
+                src_ast,
+                schema,
+                node.exprs,
+                node.more_exprs,
+                node.named,
+            )
+            return Ok(CompiledPlan(ast, new_schema, empty))
+        case nodes.SelectAll():
+            ast, new_schema = ops.select_all(src_ast, schema, node.func)
+            return Ok(CompiledPlan(ast, new_schema, empty))
+        case nodes.WithColumns():
+            ast, new_schema = ops.with_columns(
+                src_ast,
+                schema,
+                node.exprs,
+                node.more_exprs,
+                node.named,
+            )
+            return Ok(CompiledPlan(ast, new_schema, empty))
+        case nodes.Filter():
+            predicate = ops.filter(
+                node.predicates,
+                node.more_predicates,
+                node.constraints,
+            )
+            ast = _apply_filter_clause(src_ast, predicate)
+            return Ok(CompiledPlan(ast, schema, empty))
+        case nodes.Sort():
+            order_exprs = ops.sort(
+                node.by,
+                node.more_by,
+                node.descending,
+                node.nulls_last,
+            )
+            ast = _into_select(src_ast).order_by(*order_exprs, copy=False)
+            return Ok(CompiledPlan(ast, schema, empty))
+        case nodes.Limit():
+            ast = _into_select(src_ast).limit(ops.limit(node.n), copy=False)
+            return Ok(CompiledPlan(ast, schema, empty))
+        case nodes.Slice():
+            ast = ops.slice(src_ast, node.length, node.offset).unwrap()
+            return Ok(CompiledPlan(ast, schema, empty))
+        case nodes.Drop():
+            ast, new_schema = ops.drop(src_ast, schema, node.columns, node.more_columns)
+            return Ok(CompiledPlan(ast, new_schema, empty))
+        case nodes.DropRows():
+            ast = _apply_filter_clause(
+                src_ast,
+                ops.drop_rows(schema, node.subset, node.fn),
+            )
+            return Ok(CompiledPlan(ast, schema, empty))
+        case nodes.Explode():
+            ast = ops.explode(src_ast, schema, node.columns, node.more_columns)
+            return Ok(CompiledPlan(ast, schema, empty))
+        case nodes.Unnest():
+            ast, new_schema = ops.unnest(
+                src_ast, schema, node.columns, node.more_columns
+            )
+            return Ok(CompiledPlan(ast, new_schema, empty))
+        case nodes.Rename():
+            ast, new_schema = ops.rename(src_ast, schema, node.mapping)
+            return Ok(CompiledPlan(ast, new_schema, empty))
+        case nodes.Cast():
+            ast, new_schema = ops.cast(src_ast, schema, node.dtypes)
+            return Ok(CompiledPlan(ast, new_schema, empty))
+        case nodes.WithRowIndex():
+            ast, new_schema = ops.with_row_index(
+                src_ast, schema, node.name, node.order_by
+            )
+            return Ok(CompiledPlan(ast, new_schema, empty))
+        case nodes.GroupByAll():
+            ast, new_schema = ops.group_by_all(
+                src_ast, schema, node.exprs, node.more_exprs, node.named
+            )
+            return Ok(CompiledPlan(ast, new_schema, empty))
+        case nodes.Unique():
+            ast = ops.unique(src_ast, node.subset, node.keep, node.order_by).unwrap()
+            return Ok(CompiledPlan(ast, schema, empty))
+        case nodes.Pivot():
+            ast, new_schema = ops.pivot(
+                src_ast,
+                schema,
+                node.on,
+                node.on_columns,
+                node.index,
+                node.values,
+                node.aggregate_function,
+                maintain_order=node.maintain_order,
+                separator=node.separator,
+            )
+            return Ok(CompiledPlan(ast, new_schema, empty))
+        case nodes.Unpivot():
+            ast, new_schema = ops.unpivot(
+                src_ast,
+                schema,
+                node.on,
+                node.index,
+                node.variable_name,
+                node.value_name,
+                node.order_by,
+            )
+            return Ok(CompiledPlan(ast, new_schema, empty))
+        case nodes.Union():
+            other = compile_plan(node.other, optimize=False)
+            ast = ops.union(src_ast, other.ast)
+            return Ok(CompiledPlan(ast, schema, other.sources))
+        case nodes.Join():
+            other = compile_plan(node.other, optimize=False)
+            ast, new_schema = ops.join(
+                src_ast,
+                other.ast,
+                schema,
+                other.schema,
+                node.on,
+                node.how,
+                node.left_on,
+                node.right_on,
+                node.suffix,
+            )
+            return Ok(CompiledPlan(ast, new_schema, other.sources))
+        case nodes.JoinCross():
+            other = compile_plan(node.other, optimize=False)
+            ast, new_schema = ops.join_cross(
+                src_ast, other.ast, schema, other.schema, node.suffix
+            )
+            return Ok(CompiledPlan(ast, new_schema, other.sources))
+        case nodes.JoinAsof():
+            other = compile_plan(node.other, optimize=False)
+            ast, new_schema = ops.join_asof(
+                src_ast,
+                other.ast,
+                schema,
+                other.schema,
+                node.left_on,
+                node.right_on,
+                node.on,
+                node.by_left,
+                node.by_right,
+                node.by,
+                node.strategy,
+                node.suffix,
+            )
+            return Ok(CompiledPlan(ast, new_schema, other.sources))
 
 
-def _apply_where(ast: exp.Selectable, condition: exp.Expr) -> exp.Selectable:
-    if isinstance(ast, exp.Select) and _can_inline_filter(ast):
-        current_where = ast.args.get("where")
-        existing_condition = (
-            current_where.args.get("this")
-            if isinstance(current_where, exp.Where)
-            else None
-        )
-        if isinstance(existing_condition, exp.Expr):
-            from .._expr import Expr
-
-            condition = Expr(existing_condition).and_(Expr(condition)).inner
-        ast.set("where", exp.Where(this=condition))
-        return ast
-
-    return (
-        exp
-        .select(exp.Star())
-        .from_(as_relation(ast), copy=False)
-        .where(condition, copy=False)
-    )
+def _apply_filter_clause(src_ast: exp.Selectable, predicate: exp.Expr) -> exp.Select:
+    match has_window_projection(src_ast):
+        case Some(_):
+            return (
+                exp
+                .select(exp.Star())
+                .from_(as_relation(src_ast), copy=False)
+                .where(predicate, copy=False)
+            )
+        case _:
+            ast = _into_select(src_ast)
+            match ast.args.get("group"):
+                case exp.Group():
+                    return ast.having(predicate, copy=False)
+                case _:
+                    return ast.where(predicate, copy=False)
 
 
-def _apply_order(ast: exp.Selectable, order_exprs: Seq[exp.Expr]) -> exp.Selectable:
-    if isinstance(ast, exp.Select) and _can_inline_order(ast):
-        ast.set("order", exp.Order(expressions=list(order_exprs)))
-        return ast
-
-    return (
-        exp
-        .select(exp.Star())
-        .from_(as_relation(ast), copy=False)
-        .order_by(*order_exprs, copy=False)
-    )
+def has_window_projection(source: exp.Selectable) -> Option[exp.Window]:
+    match source:
+        case exp.Select():
+            exprs: list[exp.Expr] = source.expressions
+            return Iter(exprs).find_map(lambda expr: Option(expr.find(exp.Window)))
+        case _:
+            return NONE
 
 
-def _apply_limit(ast: exp.Selectable, limit_expr: exp.Expr) -> exp.Selectable:
-    if isinstance(ast, exp.Select) and _can_inline_limit(ast):
-        ast.set("limit", exp.Limit(expression=limit_expr))
-        return ast
-
-    return (
-        exp
-        .select(exp.Star())
-        .from_(as_relation(ast), copy=False)
-        .limit(limit_expr, copy=False)
-    )
-
-
-def _is_passthrough_select(ast: exp.Selectable) -> bool:
-    if not isinstance(ast, exp.Select):
-        return False
-    if len(ast.expressions) != 1:
-        return False
-    if not isinstance(ast.expressions[0], exp.Star):
-        return False
-    if ast.args.get("group") is not None:
-        return False
-    if ast.args.get("having") is not None:
-        return False
-    return ast.args.get("distinct") is None
-
-
-def _can_inline_filter(ast: exp.Selectable) -> bool:
-    return (
-        _is_passthrough_select(ast)
-        and ast.args.get("limit") is None
-        and ast.args.get("offset") is None
-    )
-
-
-def _can_inline_order(ast: exp.Selectable) -> bool:
-    return (
-        _is_passthrough_select(ast)
-        and ast.args.get("limit") is None
-        and ast.args.get("offset") is None
-    )
-
-
-def _can_inline_limit(ast: exp.Selectable) -> bool:
-    return _is_passthrough_select(ast)
+def _into_select(src_ast: exp.Selectable) -> exp.Select:
+    match src_ast:
+        case exp.Select():
+            return src_ast
+        case _:
+            return exp.select(exp.Star()).from_(as_relation(src_ast), copy=False)
 
 
 def lookup_type(inner: exp.Expr, schema: Schema) -> exp.DataType:
