@@ -36,14 +36,41 @@ class CompiledPlan(NamedTuple):
 
 def compile_plan(node: nodes.Node, *, optimize: bool = True) -> CompiledPlan:
     root = optimize_nodes(node) if optimize else node
-    return _compile_tree(root)
+    return _compile_scan(root)
 
 
-def _compile_tree(node: nodes.Node) -> CompiledPlan:
+def _compile_scan(node: nodes.Node) -> CompiledPlan:
+    """Compile a scan node into a CompiledPlan containing the SQL AST, output schema, and source relations.
+
+    We recursively descend the logical plan tree.
+
+    Conceptually:
+
+        ```text
+        `_compile_scan(node)`
+        | // Call _compile_scan on the inner node until we find a scan node
+        ---->   `_compile_scan(node.inner)`
+                |// Re-match on LogicalNode, so it will again call _compile_scan on its inner node
+                |// Found the root scan node
+                ---->`_compile_scan(node.inner)`
+                    |
+                // Call `_compile_tree` on the way back up, combining sources from child nodes
+                `return CompiledPlan(ast, schema, sources)`
+                |
+            // Combine the compiled source with the current node to produce a new CompiledPlan
+            `return _compile_tree(ast, schema, node)`
+            |
+        // Return the final compiled plan for the root node.
+        `return CompiledPlan(ast, schema, sources)`
+        ```
+
+    Returns:
+        CompiledPlan: A named tuple containing the compiled SQL AST, output schema, and source relations.
+    """
     match node:
         case nodes.LogicalNode():
-            compiled_src = _compile_tree(node.inner)
-            compiled_node = _compile_node(
+            compiled_src = _compile_scan(node.inner)
+            compiled_node = _compile_tree(
                 compiled_src.ast, compiled_src.schema, node
             ).unwrap_or_else((_ for _ in ()).throw)
             sources = (
@@ -96,7 +123,7 @@ def _resolve_scan(node: nodes.Scan) -> scans.ScanResult:
             return scans.from_json(node.path, node.connection, node.options)
 
 
-def _compile_node(  # noqa: PLR0915
+def _compile_tree(  # noqa: PLR0915
     src_ast: exp.Selectable, schema: Schema, node: nodes.Node
 ) -> Result[CompiledPlan, CompilationError]:
     from . import ops
@@ -104,13 +131,6 @@ def _compile_node(  # noqa: PLR0915
     empty = Dict[str, DuckDBPyRelation].new()
 
     match node:
-        case nodes.BaseScan():
-            source = _resolve_scan(node).set_alias()  # pyright: ignore[reportArgumentType]
-            ast = exp.select(exp.Star()).from_(exp.to_table(source.identity))
-            plan = CompiledPlan(
-                ast, source.schema, Dict([(source.identity, source.relation)])
-            )
-            return Ok(plan)
         case nodes.GroupBy():
             # GroupBy is a descriptor node consumed by Agg/AggColumns.
             # At this stage we keep the compiled source unchanged and let
@@ -292,6 +312,9 @@ def _compile_node(  # noqa: PLR0915
                 node.suffix,
             )
             return Ok(CompiledPlan(ast, new_schema, other.sources))
+        case _:
+            msg = f"Unsupported node type: {type(node)}"
+            return Err(CompilationError(msg))
 
 
 def _apply_filter_clause(src_ast: exp.Selectable, predicate: exp.Expr) -> exp.Select:
