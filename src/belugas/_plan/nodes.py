@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, override
 
@@ -294,7 +294,7 @@ class Unique(LogicalNode):
 @dataclass(slots=True, repr=False)
 class Pivot(LogicalNode):
     on: TryIter[str]
-    on_columns: Sequence[PythonLiteral]
+    on_columns: TryIter[PythonLiteral]
     index: TryIter[str]
     values: TryIter[str]
     aggregate_function: PivotAgg

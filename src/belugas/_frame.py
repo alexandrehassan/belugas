@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import operator as op
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -737,7 +737,7 @@ class LazyFrame(CoreHandler[nodes.Node]):
     def pivot(  # noqa: PLR0913
         self,
         on: TryIter[str],
-        on_columns: Sequence[PythonLiteral],
+        on_columns: TryIter[PythonLiteral],
         index: TryIter[str] = None,
         values: TryIter[str] = None,
         aggregate_function: PivotAgg = "first",
@@ -749,7 +749,7 @@ class LazyFrame(CoreHandler[nodes.Node]):
 
         Args:
             on (TryIter[str]): Columns to pivot on.
-            on_columns (Sequence[PythonLiteral]): Values to pivot on.
+            on_columns (TryIter[PythonLiteral]): Values to pivot on.
             index (TryIter[str] | None): Columns to use as the index.
             values (TryIter[str] | None): Columns to use as values.
             aggregate_function (PivotAgg): Aggregation function to apply.

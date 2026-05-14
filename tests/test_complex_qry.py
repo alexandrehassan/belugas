@@ -295,7 +295,10 @@ def test_join_window_then_list_agg() -> None:
             pl_grouped_amounts.sum().alias("total"),
             pl_grouped_amounts.len().alias("n_orders"),
         )
-        .sort("region", "department"),
+        .sort("region", "department")
+        .pivot(
+            ["region"], on_columns=["department"], index="best_rank", values="total"
+        ),
         _ORDERS
         .with_columns(
             bl_amount
@@ -319,7 +322,8 @@ def test_join_window_then_list_agg() -> None:
             bl_grouped_amounts.sum().alias("total"),
             bl_grouped_amounts.len().alias("n_orders"),
         )
-        .sort("region", "department"),
+        .sort("region", "department")
+        .pivot("region", on_columns="department", index="best_rank", values="total"),
     )
 
 

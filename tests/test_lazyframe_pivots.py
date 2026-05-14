@@ -58,6 +58,29 @@ def test_pivot_single_value_column(sample_df: pl.DataFrame) -> None:
     )
 
 
+def test_pivot_scalar_string_on_columns(sample_df: pl.DataFrame) -> None:
+    """Polars only accept `Sequence` for `on_columns`, but this can lead to confusion due to the fact that a string is also a `Sequence` of characters.
+
+    We want to make sure that if a user passes a string, we treat it as a single column name rather than a sequence of characters.
+
+    I also doubt that much ppl in the wild are passing a string literal to `on_columns` without unpacking it, so there's this.
+    """
+    assert_lf_eq(
+        sample_df.lazy().pivot(
+            "department",
+            on_columns=["Engineering"],
+            index="id",
+            values="salary",
+        ),
+        bl.LazyFrame(sample_df).pivot(
+            "department",
+            on_columns="Engineering",
+            index="id",
+            values="salary",
+        ),
+    )
+
+
 def test_pivot_multiple_value_columns(sample_df: pl.DataFrame) -> None:
     assert_lf_eq(
         sample_df.lazy().pivot(

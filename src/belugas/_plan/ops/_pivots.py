@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING
 
 from pyochain import Dict, Err, Iter, Null, Ok, Result, Seq, Some
@@ -31,7 +31,7 @@ def pivot(  # noqa: PLR0913, PLR0914, PLR0917
     ast: exp.Select | exp.Union,
     schema: Schema,
     on: TryIter[str],
-    on_columns: Sequence[PythonLiteral],
+    on_columns: TryIter[PythonLiteral],
     index: TryIter[str],
     values: TryIter[str],
     aggregate_function: PivotAgg,
@@ -62,7 +62,7 @@ def pivot(  # noqa: PLR0913, PLR0914, PLR0917
 
     on_cols = try_iter(on).collect()
     idx_cols, val_cols = _get_idx_and_vals().unwrap()
-    on_values = Iter(on_columns).map(str).collect()
+    on_values = try_iter(on_columns).map(str).collect()
 
     multi = val_cols.length() > 1
     agg = PIVOT_AGG[aggregate_function]
@@ -81,7 +81,7 @@ def pivot(  # noqa: PLR0913, PLR0914, PLR0917
     )
     pivoted_cols = idx_cols.iter().chain(tail).collect()
 
-    field_exprs = Iter(on_columns).map(exp.convert).collect(list)
+    field_exprs = try_iter(on_columns).map(exp.convert).collect(list)
     pivot_field = exp.In(this=exp.column(on_cols.first()), expressions=field_exprs)
 
     group_opt = idx_cols.then(

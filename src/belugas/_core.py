@@ -28,7 +28,7 @@ sqlglot expression:
 ----------------------------------
 SQL representation:
 ```sql
-{expr.sql(dialect="duckdb", pretty=True, identify=True)}
+{expr.sql(dialect="duckdb", pretty=True, identify=True, indent=8, pad=4, leading_comma=False)}
 ```
 """
         super().__init__(msg)
