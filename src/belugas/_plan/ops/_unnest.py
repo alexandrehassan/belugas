@@ -40,15 +40,11 @@ def unnest(
         match name in targets, raw.this:  # pyright: ignore[reportAny]
             case (True, exp.DType.STRUCT):
                 exprs: list[exp.Expr] = raw.expressions
-                return (
-                    Iter(exprs)
-                    .map(
-                        lambda col_def: (
-                            col_def.this.this,  # pyright: ignore[reportAny]
-                            dt.DataType.from_sql(col_def.kind),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
-                        )
+                return Iter(exprs).map(
+                    lambda col_def: (
+                        col_def.this.this,  # pyright: ignore[reportAny]
+                        dt.DataType.from_sql(col_def.kind).raw,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
                     )
-                    .map_star(lambda f, fd: (f, fd.raw))  # pyright: ignore[reportAny]
                 )
             case _:
                 return Iter.once((name, raw))
