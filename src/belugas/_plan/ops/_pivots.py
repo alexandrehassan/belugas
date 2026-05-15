@@ -72,75 +72,69 @@ def pivot(  # noqa: PLR0913, PLR0914, PLR0917
         expr = col(name).pipe(agg)
         return expr.alias(name) if multi else expr
 
-    tail = (
-        on_values.iter()
-        if not multi
-        else val_cols.iter().flat_map(
-            lambda vc: on_values.iter().map(lambda ov: f"{ov}_{vc}")
-        )
-    )
-    pivoted_cols = idx_cols.iter().chain(tail).collect()
-
     field_exprs = try_iter(on_columns).map(exp.convert).collect(list)
     pivot_field = exp.In(this=exp.column(on_cols.first()), expressions=field_exprs)
 
-    group_opt = idx_cols.then(
+    group = idx_cols.then(
         lambda cols: exp.Group(expressions=cols.iter().map(exp.column).collect(list))
-    )
-    group = group_opt.unwrap() if group_opt.is_some() else None
+    ).unwrap_or_none()
 
     pivot_exprs = val_cols.iter().map(_aliased).map(lambda c: c.inner).collect(list)
     pivot_cols = (
-        pivoted_cols
+        idx_cols
         .iter()
-        .skip(idx_cols.length())
-        .map(_case_sensitive_id)
+        .chain(
+            on_values.iter().flat_map(
+                lambda ov: val_cols.iter().map(lambda vc: f"{ov}_{vc}")
+            )
+            if multi
+            else on_values
+        )
+        .map(lambda name: exp.to_identifier(name, quoted=True))
         .collect(list)
     )
+    pivot_alias = exp.TableAlias(
+        this=exp.to_identifier("_pivot", quoted=False), columns=pivot_cols
+    )
     pivot_node = exp.Pivot(
-        expressions=pivot_exprs, fields=[pivot_field], group=group, columns=pivot_cols
+        expressions=pivot_exprs, fields=[pivot_field], group=group, alias=pivot_alias
     )
     table = ast.subquery(Tables.SRC, copy=False)
     table.set("pivots", [pivot_node])
 
-    selected = (
-        pivoted_cols
-        .iter()
-        .map(lambda n: exp.column(_case_sensitive_id(n)))
-        .into(_select)
-        .from_(table, copy=False)
-    )
-
     ordered = (
-        try_iter(idx_cols if maintain_order else None)
-        .collect()
-        .then(lambda cols: selected.order_by(*cols.iter().map(exp.column), copy=False))
-        .unwrap_or(selected)
+        exp
+        .select(exp.Star())
+        .from_(table, copy=False)
+        .pipe(
+            lambda selected: (
+                try_iter(idx_cols if maintain_order else None)
+                .collect()
+                .then(
+                    lambda cols: selected.order_by(
+                        *cols.iter().map(exp.column), copy=False
+                    )
+                )
+                .unwrap_or(selected)
+            )
+        )
     )
 
     unknown = exp.DType.UNKNOWN.into_expr()
 
     if multi:
-        subq = ordered.subquery(alias="_pivot", copy=False)
 
         def _idx_expr(name: str) -> exp.Expr:
             return exp.column(name)
 
         def _rename(vc: str) -> Iter[exp.Expr]:
             def _renamed(ov: str) -> exp.Expr:
-                return exp.column(_case_sensitive_id(f"{ov}_{vc}")).as_(
+                return exp.column(f"{ov}_{vc}", quoted=True).as_(
                     f"{vc}{separator}{ov}", quoted=True
                 )
 
             return on_values.iter().map(_renamed)
 
-        rename_exprs = (
-            idx_cols
-            .iter()
-            .map(_idx_expr)
-            .chain(val_cols.iter().flat_map(_rename))
-            .collect(list)
-        )
         final_schema: Schema = (
             idx_cols
             .iter()
@@ -154,7 +148,15 @@ def pivot(  # noqa: PLR0913, PLR0914, PLR0917
             )
             .collect(Dict)
         )
-        return exp.select(*rename_exprs).from_(subq, copy=False), final_schema
+        final_ast = (
+            idx_cols
+            .iter()
+            .map(_idx_expr)
+            .chain(val_cols.iter().flat_map(_rename))
+            .unpack_into(exp.select, copy=False)
+            .from_(ordered.subquery(alias="_pivot", copy=False), copy=False)
+        )
+        return final_ast, final_schema
 
     return ordered, (
         idx_cols
@@ -163,52 +165,6 @@ def pivot(  # noqa: PLR0913, PLR0914, PLR0917
         .chain(on_values.iter().map(lambda ov: (ov, unknown)))
         .collect(Dict)
     )
-
-
-def _case_sensitive_id(name: str) -> exp.Identifier:
-    """Build a quoted identifier that survives `qualify` normalization.
-
-    In DuckDB, all identifiers (even quoted) are normalized to
-    lowercase by `sqlglot.optimizer.normalize_identifiers`, which is
-    run by `qualify` and `annotate_types` during schema inference in
-    `_compute_schema`.
-
-    For pivoted output columns whose names mirror the user-provided
-    `on_columns` literals (e.g. ``"Engineering"``, ``"Sales"``), we
-    want the post-pivot column names to preserve their original
-    case rather than be downcased into ``"engineering"`` /
-    ``"sales"``. The literals inside the ``IN (...)`` clause already
-    survive normalization (they are `exp.Literal`, not identifiers),
-    but the identifiers we wire into ``Pivot.args["columns"]`` and
-    the explicit projection ``SELECT "Engineering", "Sales" ...``
-    that replaces ``SELECT *`` after the pivot are subject to it.
-
-    The escape hatch documented by sqlglot for this exact case is
-    the per-node ``meta["case_sensitive"] = True`` flag, which makes
-    `normalize_identifiers` skip the node entirely (see
-    `sqlglot.optimizer.normalize_identifiers.normalize_identifiers`).
-
-    Note:
-        Once https://github.com/tobymao/sqlglot/pull/7586 is merged
-        and released, the cleaner alternative is to drop both
-        ``Pivot.args["columns"]`` and this meta flag, and instead
-        rename the pivot output positionally via the standard
-        ``PIVOT(...) AS alias(c1, c2, ...)`` mechanism (a
-        `TableAlias(columns=[...])` on the Pivot's alias). The PR
-        teaches `Pivot.output_columns` and `annotate_types` to
-        propagate those alias-renamed names with their proper
-        types, removing the need to bypass normalization manually.
-
-    Returns:
-        exp.Identifier
-    """
-    ident = exp.to_identifier(name, quoted=True)
-    ident.meta["case_sensitive"] = True
-    return ident
-
-
-def _select(exprs: Iterable[exp.Expr | str]) -> exp.Select:
-    return exp.select(*exprs)
 
 
 def unpivot(  # noqa: PLR0913, PLR0917
@@ -263,12 +219,16 @@ def unpivot(  # noqa: PLR0913, PLR0917
         .pipe(lambda e: exp.Subquery(this=e))
     )
 
-    selected = exp.select(*index_cols, variable_name, value_name).from_(
-        pivot, copy=False
+    new_ast = (
+        exp
+        .select(*index_cols, variable_name, value_name)
+        .from_(pivot, copy=False)
+        .pipe(
+            lambda selected: (
+                try_iter(order_by)
+                .then(lambda cols: selected.order_by(*cols, copy=False))
+                .unwrap_or(selected)
+            )
+        )
     )
-    return (
-        try_iter(order_by)
-        .then(lambda cols: selected.order_by(*cols, copy=False))
-        .unwrap_or(selected),
-        new_schema,
-    )
+    return new_ast, new_schema
