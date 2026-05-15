@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from ._show import QueryTree
     from .typing import (
         AsofJoinStrategy,
+        DescConds,
         FillNullStrategy,
         GroupByClause,
         IntoExpr,
@@ -236,8 +237,8 @@ class LazyFrame(CoreHandler[nodes.Node]):
         self,
         by: TryIter[IntoExpr],
         *more_by: IntoExpr,
-        descending: TrySeq[bool] = False,
-        nulls_last: TrySeq[bool] = False,
+        descending: DescConds = False,
+        nulls_last: TrySeq[bool] = None,
     ) -> Self:
         """Sort by columns.
 
@@ -808,11 +809,11 @@ class LazyFrame(CoreHandler[nodes.Node]):
         return self._cls(nodes.WithRowIndex(self._inner, name, order_by))
 
     def top_k(
-        self, k: int, by: TryIter[IntoExpr], *, reverse: TrySeq[bool] = False
+        self, k: int, by: TryIter[IntoExpr], *, reverse: DescConds = False
     ) -> Self:
         """Return top k rows by column(s)."""
 
-        def _descending() -> TrySeq[bool]:
+        def _descending() -> DescConds:
             match reverse:
                 case bool():
                     return not reverse
@@ -822,7 +823,7 @@ class LazyFrame(CoreHandler[nodes.Node]):
         return self.sort(by, descending=_descending()).head(k)
 
     def bottom_k(
-        self, k: int, by: TryIter[IntoExpr], *, reverse: TrySeq[bool] = False
+        self, k: int, by: TryIter[IntoExpr], *, reverse: DescConds = False
     ) -> Self:
         """Return bottom k rows by column(s)."""
         return self.sort(by, descending=reverse).head(k)

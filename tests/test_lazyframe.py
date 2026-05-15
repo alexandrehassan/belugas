@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import duckdb
 import polars as pl
 import pytest
 from pyochain import ResultUnwrapError
@@ -15,7 +16,7 @@ bl_text = bl.col("text")
 bl_salary = bl.col("salary")
 pl_age = pl.col("age")
 pl_salary = pl.col("salary")
-_DF = bl.LazyFrame({
+_DF = pl.DataFrame({
     "id": [1, 2, 3, 4, 5],
     "name": ["Alice", "Bob", "Charlie", "David", "Eve"],
     "sex": ["F", "M", "M", "M", "F"],
@@ -31,7 +32,7 @@ _DF = bl.LazyFrame({
     "is_active": [True, True, False, True, True],
     "value": [10.0, None, 30.0, None, 50.0],
     "category": ["A", "B", None, "A", "B"],
-})
+}).pipe(bl.from_arrow)
 
 
 @pytest.fixture
@@ -161,6 +162,14 @@ def test_sort_multiple_cols(
     assert_lf_eq(
         lf.lazy().sort(cols, descending=descending, nulls_last=nulls_last),
         lf.sort(cols, descending=descending, nulls_last=nulls_last),
+    )
+
+
+def test_sort_no_nulls_handling() -> None:
+    data = pl.DataFrame({"a": [3, 1, 2]})
+    assert_lf_eq(
+        duckdb.from_arrow(data).sort("a").limit(1).pl(lazy=True),
+        bl.LazyFrame(data).sort("a").limit(1),
     )
 
 

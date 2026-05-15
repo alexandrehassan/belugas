@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, override
 
 from pyochain import Seq
 
-from ..typing import FileGlob, PathOrBuffer
+from ..typing import DescConds, FileGlob, PathOrBuffer
 
 if TYPE_CHECKING:
     from duckdb import DuckDBPyConnection
@@ -209,7 +209,7 @@ class GroupByAll(_Expressions):
 class Sort(LogicalNode):
     by: TryIter[IntoExpr]
     more_by: Iterable[IntoExpr]
-    descending: TrySeq[bool]
+    descending: DescConds
     nulls_last: TrySeq[bool]
 
 

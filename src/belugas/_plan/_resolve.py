@@ -199,8 +199,8 @@ def _compile_tree(  # noqa: PLR0915
             order_exprs = ops.sort(
                 node.by,
                 node.more_by,
-                node.descending,
-                node.nulls_last,
+                descending=node.descending,
+                nulls_last=node.nulls_last,
             )
             ast = _into_select(src_ast).order_by(*order_exprs, copy=False)
             return Ok(CompiledPlan(ast, schema, empty))

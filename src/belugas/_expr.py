@@ -533,17 +533,26 @@ class Expr(Fns):
         expr = exp.Collate(this=self.inner, expression=exp.to_identifier(collation))
         return self._cls(expr)
 
-    def order_by(self, *, descending: bool = True, nulls_last: bool = True) -> Self:
+    def order_by(
+        self, *, descending: bool = True, nulls_last: bool | None = None
+    ) -> Self:
         """Order the expression by itself.
 
         Args:
             descending (bool): Whether to sort in descending
-            nulls_last (bool): Whether to put nulls last
+            nulls_last (bool | None): Whether to handle nulls, and their ordering.
 
         Returns:
             Self: An expression with the order by applied.
         """
-        expr = exp.Ordered(this=self.inner, desc=descending, nulls_first=not nulls_last)
+        expr = exp.Ordered(this=self.inner, desc=descending)
+        match nulls_last:
+            case None:
+                pass
+            case True:
+                expr.set("nulls_first", value=False)
+            case False:
+                expr.set("nulls_first", value=True)
         return self._cls(expr)
 
     def is_in(self, args: TryIter[IntoExpr], *more_args: IntoExpr) -> Self:
