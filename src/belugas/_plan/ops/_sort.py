@@ -45,13 +45,11 @@ def sort(
 
 class SortArgsError(ValueError):
     def __init__(
-        self, name: str, len_arg: int, provided: object, expected_length: int
+        self, name: str, len_arg: int, provided: Seq[Expr], expected_length: int
     ) -> None:
         msg = f"""
 The length of `{name}` ({len_arg}) does not match the length of `by` ({expected_length}).
 Current expr:
-{provided!r}
-Provided `{name}`:
 {provided!r}
 """
         super().__init__(msg)

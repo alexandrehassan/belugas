@@ -131,12 +131,6 @@ This allows you to inspect data sources, and visualize the query as a tree of op
 
 ![alt text](docs/tree.png)
 
-### As sqlglot AST
-
-You can also pass `compiled=True` to `show_graph` to inspect the generated `sqlglot` AST after the compilation of the `LazyFrame` operations.
-
-![alt text](docs/sqlglot_ast.png)
-
 ## Dependencies
 
 ### DuckDB
