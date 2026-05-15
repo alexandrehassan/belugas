@@ -223,7 +223,9 @@ class LazyFrame(CoreHandler[nodes.Node]):
         *more_exprs: IntoExpr,
         **named_exprs: IntoExpr,
     ) -> Self:
-        """Aggregate with GROUP BY ALL — DuckDB auto-detects grouping keys.
+        """Aggregate with `GROUP BY ALL`.
+
+        DuckDB auto-detects grouping keys
 
         Args:
             exprs (TryIter[IntoExpr]): Expressions to aggregate.

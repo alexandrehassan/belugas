@@ -16,12 +16,14 @@ if TYPE_CHECKING:
 
 
 def group_by_all(
-    ast: exp.Select,
     schema: Schema,
     exprs: TryIter[IntoExpr],
     more_exprs: Iterable[IntoExpr],
     named_exprs: dict[str, IntoExpr],
-) -> tuple[exp.Select, Schema]:
+) -> tuple[Vec[exp.Expr], Schema]:
+    # TODO: determine if this is really the best approach.
+    # What can DuckDB do automatically here? What to consider VS our group_by.agg?
+    # Because actually in the test it's not really clear what the difference is between group_by_all and group_by.agg.
     def _acc(
         acc: tuple[Vec[exp.Expr], Schema], proj: ResolvedExpr
     ) -> tuple[Vec[exp.Expr], Schema]:
@@ -33,17 +35,10 @@ def group_by_all(
         )
         return acc
 
-    select_exprs, out_schema = (
+    return (
         resolve_all(schema, exprs, more_exprs, named_exprs)
         .iter()
         .fold((Vec[exp.Expr].new(), Dict[str, exp.DataType].new()), _acc)
-    )
-    return (
-        exp
-        .select(*select_exprs)
-        .from_(ast.subquery(Tables.SRC, copy=False), copy=False)
-        .group_by("ALL", copy=False),
-        out_schema,
     )
 
 
