@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 def with_columns(
-    src_ast: exp.Select | exp.Union,
+    src_ast: exp.Select,
     schema: Schema,
     exprs: TryIter[IntoExpr],
     more_exprs: Iterable[IntoExpr],
@@ -61,7 +61,7 @@ def with_columns(
     )
     new_schema = _with_columns_schema(schema, projections)
     match src_ast:
-        case exp.Select() as source if _is_inline_select(source) and not has_windowed:
+        case source if _is_inline_select(source) and not has_windowed:
             replaced = list[exp.Expr]()
             added = Vec[exp.Expr].new()
             (
@@ -99,7 +99,7 @@ def _with_columns_schema(schema: Schema, projections: Seq[ResolvedExpr]) -> Sche
 
 
 def rename(
-    src_ast: exp.Select | exp.Union, schema: Schema, mapping: Mapping[str, str]
+    src_ast: exp.Select, schema: Schema, mapping: Mapping[str, str]
 ) -> tuple[exp.Select, Schema]:
     exprs = schema.iter().map(lambda c: exp.column(c).as_(mapping.get(c, c)))
     new_schema = (
@@ -115,7 +115,7 @@ def rename(
 
 
 def with_row_index(
-    src_ast: exp.Select | exp.Union, schema: Schema, name: str, order_by: TryIter[str]
+    src_ast: exp.Select, schema: Schema, name: str, order_by: TryIter[str]
 ) -> tuple[exp.Select, Schema]:
     row_nb = row_number().window(order_by=order_by).sub(1).alias(name).inner
     new_schema = (
@@ -132,19 +132,15 @@ def with_row_index(
     )
 
 
-def union(
-    lhs_ast: exp.Select | exp.Union, rhs_ast: exp.Select | exp.Union
-) -> exp.Union:
+def union(lhs_ast: exp.Select, rhs_ast: exp.Select) -> exp.Select:
     slct = exp.select(exp.Star()).from_
     lhs = slct(lhs_ast.subquery(Tables.LHS, copy=False), copy=False)
     rhs = slct(rhs_ast.subquery(Tables.RHS, copy=False), copy=False)
-    return exp.union(lhs, rhs)
+    return exp.select(exp.Star()).from_(exp.union(lhs, rhs))
 
 
 def cast(
-    src_ast: exp.Select | exp.Union,
-    schema: Schema,
-    dtypes: Mapping[str, DataType] | DataType,
+    src_ast: exp.Select, schema: Schema, dtypes: Mapping[str, DataType] | DataType
 ) -> tuple[exp.Select, Schema]:
     match dtypes:
         case Mapping():
@@ -164,7 +160,7 @@ def cast(
 
 
 def select_all(
-    src_ast: exp.Select | exp.Union, schema: Schema, func: Callable[[Expr], Expr]
+    src_ast: exp.Select, schema: Schema, func: Callable[[Expr], Expr]
 ) -> tuple[exp.Select, Schema]:
 
     exprs = schema.iter().map(lambda c: col(c).pipe(func).alias(c).inner)
@@ -173,7 +169,7 @@ def select_all(
 
 
 def select(
-    src_ast: exp.Select | exp.Union,
+    src_ast: exp.Select,
     schema: Schema,
     exprs: TryIter[IntoExpr],
     more_exprs: Iterable[IntoExpr],

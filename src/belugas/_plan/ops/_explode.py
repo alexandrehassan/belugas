@@ -19,11 +19,11 @@ if TYPE_CHECKING:
 
 
 def explode(
-    src_ast: exp.Select | exp.Union,
+    src_ast: exp.Select,
     schema: Schema,
     columns: TryIter[IntoExprColumn],
     more_columns: Iterable[IntoExprColumn],
-) -> exp.Union:
+) -> exp.Select:
 
     to_explode = (
         resolve_all(schema, columns, more_columns, {})
@@ -50,13 +50,15 @@ def explode(
         .from_(src_ast.subquery(Tables.SRC, copy=False), copy=False)
         .where(cond.not_().inner, copy=False)
     )
-    return (
+    unioned = (
         exp
         .select(*transformer(nested=True))
         .from_(src_ast.subquery(Tables.SRC, copy=False), copy=False)
         .where(cond.inner, copy=False)
         .pipe(exp.union, rhs, copy=False)
+        .subquery(Tables.SRC, copy=False)
     )
+    return exp.select(exp.Star()).from_(unioned)
 
 
 def _get_target(exprs: Iter[IndexedExpr], *, is_single_explode: bool) -> Expr:

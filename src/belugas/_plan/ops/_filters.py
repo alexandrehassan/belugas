@@ -46,7 +46,7 @@ def drop_rows(
 
 
 def drop(
-    src_ast: exp.Select | exp.Union,
+    src_ast: exp.Select,
     schema: Schema,
     columns: TryIter[IntoExprColumn],
     more_columns: Iterable[IntoExprColumn],

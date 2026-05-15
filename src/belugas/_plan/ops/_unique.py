@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 def unique(
-    ast: exp.Select | exp.Union,
+    ast: exp.Select,
     subset: TryIter[str],
     keep: UniqueKeepStrategy,
     order_by: TrySeq[str],
@@ -55,7 +55,7 @@ def unique(
             return Err(ValueError(msg))
 
 
-def _none_on_subset(ast: exp.Select | exp.Union, subset_names: Seq[str]) -> exp.Select:
+def _none_on_subset(ast: exp.Select, subset_names: Seq[str]) -> exp.Select:
 
     subset_exprs = subset_names.iter().map(exp.column).collect()
     rhs = (
@@ -87,7 +87,7 @@ def _none_on_subset(ast: exp.Select | exp.Union, subset_names: Seq[str]) -> exp.
     )
 
 
-def _none_on_all(ast: exp.Select | exp.Union) -> exp.Select:
+def _none_on_all(ast: exp.Select) -> exp.Select:
     return (
         exp
         .select(exp.Star())
@@ -98,7 +98,7 @@ def _none_on_all(ast: exp.Select | exp.Union) -> exp.Select:
 
 
 def _distinct_on(
-    ast: exp.Select | exp.Union,
+    ast: exp.Select,
     subset_names: Seq[str],
     order_names: Seq[str],
     *,

@@ -28,7 +28,7 @@ PIVOT_AGG: dict[PivotAgg, Callable[[Expr], Expr]] = {
 
 
 def pivot(  # noqa: PLR0913, PLR0914, PLR0917
-    ast: exp.Select | exp.Union,
+    ast: exp.Select,
     schema: Schema,
     on: TryIter[str],
     on_columns: TryIter[PythonLiteral],
@@ -168,7 +168,7 @@ def pivot(  # noqa: PLR0913, PLR0914, PLR0917
 
 
 def unpivot(  # noqa: PLR0913, PLR0917
-    ast: exp.Select | exp.Union,
+    ast: exp.Select,
     schema: Schema,
     on: TryIter[str],
     index: TryIter[str],

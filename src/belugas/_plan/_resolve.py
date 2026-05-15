@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple
 
 from duckdb import DuckDBPyRelation
-from pyochain import NONE, Dict, Err, Iter, Null, Ok, Option, Result, Seq, Set, Some
+from pyochain import Dict, Err, Iter, Null, Ok, Option, Result, Seq, Set, Some
 from pyochain.traits import Pipeable
 from sqlglot import exp
 
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 class CompiledPlan(NamedTuple):
-    ast: exp.Select | exp.Union
+    ast: exp.Select
     schema: Schema
     sources: Dict[str, DuckDBPyRelation]
 
@@ -123,7 +123,7 @@ def _resolve_scan(node: nodes.Scan) -> scans.ScanResult:
 
 
 def _compile_tree(  # noqa: PLR0915
-    src_ast: exp.Select | exp.Union, schema: Schema, node: nodes.Node
+    src_ast: exp.Select, schema: Schema, node: nodes.Node
 ) -> Result[CompiledPlan, CompilationError]:
     from . import ops
 
@@ -202,10 +202,10 @@ def _compile_tree(  # noqa: PLR0915
                 descending=node.descending,
                 nulls_last=node.nulls_last,
             )
-            ast = _into_select(src_ast).order_by(*order_exprs, copy=False)
+            ast = src_ast.order_by(*order_exprs, copy=False)
             return Ok(CompiledPlan(ast, schema, empty))
         case nodes.Limit():
-            ast = _into_select(src_ast).limit(exp.Literal.number(node.n), copy=False)
+            ast = src_ast.limit(exp.Literal.number(node.n), copy=False)
             return Ok(CompiledPlan(ast, schema, empty))
         case nodes.Slice():
             ast = ops.slice(src_ast, node.length, node.offset).unwrap()
@@ -215,8 +215,7 @@ def _compile_tree(  # noqa: PLR0915
             return Ok(CompiledPlan(ast, new_schema, empty))
         case nodes.DropRows():
             ast = _apply_filter_clause(
-                src_ast,
-                ops.drop_rows(schema, node.subset, node.fn),
+                src_ast, ops.drop_rows(schema, node.subset, node.fn)
             )
             return Ok(CompiledPlan(ast, schema, empty))
         case nodes.Explode():
@@ -316,10 +315,10 @@ def _compile_tree(  # noqa: PLR0915
             return Err(CompilationError(msg))
 
 
-def _apply_filter_clause(
-    src_ast: exp.Select | exp.Union, predicate: exp.Expr
-) -> exp.Select:
-    match has_window_projection(src_ast):
+def _apply_filter_clause(src_ast: exp.Select, predicate: exp.Expr) -> exp.Select:
+    exprs: list[exp.Expr] = src_ast.expressions
+    has_window = Iter(exprs).find_map(lambda expr: Option(expr.find(exp.Window)))
+    match has_window:
         case Some(_):
             return (
                 exp
@@ -328,31 +327,11 @@ def _apply_filter_clause(
                 .where(predicate, copy=False)
             )
         case _:
-            ast = _into_select(src_ast)
-            match ast.args.get("group"):
+            match src_ast.args.get("group"):
                 case exp.Group():
-                    return ast.having(predicate, copy=False)
+                    return src_ast.having(predicate, copy=False)
                 case _:
-                    return ast.where(predicate, copy=False)
-
-
-def has_window_projection(source: exp.Select | exp.Union) -> Option[exp.Window]:
-    match source:
-        case exp.Select():
-            exprs: list[exp.Expr] = source.expressions
-            return Iter(exprs).find_map(lambda expr: Option(expr.find(exp.Window)))
-        case _:
-            return NONE
-
-
-def _into_select(src_ast: exp.Select | exp.Union) -> exp.Select:
-    match src_ast:
-        case exp.Select():
-            return src_ast
-        case _:
-            return exp.select(exp.Star()).from_(
-                src_ast.subquery(Tables.SRC, copy=False)
-            )
+                    return src_ast.where(predicate, copy=False)
 
 
 def lookup_type(inner: exp.Expr, schema: Schema) -> exp.DataType:

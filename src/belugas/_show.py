@@ -124,7 +124,7 @@ class QueryTree:
 
     query: nodes.Node
 
-    def logical(self, *, optimized: bool = True) -> exp.Selectable:
+    def logical(self, *, optimized: bool = True) -> exp.Select:
         from ._plan import compile_plan
 
         return compile_plan(self.query, optimize=optimized).ast
