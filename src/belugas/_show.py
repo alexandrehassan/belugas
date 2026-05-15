@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any, Literal, override
 
 import duckdb
 
+from ._funcs import lit
+
 try:
     from pygments import token
     from pygments.lexers.sql import SqlLexer  # pyright: ignore[reportMissingTypeStubs]
@@ -40,6 +42,10 @@ if TYPE_CHECKING:
 # TODO: handle syntax highlighting if pygments is not available. Also make this lazy. Eventually see if we can handle this with duckdb/rich/sqlglot directly to avoid 2 table queries at the import of this module
 # TODO: consolidate the method `LazyFrame::sql_query` in `LazyFrame::show` so we can directly see the tree with 3 options: 1) sql (pretty or not), 2) belugas IR, 3) sqlglot AST
 
+
+type ProcessedToken = tuple[int, TokenType, str]
+
+
 CONSOLE = Console()
 DUCK_PYGMENT_MAP = Dict.from_ref({
     duckdb.token_type.identifier: token.Name,
@@ -49,9 +55,26 @@ DUCK_PYGMENT_MAP = Dict.from_ref({
     duckdb.token_type.comment: token.Comment,
     duckdb.token_type.operator: token.Operator,
 })
-
-
-type ProcessedToken = tuple[int, TokenType, str]
+_POLARS_OPS = {
+    "SELECT",
+    "FROM",
+    "FILTER",
+    "WITH_COLUMNS",
+    "AGGREGATE",
+    "LEFT JOIN",
+    "RIGHT PLAN ON",
+    "LEFT PLAN ON",
+    "END LEFT JOIN",
+    "EXPLODE",
+    "ROW INDEX",
+    "SCAN",
+    "PROJECT",
+    "ESTIMATED ROWS",
+    "BY",
+    "DF",
+    "COLUMNS",
+}
+_POLARS_EXPRS = {"col", "when", ">", "<", ">=", "<=", "=="}
 
 
 class DuckDbSqlLexer(SqlLexer):
@@ -81,41 +104,27 @@ def _process_token(
 
 
 def _get_dtypes() -> Set[str]:
-    lf_for = meta.types().pipe
-    return lf_for(_get_names, "type_name").union(lf_for(_get_names, "logical_type"))
+    return (
+        meta
+        .types()
+        .select("type_name", "logical_type", lit(1).alias("temp"))
+        .unpivot(["type_name", "logical_type"])
+        .drop("variable")
+        .unique("value")
+        .pipe(_into_set)
+    )
 
 
 def _get_functions() -> Set[str]:
-    return meta.functions().pipe(_get_names, "function_name")
+    return meta.functions().select("function_name").pipe(_into_set)
 
 
-def _get_names(lf: LazyFrame, col_name: str) -> Set[str]:
-    return lf.select(col_name).fetch_all().iter().flatten().collect(Set)
+def _into_set(lf: LazyFrame) -> Set[str]:
+    return lf.fetch_all().iter().flatten().collect(Set)
 
 
 DTYPES = _get_dtypes()
 FUNCTIONS = _get_functions()
-SYNTAX = partial(Syntax, lexer=DuckDbSqlLexer(), background_color="default")
-_POLARS_OPS = {
-    "SELECT",
-    "FROM",
-    "FILTER",
-    "WITH_COLUMNS",
-    "AGGREGATE",
-    "LEFT JOIN",
-    "RIGHT PLAN ON",
-    "LEFT PLAN ON",
-    "END LEFT JOIN",
-    "EXPLODE",
-    "ROW INDEX",
-    "SCAN",
-    "PROJECT",
-    "ESTIMATED ROWS",
-    "BY",
-    "DF",
-    "COLUMNS",
-}
-_POLARS_EXPRS = {"col", "when", ">", "<", ">=", "<=", "=="}
 
 
 @dataclass(slots=True)
@@ -140,7 +149,9 @@ class QueryTree:
     ) -> None:
         match kind:
             case "sql":
-                plan = SYNTAX(self.sql(pretty=pretty, optimized=optimized), theme=theme)
+                plan = sql_tree(
+                    self.sql(pretty=pretty, optimized=optimized), theme=theme
+                )
             case "ast":
                 fn = node_tree if as_tree else repr
                 plan = fn(self.query)
@@ -168,6 +179,12 @@ class QueryTree:
             pad=pad,
             identify=True,
         )
+
+
+def sql_tree(query: str, theme: Themes = "github-dark") -> Syntax:
+    return Syntax(
+        query, lexer=DuckDbSqlLexer(), background_color="default", theme=theme
+    )
 
 
 def node_tree(node: BaseNode) -> RenderableType:
